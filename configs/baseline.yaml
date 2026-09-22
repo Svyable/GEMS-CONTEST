@@ -1,0 +1,22 @@
+seed: 20260922
+metric:
+  alpha: 0.2
+  beta: 0.8
+  radius_pixels: 3.0
+validation:
+  scheme: spatial_blocks_with_buffer
+  folds: 5
+  block_size_pixels: 256
+  buffer_pixels: 16
+model:
+  family: unet
+  encoder: resnet18
+  patch_size: 256
+  overlap: 64
+  notes: >-
+    Start by reproducing the organizer reference U-Net. Then move to spatially
+    honest cross-validation, multi-scale derived channels, and ensembling.
+submission:
+  epsg: 32611
+  resolution_m: 100
+  dtype: float32
