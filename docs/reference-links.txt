@@ -1,0 +1,11 @@
+DrivenData competition overview:
+https://www.drivendata.org/competitions/306/competition-doe-gems/page/966/
+
+DrivenData problem description / metric / submission format:
+https://www.drivendata.org/competitions/306/competition-doe-gems/page/967/
+
+Official rules PDF supplied by the user:
+https://docs.nlr.gov/docs/fy26osti/96647.pdf
+
+Organizer reference solution:
+https://github.com/drivendataorg/gems-prize-reference-solution
