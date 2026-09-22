@@ -68,7 +68,7 @@ def distance_weighted_tversky(
     gt = gt & valid
 
     best_near_truth = np.zeros_like(pred)
-    radius_int = int(math.ceil(radius_pixels))
+    radius_int = math.ceil(radius_pixels)
     for dy in range(-radius_int, radius_int + 1):
         for dx in range(-radius_int, radius_int + 1):
             distance = math.hypot(dy, dx)

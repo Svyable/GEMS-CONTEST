@@ -57,6 +57,9 @@ testpaths = ["tests"]
 line-length = 100
 target-version = "py311"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/gems"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
