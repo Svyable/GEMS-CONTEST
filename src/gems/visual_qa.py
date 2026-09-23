@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import numpy as np
 
 
@@ -34,8 +32,8 @@ def _sample_centers(array: np.ndarray, stride: int) -> np.ndarray:
     row0 = min(stride // 2, height - 1)
     col0 = min(stride // 2, width - 1)
     sampled = array[row0::stride, col0::stride]
-    out_h = math.ceil(height / stride)
-    out_w = math.ceil(width / stride)
+    out_h = (height + stride - 1) // stride
+    out_w = (width + stride - 1) // stride
     if sampled.shape == (out_h, out_w):
         return sampled
 
