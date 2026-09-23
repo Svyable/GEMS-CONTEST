@@ -84,6 +84,17 @@ OpenAI ChatGPT (GPT-5.6 Sol) was used to:
 
 No gated competition data was supplied to the model and no visual conclusion about the actual GEMS folds was made.
 
+## 2026-09-23 — organizer/forum clarification sweep
+
+OpenAI ChatGPT (GPT-5.6 Sol) was used to review current public DrivenData competition/forum material and update the strategy based on organizer statements, including:
+
+- known USGS/INGENIOUS pixels are masked from scoring;
+- competition “new fault” pixels may include newly mapped continuations, splays, parallel strands, or other geometry of an existing fault system;
+- the three-scored-submission allowance operates on a rolling window rather than a calendar-week reset;
+- public questions about test-fault identification methods and a reported label-band discrepancy remain tracked for follow-up rather than assumed resolved.
+
+These were public organizer/community materials; no gated competition data was supplied to the model.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.

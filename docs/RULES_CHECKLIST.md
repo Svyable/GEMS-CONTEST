@@ -7,7 +7,7 @@ This is an engineering checklist, not a substitute for the official rules.
 - [ ] Register on DrivenData and accept the GEMS rules/data terms.
 - [ ] Confirm the competing individual/team/entity satisfies the eligibility requirements.
 - [ ] Decide the official participating entity/team early enough to avoid final-submission ambiguity.
-- [ ] Keep the official rules URL and competition pages in `docs/SOURCES.md` under version control.
+- [ ] Keep the official rules URL and competition/forum clarification pages in `docs/SOURCES.md` under version control.
 
 ## During development
 
@@ -24,7 +24,7 @@ This is an engineering checklist, not a substitute for the official rules.
 - [ ] Confirm EPSG:32611, 100 m, one band, float32, values in [0,1].
 - [ ] Confirm valid-data mask/bounds match the official template.
 - [ ] Archive the exact artifact hash plus the code commit/config that generated it.
-- [ ] Respect the scored-submission quota.
+- [ ] Respect the scored-submission quota: the organizer says the three-submission allowance uses a rolling window rather than a calendar-week reset.
 - [ ] Before the deadline, select exactly one final submission for evaluation across both prize rounds.
 
 ## If we become finalists
