@@ -1,0 +1,36 @@
+name: generate-uv-lock
+
+on:
+  push:
+    branches:
+      - methodical/uv-lock
+    paths:
+      - pyproject.toml
+      - .github/workflows/generate-uv-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: methodical/uv-lock
+      - uses: astral-sh/setup-uv@v6
+      - name: Generate lockfile
+        run: uv lock
+      - name: Verify CPU environment
+        run: uv sync --extra ml --extra cpu --extra dev --frozen
+      - name: Commit lockfile
+        run: |
+          if git diff --quiet -- uv.lock && git ls-files --error-unmatch uv.lock >/dev/null 2>&1; then
+            echo "uv.lock already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "Generate uv.lock"
+          git push origin HEAD:methodical/uv-lock
