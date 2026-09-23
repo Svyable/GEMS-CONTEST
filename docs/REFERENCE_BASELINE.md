@@ -31,7 +31,7 @@ The reproducible parameter transcription is in `configs/reference_unet.yaml`.
 Run:
 
 ```bash
-uv sync --extra ml --extra cpu --extra dev
+uv sync --extra ml --extra cpu --extra dev --frozen
 uv run python scripts/train_reference_oof.py \
   --features data/raw/training_features.tif \
   --labels data/raw/labels.tif \
