@@ -63,9 +63,10 @@ def distance_weighted_tversky(
     valid_predictions = pred[valid]
     if not np.all(np.isfinite(valid_predictions)):
         raise ValueError("prediction contains non-finite values inside the valid region")
-    if valid_predictions.size:
-        if valid_predictions.min() < 0.0 or valid_predictions.max() > 1.0:
-            raise ValueError("prediction values must lie in [0, 1] inside the valid region")
+    if valid_predictions.size and (
+        valid_predictions.min() < 0.0 or valid_predictions.max() > 1.0
+    ):
+        raise ValueError("prediction values must lie in [0, 1] inside the valid region")
 
     pred = np.where(valid, pred, 0.0)
     gt = gt & valid
