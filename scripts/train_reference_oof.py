@@ -33,9 +33,9 @@ def main() -> int:
     try:
         import segmentation_models_pytorch as smp
         import torch
-        import torch.nn.functional as functional
-        import torch.optim as optim
-        import torchvision.transforms.v2 as v2
+        from torch.nn import functional
+        from torch import optim
+        from torchvision.transforms import v2
         from segmentation_models_pytorch.losses import TverskyLoss
         from torch.utils.data import DataLoader, TensorDataset
         from torchvision import tv_tensors
