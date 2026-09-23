@@ -60,7 +60,22 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
      --labels data/raw/labels.tif \
      --scheme fault \
      --output-prefix data/processed/cv-fault-v1
+
+   uv run python scripts/render_cv.py \
+     --fold-map data/processed/cv-spatial-v1.tif \
+     --labels data/raw/labels.tif \
+     --scheme spatial \
+     --output data/processed/cv-spatial-v1.png
+
+   uv run python scripts/render_cv.py \
+     --fold-map data/processed/cv-fault-v1.tif \
+     --labels data/raw/labels.tif \
+     --valid-template data/raw/training_features.tif \
+     --scheme fault \
+     --output data/processed/cv-fault-v1.png
    ```
+
+   Review both PNGs before training. Spatial previews show fault traces in white over categorical fold regions; fault previews color assigned held-out components and show unassigned positive pixels in white.
 
 7. Reproduce the organizer's Monte Carlo U-Net as an out-of-fold diagnostic:
 
