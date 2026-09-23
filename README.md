@@ -7,7 +7,7 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 ## Start here
 
 1. Join the competition and accept the rules on DrivenData.
-2. Download the competition files into `data/raw/` (competition data is intentionally gitignored).
+2. Download the competition files into `data/raw/` (competition data is intentionally gitignored). Use the exact downloaded filenames; the public problem page currently says `training_features.tif`, while the organizer reference notebook currently uses `numeric_features.tif`.
 3. Create an environment:
 
    ```bash
@@ -16,26 +16,59 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
    uv sync --extra cu126 --extra dev
    ```
 
-4. Validate your local files:
+4. Verify and fingerprint the downloaded inputs:
 
    ```bash
-   uv run python scripts/inspect_raster.py data/raw/training_features.tif
+   uv run python scripts/verify_inputs.py \
+     --features data/raw/training_features.tif \
+     --labels data/raw/labels.tif
+
+   uv run python scripts/fingerprint_data.py \
+     data/raw/training_features.tif \
+     data/raw/labels.tif \
+     data/raw/sample_submission.tif \
+     data/raw/1m_DEM_links.csv \
+     --root data/raw \
+     --output data/manifests/official.json
+   ```
+
+   Adjust names to match the actual download. Commit the manifest, not the raw data.
+
+5. Build immutable validation fold artifacts:
+
+   ```bash
+   uv run python scripts/build_cv_manifest.py \
+     --features data/raw/training_features.tif \
+     --labels data/raw/labels.tif \
+     --scheme spatial \
+     --output-prefix data/processed/cv-spatial-v1
+
+   uv run python scripts/build_cv_manifest.py \
+     --features data/raw/training_features.tif \
+     --labels data/raw/labels.tif \
+     --scheme fault \
+     --output-prefix data/processed/cv-fault-v1
+   ```
+
+6. Validate every submission against the organizer template:
+
+   ```bash
    uv run python scripts/validate_submission.py \
-     --submission data/raw/sample_submission.tif \
+     --submission submissions/candidate.tif \
      --template data/raw/sample_submission.tif
    ```
 
-5. Read [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling and log every experiment in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
-6. Benchmark against the organizer reference solution linked in [`docs/SOURCES.md`](docs/SOURCES.md).
+7. Read [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md) and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Log every experiment in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
 
 ## Repository layout
 
 ```text
 configs/                 experiment configuration
-data/                    local-only competition/external data (ignored)
-docs/                    rules, strategy, sources, experiment log, AI disclosure
-scripts/                 CLI utilities for inspection, scoring and submission checks
-src/gems/                reusable metric and geospatial helpers
+data/manifests/          commit-safe hashes/metadata for gated data
+data/raw|external/       local-only competition/external data (ignored)
+docs/                    rules, strategy, baseline notes, experiment log, AI disclosure
+scripts/                 inspection, fingerprinting, CV, scoring and submission checks
+src/gems/                metric, data and validation helpers
 tests/                   unit tests
 .github/workflows/       CI
 ```
@@ -50,7 +83,8 @@ The organizer has clarified that pixels corresponding to the existing USGS/INGEN
 
 - Do not commit competition data, downloaded DEM tiles, model checkpoints, or generated GeoTIFF submissions.
 - Track provenance and license terms for every external dataset before using it.
-- Keep local validation spatial: random pixel splits are leakage-prone for long connected fault traces.
+- Keep local validation spatial and fault-aware: random pixel/patch splits are leakage-prone for long connected traces.
+- Reproduce the organizer U-Net first, but use buffered spatial CV and complete-fault holdouts for model selection.
 - The rules allow generative AI in solution development, but require disclosure. Keep [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md) current.
 - Only one final submission is selected for both prize rounds; leaderboard feedback is limited, so optimize for generalization rather than public-LB chasing.
 
