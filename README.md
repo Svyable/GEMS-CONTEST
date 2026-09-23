@@ -11,9 +11,9 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 3. Create an environment:
 
    ```bash
-   uv sync --extra cpu --extra dev
+   uv sync --extra ml --extra cpu --extra dev
    # or, on a compatible NVIDIA system:
-   uv sync --extra cu126 --extra dev
+   uv sync --extra ml --extra cu126 --extra dev
    ```
 
 4. Verify and fingerprint the downloaded inputs:
@@ -50,7 +50,19 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
      --output-prefix data/processed/cv-fault-v1
    ```
 
-6. Validate every submission against the organizer template:
+6. Reproduce the organizer's Monte Carlo U-Net as an out-of-fold diagnostic:
+
+   ```bash
+   uv run python scripts/train_reference_oof.py \
+     --features data/raw/training_features.tif \
+     --labels data/raw/labels.tif \
+     --output outputs/reference-oof.tif \
+     --metrics-json runs/reference-oof.json
+   ```
+
+   This is a reference **OOF benchmark**, not a competition submission model.
+
+7. Validate every submission candidate against the organizer template:
 
    ```bash
    uv run python scripts/validate_submission.py \
@@ -58,7 +70,7 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
      --template data/raw/sample_submission.tif
    ```
 
-7. Read [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md) and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Log every experiment in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
+8. Read [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md) and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Log every experiment in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
 
 ## Repository layout
 
