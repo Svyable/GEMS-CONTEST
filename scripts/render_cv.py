@@ -30,6 +30,9 @@ def main() -> int:
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
+    if args.scheme == "fault" and not args.valid_template:
+        raise SystemExit("--valid-template is required for fault-component previews")
+
     with rasterio.open(args.fold_map) as fold_src:
         folds = fold_src.read(1)
         valid = fold_src.dataset_mask() > 0
@@ -40,7 +43,8 @@ def main() -> int:
                     raise SystemExit("valid template shape mismatch")
                 if valid_src.crs != fold_src.crs or valid_src.transform != fold_src.transform:
                     raise SystemExit("valid template georeferencing mismatch")
-                valid &= valid_src.dataset_mask() > 0
+                template_valid = valid_src.dataset_mask() > 0
+                valid = template_valid if args.scheme == "fault" else valid & template_valid
 
     rgb = fold_preview_rgb(
         folds,
