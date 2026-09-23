@@ -34,7 +34,19 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 
    Adjust names to match the actual download. Commit the manifest, not the raw data.
 
-5. Build immutable validation fold artifacts:
+5. Profile the real label topology before deciding that connected components are a sensible fault-holdout unit:
+
+   ```bash
+   uv run python scripts/profile_labels.py \
+     --labels data/raw/labels.tif \
+     --features data/raw/training_features.tif \
+     --block-size 256 \
+     --output-json data/manifests/label-profile.json
+   ```
+
+   Inspect both 4-connected and 8-connected component counts, the largest-component share, and spatial-block label sparsity. There is intentionally no hard-coded pass/fail threshold; the real topology determines whether whole components, trace segments, or another grouping should define fault-discovery folds.
+
+6. Build immutable validation fold artifacts after reviewing that profile:
 
    ```bash
    uv run python scripts/build_cv_manifest.py \
@@ -50,7 +62,7 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
      --output-prefix data/processed/cv-fault-v1
    ```
 
-6. Reproduce the organizer's Monte Carlo U-Net as an out-of-fold diagnostic:
+7. Reproduce the organizer's Monte Carlo U-Net as an out-of-fold diagnostic:
 
    ```bash
    uv run python scripts/train_reference_oof.py \
@@ -62,7 +74,7 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 
    This is a reference **OOF benchmark**, not a competition submission model.
 
-7. Validate every submission candidate against the organizer template:
+8. Validate every submission candidate against the organizer template:
 
    ```bash
    uv run python scripts/validate_submission.py \
@@ -70,7 +82,7 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
      --template data/raw/sample_submission.tif
    ```
 
-8. Score fold-specific predictions and record immutable run provenance:
+9. Score fold-specific predictions and record immutable run provenance:
 
    ```bash
    uv run python scripts/score_cv.py \
@@ -88,7 +100,7 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
      --output runs/exp-001/manifest.json
    ```
 
-9. Read [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md), [`docs/CANDIDATE_PIPELINE.md`](docs/CANDIDATE_PIPELINE.md), and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Use machine-readable run manifests for every meaningful experiment and summarize important/submitted runs in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
+10. Read [`docs/DATA_INTAKE.md`](docs/DATA_INTAKE.md), [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md), [`docs/CANDIDATE_PIPELINE.md`](docs/CANDIDATE_PIPELINE.md), and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Use machine-readable run manifests for every meaningful experiment and summarize important/submitted runs in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
 
 ## Repository layout
 
