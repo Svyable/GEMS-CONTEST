@@ -61,6 +61,17 @@ OpenAI ChatGPT (GPT-5.6 Sol) was used to:
 
 No gated competition data was supplied to the model and no empirical model-performance claim was made.
 
+## 2026-09-23 — label-topology intake diagnostics
+
+OpenAI ChatGPT (GPT-5.6 Sol) was used to:
+
+- implement descriptive 4-connected and 8-connected fault-component topology reporting;
+- report component-size distributions, largest-component share, bounding-box scales, and spatial-block label sparsity;
+- add an intake CLI and tests so the real label topology can determine the appropriate fault-holdout unit rather than assuming connected components are always suitable;
+- document that no arbitrary topology pass/fail threshold should be applied before inspecting the official labels.
+
+No gated competition data was supplied to the model and no conclusion about the actual GEMS label topology was made.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.

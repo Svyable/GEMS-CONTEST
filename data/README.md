@@ -32,6 +32,11 @@ Before modeling:
 uv run python scripts/verify_inputs.py --features <features.tif> --labels <labels.tif>
 uv run python scripts/fingerprint_data.py <downloaded files...> \
   --root data/raw --output data/manifests/official.json
+
+uv run python scripts/profile_labels.py \
+  --labels <labels.tif> \
+  --features <features.tif> \
+  --output-json data/manifests/label-profile.json
 ```
 
 Do not rename organizer files unless a config records the mapping. Do not commit downloaded competition data unless the competition's data terms explicitly permit redistribution.
