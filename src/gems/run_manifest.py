@@ -4,7 +4,7 @@ import json
 import platform
 import sys
 from collections.abc import Iterable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from gems.data import fingerprint_file, sha256_file
@@ -43,7 +43,7 @@ def build_run_manifest(
     return {
         "schema_version": 1,
         "run_id": run_id,
-        "created_utc": datetime.now(timezone.utc).isoformat(),
+        "created_utc": datetime.now(UTC).isoformat(),
         "hypothesis": hypothesis,
         "notes": notes,
         "command": command,
