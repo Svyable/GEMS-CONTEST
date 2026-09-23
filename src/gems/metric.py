@@ -42,8 +42,8 @@ def distance_weighted_tversky(
     100 m raster, i.e. a radius of 3 pixels. This implementation follows the
     published formulas.
 
-    `valid_mask` can exclude pixels from all terms, which is useful for local
-    experiments that emulate organizer masking behavior.
+    Non-finite prediction values are permitted only outside the valid mask.
+    This matches submission rasters that use NaN outside the valid study area.
     """
     pred = np.asarray(prediction, dtype=np.float64)
     gt = np.asarray(truth).astype(bool)
@@ -52,10 +52,6 @@ def distance_weighted_tversky(
         raise ValueError("prediction and truth must be same-shape 2D arrays")
     if alpha < 0 or beta < 0 or radius_pixels <= 0:
         raise ValueError("alpha/beta must be non-negative and radius_pixels must be positive")
-    if not np.all(np.isfinite(pred)):
-        raise ValueError("prediction contains non-finite values")
-    if pred.min(initial=0.0) < 0.0 or pred.max(initial=0.0) > 1.0:
-        raise ValueError("prediction values must lie in [0, 1]")
 
     if valid_mask is None:
         valid = np.ones_like(gt, dtype=bool)
@@ -63,6 +59,13 @@ def distance_weighted_tversky(
         valid = np.asarray(valid_mask).astype(bool)
         if valid.shape != gt.shape:
             raise ValueError("valid_mask must match prediction shape")
+
+    valid_predictions = pred[valid]
+    if not np.all(np.isfinite(valid_predictions)):
+        raise ValueError("prediction contains non-finite values inside the valid region")
+    if valid_predictions.size:
+        if valid_predictions.min() < 0.0 or valid_predictions.max() > 1.0:
+            raise ValueError("prediction values must lie in [0, 1] inside the valid region")
 
     pred = np.where(valid, pred, 0.0)
     gt = gt & valid
