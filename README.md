@@ -70,7 +70,7 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
      --template data/raw/sample_submission.tif
    ```
 
-8. Read [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md) and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Log every experiment in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
+8. Read [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md), [`docs/CANDIDATE_PIPELINE.md`](docs/CANDIDATE_PIPELINE.md), and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Log every experiment in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
 
 ## Repository layout
 
