@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import platform
 import sys
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 from gems.data import fingerprint_file, sha256_file
 
