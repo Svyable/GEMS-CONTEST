@@ -10,10 +10,12 @@ Suggested layout:
 data/
   raw/
     training_features.tif
-    <organizer fault-label raster>
+    labels.tif
     <organizer fault-label vector file(s)>
     sample_submission.tif
     1m_DEM_links.csv
+  manifests/
+    official.json
   external/
     usgs-geodawn/
     usgs-3dep/
@@ -22,4 +24,14 @@ data/
   processed/
 ```
 
-Do not rename organizer files unless a script/config records the mapping. Do not commit downloaded competition data unless the competition's data terms explicitly permit redistribution.
+The public problem-description page currently calls the feature raster `training_features.tif`; the organizer's public reference notebook currently hard-codes `numeric_features.tif`. Use the actual filename you receive and record it in `data/manifests/official.json`.
+
+Before modeling:
+
+```bash
+uv run python scripts/verify_inputs.py --features <features.tif> --labels <labels.tif>
+uv run python scripts/fingerprint_data.py <downloaded files...> \
+  --root data/raw --output data/manifests/official.json
+```
+
+Do not rename organizer files unless a config records the mapping. Do not commit downloaded competition data unless the competition's data terms explicitly permit redistribution.
