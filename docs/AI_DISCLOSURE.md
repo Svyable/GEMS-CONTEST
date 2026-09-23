@@ -27,6 +27,17 @@ OpenAI ChatGPT (GPT-5.6 Sol) was used to:
 
 No gated competition data was provided to the model during this work. The generated validation design is our experimental methodology, not an organizer-provided scoring implementation, and must be checked empirically once the real rasters are available.
 
+## 2026-09-22 — executable organizer-baseline reproduction
+
+OpenAI ChatGPT (GPT-5.6 Sol) was used to:
+
+- inspect the public organizer notebook's full patch-splitting and Monte Carlo training cells;
+- implement a NumPy-tested reproduction of its patch selection, normalization, padding, and OOF assembly;
+- implement a PyTorch/segmentation-models-pytorch CLI for reproducing the published U-Net baseline once gated data is available;
+- document deliberate reproducibility/output-format fixes that differ from the notebook's incidental behavior.
+
+No gated competition data was supplied to the model, and no reference training run has yet been claimed as reproduced.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.
