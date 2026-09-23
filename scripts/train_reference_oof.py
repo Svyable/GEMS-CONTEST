@@ -33,12 +33,12 @@ def main() -> int:
     try:
         import segmentation_models_pytorch as smp
         import torch
-        from torch.nn import functional
-        from torch import optim
-        from torchvision.transforms import v2
         from segmentation_models_pytorch.losses import TverskyLoss
+        from torch import optim
+        from torch.nn import functional
         from torch.utils.data import DataLoader, TensorDataset
         from torchvision import tv_tensors
+        from torchvision.transforms import v2
         from torchvision.transforms.functional import InterpolationMode
     except ImportError as exc:
         raise SystemExit(
