@@ -11,9 +11,9 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 3. Create an environment:
 
    ```bash
-   uv sync --extra ml --extra cpu --extra dev
+   uv sync --extra ml --extra cpu --extra dev --frozen
    # or, on a compatible NVIDIA system:
-   uv sync --extra ml --extra cu126 --extra dev
+   uv sync --extra ml --extra cu126 --extra dev --frozen
    ```
 
 4. Verify and fingerprint the downloaded inputs:
