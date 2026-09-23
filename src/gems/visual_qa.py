@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import math
-
 import numpy as np
 
 
@@ -24,8 +22,8 @@ _PALETTE = np.array(
 
 def _block_any(mask: np.ndarray, stride: int) -> np.ndarray:
     height, width = mask.shape
-    out_h = math.ceil(height / stride)
-    out_w = math.ceil(width / stride)
+    out_h = (height + stride - 1) // stride
+    out_w = (width + stride - 1) // stride
     padded = np.zeros((out_h * stride, out_w * stride), dtype=bool)
     padded[:height, :width] = mask
     return padded.reshape(out_h, stride, out_w, stride).any(axis=(1, 3))
@@ -57,7 +55,7 @@ def preview_stride(shape: tuple[int, int], max_dimension: int) -> int:
     height, width = shape
     if height <= 0 or width <= 0:
         raise ValueError("shape must be positive")
-    return max(1, math.ceil(max(height, width) / max_dimension))
+    return max(1, (max(height, width) + max_dimension - 1) // max_dimension)
 
 
 def fold_preview_rgb(
