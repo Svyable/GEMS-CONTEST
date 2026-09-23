@@ -15,6 +15,18 @@ OpenAI ChatGPT (GPT-5.6 Sol) was used to:
 
 Competition data was not supplied to the model during this bootstrap. All generated code is subject to local tests, human review, empirical validation, and the competitor's responsibility for accuracy/authorship representations.
 
+## 2026-09-22 — provenance, CV, and reference-baseline tooling
+
+OpenAI ChatGPT (GPT-5.6 Sol) was used to:
+
+- inspect the public organizer reference-solution repository and transcribe its published U-Net parameters;
+- identify and document the filename discrepancy between the public problem page and reference notebook;
+- implement deterministic SHA256/raster-metadata manifests for local data provenance;
+- implement buffered spatial-block folds and complete connected-fault holdouts;
+- add tests and a CLI that produces fold rasters and JSON summaries for reproducible validation.
+
+No gated competition data was provided to the model during this work. The generated validation design is our experimental methodology, not an organizer-provided scoring implementation, and must be checked empirically once the real rasters are available.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.
