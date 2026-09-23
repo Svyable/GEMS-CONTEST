@@ -38,6 +38,17 @@ OpenAI ChatGPT (GPT-5.6 Sol) was used to:
 
 No gated competition data was supplied to the model, and no reference training run has yet been claimed as reproduced.
 
+## 2026-09-22 — full-raster inference plumbing
+
+OpenAI ChatGPT (GPT-5.6 Sol) was used to:
+
+- implement deterministic overlapping raster windows and weighted probability blending;
+- implement a template-aligned float32 GeoTIFF prediction writer with range/finite checks;
+- add unit tests for full coverage, edge padding, exact reconstruction under overlap, valid masks, and submission-format output;
+- document the train-on-all candidate inference contract.
+
+No gated competition data was supplied to the model and no model-performance claim was made from this infrastructure.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.
