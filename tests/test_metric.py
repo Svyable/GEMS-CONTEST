@@ -43,3 +43,23 @@ def test_rejects_out_of_range_probabilities():
     truth = np.zeros((3, 3), dtype=bool)
     with pytest.raises(ValueError):
         distance_weighted_tversky(pred, truth)
+
+
+def test_nan_outside_valid_mask_is_allowed():
+    truth = np.zeros((5, 5), dtype=bool)
+    truth[2, 2] = True
+    pred = truth.astype(float)
+    pred[0, 0] = np.nan
+    valid = np.ones((5, 5), dtype=bool)
+    valid[0, 0] = False
+    assert distance_weighted_tversky(pred, truth, valid_mask=valid) == pytest.approx(
+        1.0, abs=1e-10
+    )
+
+
+def test_nan_inside_valid_mask_is_rejected():
+    truth = np.zeros((3, 3), dtype=bool)
+    pred = np.zeros((3, 3), dtype=float)
+    pred[1, 1] = np.nan
+    with pytest.raises(ValueError, match="non-finite"):
+        distance_weighted_tversky(pred, truth)
