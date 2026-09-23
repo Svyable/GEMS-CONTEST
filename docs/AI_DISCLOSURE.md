@@ -72,6 +72,18 @@ OpenAI ChatGPT (GPT-5.6 Sol) was used to:
 
 No gated competition data was supplied to the model and no conclusion about the actual GEMS label topology was made.
 
+## 2026-09-23 — CV visual QA
+
+OpenAI ChatGPT (GPT-5.6 Sol) was used to:
+
+- implement a dependency-light RGB/PNG fold preview renderer;
+- preserve thin labeled traces during preview downsampling using block-wise positive-pixel aggregation;
+- distinguish spatial-fold QA from fault-component QA;
+- require a separate valid-study template for fault previews so fold-raster nodata/background is not misinterpreted;
+- add unit tests and document the visual review gate before model training.
+
+No gated competition data was supplied to the model and no visual conclusion about the actual GEMS folds was made.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.
