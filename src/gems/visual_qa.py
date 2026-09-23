@@ -1,6 +1,5 @@
 import numpy as np
 
-
 _PALETTE = np.array(
     [
         [31, 119, 180],
