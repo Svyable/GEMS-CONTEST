@@ -4,7 +4,8 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.ndimage import binary_dilation\nfrom scipy.ndimage import label as connected_components
+from scipy.ndimage import binary_dilation
+from scipy.ndimage import label as connected_components
 
 
 @dataclass(frozen=True)
