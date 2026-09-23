@@ -70,7 +70,25 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
      --template data/raw/sample_submission.tif
    ```
 
-8. Read [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md), [`docs/CANDIDATE_PIPELINE.md`](docs/CANDIDATE_PIPELINE.md), and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Log every experiment in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
+8. Score fold-specific predictions and record immutable run provenance:
+
+   ```bash
+   uv run python scripts/score_cv.py \
+     --truth data/raw/labels.tif \
+     --fold-map data/processed/cv-spatial-v1.tif \
+     --scheme spatial \
+     --prediction-pattern 'runs/exp-001/fold-{fold}.tif' \
+     --output-json runs/exp-001/spatial-scores.json
+
+   uv run python scripts/record_run.py \
+     --run-id exp-001 \
+     --config configs/baseline.yaml \
+     --data-manifest data/manifests/official.json \
+     --artifact runs/exp-001/spatial-scores.json \
+     --output runs/exp-001/manifest.json
+   ```
+
+9. Read [`docs/REFERENCE_BASELINE.md`](docs/REFERENCE_BASELINE.md), [`docs/CANDIDATE_PIPELINE.md`](docs/CANDIDATE_PIPELINE.md), and [`docs/STRATEGY.md`](docs/STRATEGY.md) before modeling. Use machine-readable run manifests for every meaningful experiment and summarize important/submitted runs in [`docs/EXPERIMENT_LOG.md`](docs/EXPERIMENT_LOG.md).
 
 ## Repository layout
 

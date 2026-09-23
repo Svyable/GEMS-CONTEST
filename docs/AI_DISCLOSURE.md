@@ -49,6 +49,18 @@ OpenAI ChatGPT (GPT-5.6 Sol) was used to:
 
 No gated competition data was supplied to the model and no model-performance claim was made from this infrastructure.
 
+## 2026-09-23 — fold-aware evaluation and run provenance
+
+OpenAI ChatGPT (GPT-5.6 Sol) was used to:
+
+- update the local metric so NaN/nodata is permitted outside an explicit valid mask while remaining invalid inside it;
+- implement fold-aware spatial and held-out-fault scoring using the published distance-weighted Tversky metric;
+- define spatial OOF aggregation and intentionally avoid a synthetic global score for overlapping fault-discovery evaluation regions;
+- implement machine-readable run manifests tying experiments to Git state, config/data hashes, commands, and artifact hashes;
+- add unit tests and workflow documentation.
+
+No gated competition data was supplied to the model and no empirical model-performance claim was made.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.
