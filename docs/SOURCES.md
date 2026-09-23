@@ -1,6 +1,6 @@
 # Primary sources and technical references
 
-_Last checked: 2026-09-22._
+_Last checked: 2026-09-23._
 
 ## Competition
 
@@ -9,7 +9,11 @@ _Last checked: 2026-09-22._
 - DrivenData about page: https://www.drivendata.org/competitions/306/competition-doe-gems/page/968/
 - Official rules (September 2026 PDF): https://docs.nlr.gov/docs/fy26osti/96647.pdf
 - Organizer reference solution: https://github.com/drivendataorg/gems-prize-reference-solution
-- Public scoring clarification (known faults masked): https://community.drivendata.org/t/scoring-clarification-are-known-usgs-ingenious-faults-masked-when-scoring-and-are-they-in-the-final-round-label-set/11516
+- Public scoring clarification — known USGS/INGENIOUS pixels are masked in both rounds: https://community.drivendata.org/t/scoring-clarification-are-known-usgs-ingenious-faults-masked-when-scoring-and-are-they-in-the-final-round-label-set/11516
+- Public target clarification — “new fault” can include newly mapped continuation/geometry of an existing fault system: https://community.drivendata.org/t/where-do-you-draw-the-line/11536
+- Public submission-quota clarification — three-submission allowance resets on a rolling window: https://community.drivendata.org/t/weekly-submissions/11524
+- Organizer/community thread to monitor — how private test faults were identified and what data/fault types informed them: https://community.drivendata.org/t/how-were-the-new-test-faults-identified-data-sources-and-fault-types/11527
+- Community question to monitor — training-label/reference-solution band discrepancy: https://community.drivendata.org/t/why-does-the-training-fault-labels-file-in-the-data-tab-have-a-single-band-while-the-labels-in-the-reference-solution-repo-have-19-bands/11529
 
 ## Source datasets / geology
 
