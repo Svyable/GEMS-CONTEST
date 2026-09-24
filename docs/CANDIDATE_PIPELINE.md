@@ -35,6 +35,17 @@ Do not select models from the organizer's random-patch OOF loss. Candidate selec
 
 Normalization/statistical preprocessing must be estimated from the training region for each fold. Whole-raster feature statistics are allowed only for reproducing the organizer baseline, not for our comparative validation.
 
-## Next implementation layer
+## Train-on-all full-map model
 
-The remaining model-side work is to connect this inference plumbing to a train-on-all/fold-aware U-Net training loop, then add derived geophysical/terrain channels as controlled ablations.
+`scripts/train_full_map.py` trains the same ResNet-18 U-Net, AdamW, and Tversky recipe on every fault-containing window, plus an equal number of valid background windows. The organizer baseline never shows the model an empty window. Inference uses the repository's overlapping cosine blend and writes a template-validated float32 GeoTIFF.
+
+```bash
+uv run python scripts/train_full_map.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --output submissions/full-map-v1.tif \
+  --metrics-json runs/full-map-v1.json
+```
+
+This fit is not an unknown-fault score. Known USGS/INGENIOUS pixels are masked in competition scoring, so a model is useful only if the same features fire on traces that were not in the training labels. Select changes with spatial and fault-discovery CV, not with this in-sample loss.

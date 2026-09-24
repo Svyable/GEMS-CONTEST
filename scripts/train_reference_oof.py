@@ -119,6 +119,10 @@ def main() -> int:
         )
         if split.x_train.shape[0] == 0 or split.x_test.shape[0] == 0:
             raise SystemExit("reference split produced an empty train or test set")
+        print(
+            f"train_patches={split.x_train.shape[0]} "
+            f"test_patches={split.x_test.shape[0]}"
+        )
 
         x_train = torch.from_numpy(split.x_train).float()
         y_train = torch.from_numpy(split.y_train).float()
