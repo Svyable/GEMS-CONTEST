@@ -105,6 +105,16 @@ Grok (xAI Grok 4.7, in Grok Build) was used to:
 
 The model saw filenames, file sizes, the DEM-link JSON shape (a list of USGS TNM URLs), and raster metadata produced by the local inspection scripts. Raw raster pixels were not pasted into the conversation. Hashes and metadata in `data/manifests/official.json` were produced by local code, not invented by the model.
 
+## 2026-09-23 — Apple vision-encoder candidates
+
+Grok (xAI Grok 4.7, in Grok Build) was used to:
+
+- choose open-weight image encoders that run as a U-Net on Apple MPS, after checking that a plain DINOv2 ViT cannot supply this decoder's feature pyramid;
+- add a spatial-fold training mask so those models are scored on held-out ground rather than on the faults they were trained on;
+- wire ConvNeXt V2-Tiny and the Segment Anything 2 Hiera-Small encoder into that loop.
+
+The model saw raster metadata, training logs, and scores. It did not receive raw raster pixels. Measured scores come from the local metric code.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.

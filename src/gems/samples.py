@@ -13,19 +13,23 @@ def training_origins(
     step: int,
     negative_ratio: float,
     seed: int,
+    allowed_mask: np.ndarray | None = None,
 ) -> tuple[tuple[int, int], ...]:
     """Choose deterministic training windows, including background patches.
 
     Every fully covered window that contains a fault pixel and overlaps the
     valid study area is kept. Background windows are sampled, without
-    replacement, up to ``negative_ratio`` times the positive count. The
-    organizer baseline trains only on positive windows, which never teaches
-    the model what empty ground looks like.
+    replacement, up to ``negative_ratio`` times the positive count. When
+    ``allowed_mask`` is set, a window is kept only if it lies entirely inside
+    that mask, which is how a buffered spatial fold stays out of training.
     """
     truth = np.asarray(labels) > 0
     valid = np.asarray(valid_mask, dtype=bool)
     if truth.ndim != 2 or valid.shape != truth.shape:
         raise ValueError("labels and valid_mask must be the same 2D shape")
+    allowed = None if allowed_mask is None else np.asarray(allowed_mask, dtype=bool)
+    if allowed is not None and allowed.shape != truth.shape:
+        raise ValueError("allowed_mask must match labels")
     if patch_size <= 1:
         raise ValueError("patch_size must be greater than 1")
     if step <= 0 or step > patch_size:
@@ -45,6 +49,8 @@ def training_origins(
         for col in col_starts:
             col_end = col + patch_size
             if not bool(valid[row:row_end, col:col_end].any()):
+                continue
+            if allowed is not None and not bool(allowed[row:row_end, col:col_end].all()):
                 continue
             origin = (int(row), int(col))
             if bool(truth[row:row_end, col:col_end].any()):

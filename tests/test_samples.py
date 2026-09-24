@@ -50,3 +50,23 @@ def test_training_origins_skip_windows_outside_the_study_area():
         seed=0,
     )
     assert origins == ()
+
+
+def test_training_origins_drop_windows_that_leave_the_allowed_region():
+    labels = np.zeros((32, 32), dtype=np.uint8)
+    labels[8:12, :] = 1
+    valid = np.ones_like(labels, dtype=bool)
+    allowed = np.zeros_like(labels, dtype=bool)
+    allowed[:, :16] = True
+
+    origins = training_origins(
+        labels,
+        valid,
+        patch_size=16,
+        step=16,
+        negative_ratio=0.0,
+        seed=0,
+        allowed_mask=allowed,
+    )
+    assert origins
+    assert all(col + 16 <= 16 for _row, col in origins)

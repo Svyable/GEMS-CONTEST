@@ -1,0 +1,30 @@
+# Spatial-fold control. Same ResNet-18 U-Net as full-map-v1, trained only
+# outside fold 0 so the holdout score is not an in-sample fit.
+seed_sequence: [20260922]
+data:
+  normalization: per_channel_minmax_over_full_raster
+  negative_ratio: 1.0
+patches:
+  patch_size: 128
+  train_step: 32
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
+training:
+  epochs: 10
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.8, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30

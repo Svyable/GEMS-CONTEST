@@ -7,7 +7,9 @@ from pathlib import Path
 import numpy as np
 import rasterio
 import yaml
+from scipy.ndimage import binary_dilation
 
+from gems.metric import distance_weighted_tversky
 from gems.prediction import write_prediction_like_template
 from gems.reference_baseline import load_reference_arrays, normalize_reference_features
 from gems.samples import training_origins
@@ -27,6 +29,9 @@ def main() -> int:
     parser.add_argument("--negative-ratio", type=float, default=1.0)
     parser.add_argument("--overlap", type=int, default=64)
     parser.add_argument("--seed", type=int, default=20260922)
+    parser.add_argument("--fold-map", help="Spatial fold GeoTIFF. Restricts training to the other folds.")
+    parser.add_argument("--fold", type=int, default=0)
+    parser.add_argument("--buffer-pixels", type=int, default=16)
     parser.add_argument("--metrics-json")
     args = parser.parse_args()
 
@@ -60,6 +65,29 @@ def main() -> int:
     with rasterio.open(args.features) as src:
         valid = src.dataset_mask() > 0
 
+    holdout = None
+    allowed = None
+    if args.fold_map:
+        with rasterio.open(args.fold_map) as src:
+            fold_values = src.read(1)
+        if fold_values.shape != labels.shape:
+            raise SystemExit("fold map shape does not match the label raster")
+        holdout = valid & (fold_values == args.fold)
+        if args.buffer_pixels < 0:
+            raise SystemExit("buffer-pixels must be non-negative")
+        if args.buffer_pixels:
+            radius = args.buffer_pixels
+            yy, xx = np.ogrid[-radius : radius + 1, -radius : radius + 1]
+            disk = xx * xx + yy * yy <= radius * radius
+            excluded = binary_dilation(holdout, structure=disk) & valid
+        else:
+            excluded = holdout
+        allowed = valid & ~excluded
+        print(
+            f"fold={args.fold} holdout_pixels={int(holdout.sum())} "
+            f"train_pixels={int(allowed.sum())}"
+        )
+
     origins = training_origins(
         labels,
         valid,
@@ -67,6 +95,7 @@ def main() -> int:
         step=step,
         negative_ratio=args.negative_ratio,
         seed=args.seed,
+        allowed_mask=allowed,
     )
     if not origins:
         raise SystemExit("no training windows were selected")
@@ -99,7 +128,7 @@ def main() -> int:
         device = torch.device("mps")
     else:
         device = torch.device("cpu")
-    print(f"device={device}")
+    print(f"device={device} encoder={config['model']['encoder']}")
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -195,8 +224,16 @@ def main() -> int:
         return 1
     print(f"OK: wrote validated full-map prediction to {path}")
 
+    holdout_score = None
+    if holdout is not None:
+        holdout_score = float(
+            distance_weighted_tversky(blended, labels > 0, valid_mask=holdout)
+        )
+        print(f"holdout_distance_weighted_tversky={holdout_score:.8f}")
+
     if args.metrics_json:
         payload = {
+            "encoder": config["model"]["encoder"],
             "windows": len(origins),
             "positive_windows": n_positive,
             "negative_windows": len(origins) - n_positive,
@@ -204,6 +241,8 @@ def main() -> int:
             "overlap": args.overlap,
             "seed": args.seed,
             "negative_ratio": args.negative_ratio,
+            "fold": args.fold if args.fold_map else None,
+            "holdout_distance_weighted_tversky": holdout_score,
         }
         metrics_path = Path(args.metrics_json)
         metrics_path.parent.mkdir(parents=True, exist_ok=True)

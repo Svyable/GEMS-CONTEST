@@ -1,0 +1,30 @@
+# ConvNeXt V2 tiny. Open image model pretrained by fully convolutional masked
+# autoencoding, then adapted here as a 19-channel U-Net encoder on Apple MPS.
+seed_sequence: [20260922]
+data:
+  normalization: per_channel_minmax_over_full_raster
+  negative_ratio: 1.0
+patches:
+  patch_size: 128
+  train_step: 32
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: tu-convnextv2_tiny
+  encoder_weights: imagenet
+  classes: 1
+training:
+  epochs: 10
+  batch_size: 16
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.8, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30

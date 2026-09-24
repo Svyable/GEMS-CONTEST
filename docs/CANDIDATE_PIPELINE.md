@@ -49,3 +49,13 @@ uv run python scripts/train_full_map.py \
 ```
 
 This fit is not an unknown-fault score. Known USGS/INGENIOUS pixels are masked in competition scoring, so a model is useful only if the same features fire on traces that were not in the training labels. Select changes with spatial and fault-discovery CV, not with this in-sample loss.
+
+## Open image encoders on Apple Silicon
+
+There is no NVIDIA GPU here. The single-model upgrade is a pretrained open vision encoder inside the same U-Net, trained outside one spatial fold:
+
+- `configs/resnet18_fold0.yaml` is the control.
+- `configs/convnextv2_tiny_fold0.yaml` is ConvNeXt V2-Tiny, pretrained by masked autoencoding.
+- `configs/sam2_hiera_small_fold0.yaml` is the Segment Anything 2 Hiera-Small image encoder at 224 px.
+
+Pass `--fold-map data/processed/cv-spatial-v1.tif --fold 0`. The printed holdout distance-weighted Tversky is the number to compare. A plain DINOv2 ViT does not fit this decoder: its feature pyramid does not downsample by 2 at every stage.
