@@ -29,6 +29,12 @@ For **spatial CV**, `scripts/score_cv.py` reports each fold plus a stitched glob
 
 For **fault-discovery CV**, evaluation backgrounds overlap across folds, so the scorer intentionally reports per-fold scores plus macro mean/std and does **not** manufacture a global score. The held-out fault component itself is the positive truth; training-known faults are excluded from that fold's evaluation mask.
 
+## Upload decision, 2026-09-24
+
+Do not upload yet. Issues 4 and 5 were updated to match the runs above. Issue 11 is closed: the lockfile goal is done, and the NVIDIA check is cancelled because training stays on Apple MPS.
+
+The first DrivenData upload, when it happens, has one question: does `submissions/full-map-v1.tif` (SHA256 `cd34abbd0b8b44feb371e34effc26dc29a73f5c3776dc69995d8beeb6f1c181b`) receive a non-zero public score? That is a format and calibration check, not the final selection. Local evidence for that file is an in-sample score of 0.2998. The honest spatial-fold score for this architecture is 0.1478 on fold 0 only. Fault-holdout and trace-holdout scores do not exist yet, and folds 1–4 are unscored. Those gaps are why the upload waits.
+
 ## Submission notes template
 
 **Hypothesis:**  
