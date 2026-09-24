@@ -186,3 +186,129 @@ def fault_discovery_fold(
         evaluation_mask=evaluation_mask,
         component_folds=folds,
     )
+
+
+def _withheld_endpoint(coords: np.ndarray, fraction: float) -> np.ndarray:
+    """Return a boolean mask of one endpoint along a component's long axis."""
+    centered = coords - coords.mean(axis=0)
+    covariance = centered.T @ centered
+    _values, vectors = np.linalg.eigh(covariance)
+    axis = vectors[:, -1]
+    dominant = int(np.argmax(np.abs(axis)))
+    if axis[dominant] < 0:
+        axis = -axis
+    projection = centered @ axis
+    withheld = projection >= np.quantile(projection, 1.0 - fraction)
+    if withheld.all() or not withheld.any():
+        order = np.argsort(projection, kind="mergesort")
+        n_withhold = min(len(coords) - 1, max(1, round(fraction * len(coords))))
+        withheld = np.zeros(len(coords), dtype=bool)
+        withheld[order[-n_withhold:]] = True
+    return withheld
+
+
+def assign_trace_endpoints(
+    labels: np.ndarray,
+    *,
+    n_folds: int,
+    seed: int = 0,
+    min_pixels: int = 24,
+    endpoint_fraction: float = 0.3,
+) -> np.ndarray:
+    """Hold out one endpoint of each long 8-connected trace, balanced across folds.
+
+    Short components stay labeled -1. They remain available as training context.
+    Only the withheld endpoint pixels receive a fold id. This is the continuation
+    view: the rest of that same trace is still supervision.
+    """
+    truth = np.asarray(labels) > 0
+    if truth.ndim != 2:
+        raise ValueError("labels must be a 2D raster")
+    if n_folds < 2:
+        raise ValueError("n_folds must be at least 2")
+    if min_pixels < 2:
+        raise ValueError("min_pixels must be at least 2")
+    if not 0 < endpoint_fraction < 1:
+        raise ValueError("endpoint_fraction must lie in (0, 1)")
+
+    component_ids, n_components = connected_components(truth, structure=np.ones((3, 3)))
+    segments: list[tuple[np.ndarray, np.ndarray]] = []
+    for component_id in range(1, n_components + 1):
+        rows, cols = np.nonzero(component_ids == component_id)
+        if rows.size < min_pixels:
+            continue
+        coords = np.column_stack((rows, cols)).astype(np.float64)
+        withheld = _withheld_endpoint(coords, endpoint_fraction)
+        if withheld.all() or not withheld.any():
+            continue
+        segments.append((rows[withheld], cols[withheld]))
+
+    if len(segments) < n_folds:
+        raise ValueError(
+            f"need at least {n_folds} endpoint segments, found {len(segments)}"
+        )
+
+    sizes = np.array([len(rows) for rows, _cols in segments], dtype=np.int64)
+    rng = np.random.default_rng(seed)
+    tie_break = rng.random(len(segments))
+    order = np.lexsort((tie_break, -sizes))
+    loads = np.zeros(n_folds, dtype=np.int64)
+    segment_folds = np.empty(len(segments), dtype=np.int16)
+    for index in order:
+        candidate_folds = np.flatnonzero(loads == loads.min())
+        chosen = int(rng.choice(candidate_folds))
+        segment_folds[int(index)] = chosen
+        loads[chosen] += int(sizes[int(index)])
+
+    pixel_folds = np.full(truth.shape, -1, dtype=np.int16)
+    for fold_id, (rows, cols) in zip(segment_folds, segments, strict=True):
+        pixel_folds[rows, cols] = fold_id
+    return pixel_folds
+
+
+def trace_completion_fold(
+    labels: np.ndarray,
+    endpoint_folds: np.ndarray,
+    *,
+    fold: int,
+    buffer_pixels: int = 0,
+    valid_mask: np.ndarray | None = None,
+    known_fault_exclusion_pixels: int = 0,
+) -> FaultDiscoveryFold:
+    """Hold out one fold of endpoints while keeping the rest of every trace as truth.
+
+    Unlike complete-component holdout, pixels marked -1 are kept fault labels,
+    not background. A small buffer stops the withheld endpoint itself from
+    leaking into training inputs; it should stay narrower than the trace body.
+    """
+    truth = np.asarray(labels) > 0
+    folds = np.asarray(endpoint_folds)
+    if truth.ndim != 2 or folds.shape != truth.shape:
+        raise ValueError("labels and endpoint_folds must be same-shape 2D arrays")
+    if buffer_pixels < 0 or known_fault_exclusion_pixels < 0:
+        raise ValueError("buffer sizes must be non-negative")
+    if not np.any(folds == fold):
+        raise ValueError(f"fold {fold} contains no endpoint pixels")
+
+    valid = np.ones_like(truth, dtype=bool) if valid_mask is None else np.asarray(valid_mask, bool)
+    if valid.shape != truth.shape:
+        raise ValueError("valid_mask must match labels")
+
+    validation_truth = truth & (folds == fold) & valid
+    train_truth = truth & (folds != fold) & valid
+    withheld_buffer = binary_dilation(validation_truth, structure=_disk(buffer_pixels))
+    train_valid = valid & ~withheld_buffer
+
+    known_exclusion = train_truth
+    if known_fault_exclusion_pixels:
+        known_exclusion = binary_dilation(
+            train_truth, structure=_disk(known_fault_exclusion_pixels)
+        )
+    evaluation_mask = valid & ~known_exclusion
+    return FaultDiscoveryFold(
+        train_valid_mask=train_valid,
+        train_truth=train_truth,
+        validation_truth=validation_truth,
+        evaluation_mask=evaluation_mask,
+        component_folds=folds,
+    )

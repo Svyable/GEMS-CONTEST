@@ -67,8 +67,8 @@ def fold_preview_rgb(
     folds = np.asarray(fold_map)
     if folds.ndim != 2:
         raise ValueError("fold_map must be 2D")
-    if scheme not in {"spatial", "fault"}:
-        raise ValueError("scheme must be 'spatial' or 'fault'")
+    if scheme not in {"spatial", "fault", "trace"}:
+        raise ValueError("scheme must be 'spatial', 'fault', or 'trace'")
 
     shape = folds.shape
     if labels is None:

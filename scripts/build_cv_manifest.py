@@ -10,8 +10,10 @@ import rasterio
 from gems.cv import (
     assign_fault_components,
     assign_spatial_blocks,
+    assign_trace_endpoints,
     fault_discovery_fold,
     spatial_fold_masks,
+    trace_completion_fold,
 )
 from gems.data import fingerprint_file
 
@@ -30,7 +32,9 @@ def main() -> int:
     )
     parser.add_argument("--features", required=True)
     parser.add_argument("--labels", required=True)
-    parser.add_argument("--scheme", choices=("spatial", "fault"), required=True)
+    parser.add_argument("--scheme", choices=("spatial", "fault", "trace"), required=True)
+    parser.add_argument("--min-pixels", type=int, default=24)
+    parser.add_argument("--endpoint-fraction", type=float, default=0.3)
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--seed", type=int, default=20260922)
     parser.add_argument("--block-size", type=int, default=256)
@@ -97,7 +101,7 @@ def main() -> int:
                         ),
                     }
                 )
-        else:
+        elif args.scheme == "fault":
             pixel_folds = assign_fault_components(
                 labels,
                 n_folds=args.folds,
@@ -116,6 +120,33 @@ def main() -> int:
                         "fold": fold_id,
                         "train_fault_pixels": int(fold.train_truth.sum()),
                         "withheld_fault_pixels": int(fold.validation_truth.sum()),
+                        "train_valid_pixels": int(fold.train_valid_mask.sum()),
+                        "evaluation_pixels": int(fold.evaluation_mask.sum()),
+                    }
+                )
+        else:
+            pixel_folds = assign_trace_endpoints(
+                labels,
+                n_folds=args.folds,
+                seed=args.seed,
+                min_pixels=args.min_pixels,
+                endpoint_fraction=args.endpoint_fraction,
+            ).astype("int16")
+            manifest["min_pixels"] = args.min_pixels
+            manifest["endpoint_fraction"] = args.endpoint_fraction
+            for fold_id in range(args.folds):
+                fold = trace_completion_fold(
+                    labels,
+                    pixel_folds,
+                    fold=fold_id,
+                    buffer_pixels=args.buffer_pixels,
+                    valid_mask=valid,
+                )
+                manifest["fold_summary"].append(
+                    {
+                        "fold": fold_id,
+                        "train_fault_pixels": int(fold.train_truth.sum()),
+                        "withheld_endpoint_pixels": int(fold.validation_truth.sum()),
                         "train_valid_pixels": int(fold.train_valid_mask.sum()),
                         "evaluation_pixels": int(fold.evaluation_mask.sum()),
                     }

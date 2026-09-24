@@ -4,8 +4,10 @@ from scipy.ndimage import binary_dilation
 from gems.cv import (
     assign_fault_components,
     assign_spatial_blocks,
+    assign_trace_endpoints,
     fault_discovery_fold,
     spatial_fold_masks,
+    trace_completion_fold,
 )
 
 
@@ -55,6 +57,43 @@ def _component_labels():
     labels[14, 2:9] = 1
     labels[3:7, 15] = 1
     return labels
+
+
+def test_trace_endpoint_holdout_keeps_the_trace_body_as_training_truth():
+    labels = np.zeros((20, 50), dtype=np.uint8)
+    labels[2, :40] = 1
+    labels[10, :40] = 1
+    first = assign_trace_endpoints(
+        labels,
+        n_folds=2,
+        seed=5,
+        min_pixels=20,
+        endpoint_fraction=0.25,
+    )
+    second = assign_trace_endpoints(
+        labels,
+        n_folds=2,
+        seed=5,
+        min_pixels=20,
+        endpoint_fraction=0.25,
+    )
+    assert np.array_equal(first, second)
+
+    line = first[2, :40]
+    withheld_cols = np.flatnonzero(line >= 0)
+    body_cols = np.flatnonzero(line < 0)
+    assert withheld_cols.size
+    assert body_cols.size
+    assert np.all(np.diff(withheld_cols) == 1)
+    assert withheld_cols[0] == 0 or withheld_cols[-1] == 39
+    fold_id = int(line[withheld_cols[0]])
+    held = trace_completion_fold(labels, first, fold=fold_id, buffer_pixels=2)
+    assert held.validation_truth[2, withheld_cols].all()
+    assert not held.train_truth[2, withheld_cols].any()
+    assert held.train_truth[2, body_cols].all()
+    opposite = int(body_cols[0] if withheld_cols[-1] == 39 else body_cols[-1])
+    assert held.train_valid_mask[2, opposite]
+    assert not np.any(held.train_valid_mask & held.validation_truth)
 
 
 def test_fault_components_are_never_split_between_folds():

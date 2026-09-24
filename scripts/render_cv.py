@@ -23,15 +23,15 @@ def main() -> int:
         description="Render a compact PNG QA preview of GEMS CV folds"
     )
     parser.add_argument("--fold-map", required=True)
-    parser.add_argument("--scheme", choices=("spatial", "fault"), required=True)
+    parser.add_argument("--scheme", choices=("spatial", "fault", "trace"), required=True)
     parser.add_argument("--labels")
     parser.add_argument("--valid-template")
     parser.add_argument("--max-dimension", type=int, default=1600)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
 
-    if args.scheme == "fault" and not args.valid_template:
-        raise SystemExit("--valid-template is required for fault-component previews")
+    if args.scheme in {"fault", "trace"} and not args.valid_template:
+        raise SystemExit("--valid-template is required for fault and trace previews")
 
     with rasterio.open(args.fold_map) as fold_src:
         folds = fold_src.read(1)
@@ -44,7 +44,11 @@ def main() -> int:
                 if valid_src.crs != fold_src.crs or valid_src.transform != fold_src.transform:
                     raise SystemExit("valid template georeferencing mismatch")
                 template_valid = valid_src.dataset_mask() > 0
-                valid = template_valid if args.scheme == "fault" else valid & template_valid
+                valid = (
+                    template_valid
+                    if args.scheme in {"fault", "trace"}
+                    else valid & template_valid
+                )
 
     rgb = fold_preview_rgb(
         folds,
