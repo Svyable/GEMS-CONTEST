@@ -1,0 +1,886 @@
+{
+  "components_4_connected": {
+    "component_count": 25058,
+    "component_size_pixels": {
+      "max": 62.0,
+      "min": 1.0,
+      "p25": 1.0,
+      "p50": 2.0,
+      "p75": 3.0,
+      "p90": 4.0,
+      "p95": 7.0,
+      "p99": 13.0
+    },
+    "connectivity": 4,
+    "fault_pixels": 60894,
+    "fault_prevalence": 0.011791309277983204,
+    "largest_component_pixels": 62,
+    "largest_component_share": 0.001018162708969685,
+    "top_components": [
+      {
+        "bbox": {
+          "col_start": 1555,
+          "col_stop": 1564,
+          "height_m": 2000.0,
+          "height_pixels": 20,
+          "row_start": 3256,
+          "row_stop": 3276,
+          "width_m": 900.0,
+          "width_pixels": 9
+        },
+        "component_id": 23885,
+        "pixels": 62,
+        "share_of_fault_pixels": 0.001018162708969685
+      },
+      {
+        "bbox": {
+          "col_start": 2365,
+          "col_stop": 2366,
+          "height_m": 5000.0,
+          "height_pixels": 50,
+          "row_start": 144,
+          "row_stop": 194,
+          "width_m": 100.0,
+          "width_pixels": 1
+        },
+        "component_id": 1215,
+        "pixels": 50,
+        "share_of_fault_pixels": 0.0008210989588465202
+      },
+      {
+        "bbox": {
+          "col_start": 1674,
+          "col_stop": 1688,
+          "height_m": 1300.0,
+          "height_pixels": 13,
+          "row_start": 3501,
+          "row_stop": 3514,
+          "width_m": 1400.0,
+          "width_pixels": 14
+        },
+        "component_id": 24841,
+        "pixels": 48,
+        "share_of_fault_pixels": 0.0007882550004926594
+      },
+      {
+        "bbox": {
+          "col_start": 1797,
+          "col_stop": 1810,
+          "height_m": 1400.0,
+          "height_pixels": 14,
+          "row_start": 3661,
+          "row_stop": 3675,
+          "width_m": 1300.0,
+          "width_pixels": 13
+        },
+        "component_id": 24991,
+        "pixels": 44,
+        "share_of_fault_pixels": 0.0007225670837849378
+      },
+      {
+        "bbox": {
+          "col_start": 2661,
+          "col_stop": 2671,
+          "height_m": 1600.0,
+          "height_pixels": 16,
+          "row_start": 5,
+          "row_stop": 21,
+          "width_m": 1000.0,
+          "width_pixels": 10
+        },
+        "component_id": 60,
+        "pixels": 44,
+        "share_of_fault_pixels": 0.0007225670837849378
+      },
+      {
+        "bbox": {
+          "col_start": 1861,
+          "col_stop": 1875,
+          "height_m": 800.0,
+          "height_pixels": 8,
+          "row_start": 2492,
+          "row_stop": 2500,
+          "width_m": 1400.0,
+          "width_pixels": 14
+        },
+        "component_id": 20872,
+        "pixels": 37,
+        "share_of_fault_pixels": 0.000607613229546425
+      },
+      {
+        "bbox": {
+          "col_start": 1559,
+          "col_stop": 1564,
+          "height_m": 1200.0,
+          "height_pixels": 12,
+          "row_start": 1116,
+          "row_stop": 1128,
+          "width_m": 500.0,
+          "width_pixels": 5
+        },
+        "component_id": 11890,
+        "pixels": 37,
+        "share_of_fault_pixels": 0.000607613229546425
+      },
+      {
+        "bbox": {
+          "col_start": 335,
+          "col_stop": 336,
+          "height_m": 3300.0,
+          "height_pixels": 33,
+          "row_start": 1139,
+          "row_stop": 1172,
+          "width_m": 100.0,
+          "width_pixels": 1
+        },
+        "component_id": 12079,
+        "pixels": 33,
+        "share_of_fault_pixels": 0.0005419253128387034
+      },
+      {
+        "bbox": {
+          "col_start": 1099,
+          "col_stop": 1101,
+          "height_m": 2900.0,
+          "height_pixels": 29,
+          "row_start": 658,
+          "row_stop": 687,
+          "width_m": 200.0,
+          "width_pixels": 2
+        },
+        "component_id": 7382,
+        "pixels": 33,
+        "share_of_fault_pixels": 0.0005419253128387034
+      },
+      {
+        "bbox": {
+          "col_start": 2123,
+          "col_stop": 2136,
+          "height_m": 1000.0,
+          "height_pixels": 10,
+          "row_start": 2942,
+          "row_stop": 2952,
+          "width_m": 1300.0,
+          "width_pixels": 13
+        },
+        "component_id": 22097,
+        "pixels": 32,
+        "share_of_fault_pixels": 0.0005255033336617729
+      },
+      {
+        "bbox": {
+          "col_start": 1820,
+          "col_stop": 1824,
+          "height_m": 2100.0,
+          "height_pixels": 21,
+          "row_start": 2534,
+          "row_stop": 2555,
+          "width_m": 400.0,
+          "width_pixels": 4
+        },
+        "component_id": 21227,
+        "pixels": 31,
+        "share_of_fault_pixels": 0.0005090813544848425
+      },
+      {
+        "bbox": {
+          "col_start": 1605,
+          "col_stop": 1610,
+          "height_m": 2100.0,
+          "height_pixels": 21,
+          "row_start": 3407,
+          "row_stop": 3428,
+          "width_m": 500.0,
+          "width_pixels": 5
+        },
+        "component_id": 24533,
+        "pixels": 29,
+        "share_of_fault_pixels": 0.0004762373961309817
+      },
+      {
+        "bbox": {
+          "col_start": 793,
+          "col_stop": 794,
+          "height_m": 2800.0,
+          "height_pixels": 28,
+          "row_start": 900,
+          "row_stop": 928,
+          "width_m": 100.0,
+          "width_pixels": 1
+        },
+        "component_id": 9555,
+        "pixels": 28,
+        "share_of_fault_pixels": 0.0004598154169540513
+      },
+      {
+        "bbox": {
+          "col_start": 1265,
+          "col_stop": 1293,
+          "height_m": 100.0,
+          "height_pixels": 1,
+          "row_start": 2312,
+          "row_stop": 2313,
+          "width_m": 2800.0,
+          "width_pixels": 28
+        },
+        "component_id": 19652,
+        "pixels": 28,
+        "share_of_fault_pixels": 0.0004598154169540513
+      },
+      {
+        "bbox": {
+          "col_start": 1776,
+          "col_stop": 1777,
+          "height_m": 2800.0,
+          "height_pixels": 28,
+          "row_start": 3157,
+          "row_stop": 3185,
+          "width_m": 100.0,
+          "width_pixels": 1
+        },
+        "component_id": 23495,
+        "pixels": 28,
+        "share_of_fault_pixels": 0.0004598154169540513
+      },
+      {
+        "bbox": {
+          "col_start": 1711,
+          "col_stop": 1717,
+          "height_m": 1600.0,
+          "height_pixels": 16,
+          "row_start": 3544,
+          "row_stop": 3560,
+          "width_m": 600.0,
+          "width_pixels": 6
+        },
+        "component_id": 24892,
+        "pixels": 28,
+        "share_of_fault_pixels": 0.0004598154169540513
+      },
+      {
+        "bbox": {
+          "col_start": 1674,
+          "col_stop": 1675,
+          "height_m": 2800.0,
+          "height_pixels": 28,
+          "row_start": 288,
+          "row_stop": 316,
+          "width_m": 100.0,
+          "width_pixels": 1
+        },
+        "component_id": 2820,
+        "pixels": 28,
+        "share_of_fault_pixels": 0.0004598154169540513
+      },
+      {
+        "bbox": {
+          "col_start": 729,
+          "col_stop": 756,
+          "height_m": 100.0,
+          "height_pixels": 1,
+          "row_start": 1404,
+          "row_stop": 1405,
+          "width_m": 2700.0,
+          "width_pixels": 27
+        },
+        "component_id": 14089,
+        "pixels": 27,
+        "share_of_fault_pixels": 0.0004433934377771209
+      },
+      {
+        "bbox": {
+          "col_start": 1307,
+          "col_stop": 1308,
+          "height_m": 2700.0,
+          "height_pixels": 27,
+          "row_start": 1373,
+          "row_stop": 1400,
+          "width_m": 100.0,
+          "width_pixels": 1
+        },
+        "component_id": 13951,
+        "pixels": 27,
+        "share_of_fault_pixels": 0.0004433934377771209
+      },
+      {
+        "bbox": {
+          "col_start": 1833,
+          "col_stop": 1836,
+          "height_m": 2400.0,
+          "height_pixels": 24,
+          "row_start": 2564,
+          "row_stop": 2588,
+          "width_m": 300.0,
+          "width_pixels": 3
+        },
+        "component_id": 21454,
+        "pixels": 27,
+        "share_of_fault_pixels": 0.0004433934377771209
+      }
+    ],
+    "valid_pixels": 5164312
+  },
+  "components_8_connected": {
+    "component_count": 3198,
+    "component_size_pixels": {
+      "max": 360.0,
+      "min": 1.0,
+      "p25": 7.0,
+      "p50": 12.0,
+      "p75": 22.0,
+      "p90": 39.0,
+      "p95": 56.149999999999636,
+      "p99": 128.0
+    },
+    "connectivity": 8,
+    "fault_pixels": 60894,
+    "fault_prevalence": 0.011791309277983204,
+    "largest_component_pixels": 360,
+    "largest_component_share": 0.005911912503694945,
+    "top_components": [
+      {
+        "bbox": {
+          "col_start": 1067,
+          "col_stop": 1121,
+          "height_m": 17400.0,
+          "height_pixels": 174,
+          "row_start": 565,
+          "row_stop": 739,
+          "width_m": 5400.0,
+          "width_pixels": 54
+        },
+        "component_id": 876,
+        "pixels": 360,
+        "share_of_fault_pixels": 0.005911912503694945
+      },
+      {
+        "bbox": {
+          "col_start": 2125,
+          "col_stop": 2198,
+          "height_m": 26700.0,
+          "height_pixels": 267,
+          "row_start": 2993,
+          "row_stop": 3260,
+          "width_m": 7300.0,
+          "width_pixels": 73
+        },
+        "component_id": 2986,
+        "pixels": 342,
+        "share_of_fault_pixels": 0.005616316878510198
+      },
+      {
+        "bbox": {
+          "col_start": 1527,
+          "col_stop": 1560,
+          "height_m": 21200.0,
+          "height_pixels": 212,
+          "row_start": 1119,
+          "row_stop": 1331,
+          "width_m": 3300.0,
+          "width_pixels": 33
+        },
+        "component_id": 1642,
+        "pixels": 296,
+        "share_of_fault_pixels": 0.0048609058363714
+      },
+      {
+        "bbox": {
+          "col_start": 1603,
+          "col_stop": 1709,
+          "height_m": 14100.0,
+          "height_pixels": 141,
+          "row_start": 3398,
+          "row_stop": 3539,
+          "width_m": 10600.0,
+          "width_pixels": 106
+        },
+        "component_id": 3146,
+        "pixels": 279,
+        "share_of_fault_pixels": 0.004581732190363582
+      },
+      {
+        "bbox": {
+          "col_start": 2067,
+          "col_stop": 2162,
+          "height_m": 11900.0,
+          "height_pixels": 119,
+          "row_start": 2858,
+          "row_stop": 2977,
+          "width_m": 9500.0,
+          "width_pixels": 95
+        },
+        "component_id": 2910,
+        "pixels": 277,
+        "share_of_fault_pixels": 0.004548888232009721
+      },
+      {
+        "bbox": {
+          "col_start": 1818,
+          "col_stop": 1854,
+          "height_m": 10400.0,
+          "height_pixels": 104,
+          "row_start": 2527,
+          "row_stop": 2631,
+          "width_m": 3600.0,
+          "width_pixels": 36
+        },
+        "component_id": 2840,
+        "pixels": 248,
+        "share_of_fault_pixels": 0.00407265083587874
+      },
+      {
+        "bbox": {
+          "col_start": 2834,
+          "col_stop": 2929,
+          "height_m": 14400.0,
+          "height_pixels": 144,
+          "row_start": 582,
+          "row_stop": 726,
+          "width_m": 9500.0,
+          "width_pixels": 95
+        },
+        "component_id": 910,
+        "pixels": 240,
+        "share_of_fault_pixels": 0.003941275002463297
+      },
+      {
+        "bbox": {
+          "col_start": 2092,
+          "col_stop": 2169,
+          "height_m": 20200.0,
+          "height_pixels": 202,
+          "row_start": 3302,
+          "row_stop": 3504,
+          "width_m": 7700.0,
+          "width_pixels": 77
+        },
+        "component_id": 3118,
+        "pixels": 218,
+        "share_of_fault_pixels": 0.003579991460570828
+      },
+      {
+        "bbox": {
+          "col_start": 2761,
+          "col_stop": 2835,
+          "height_m": 13200.0,
+          "height_pixels": 132,
+          "row_start": 68,
+          "row_stop": 200,
+          "width_m": 7400.0,
+          "width_pixels": 74
+        },
+        "component_id": 77,
+        "pixels": 211,
+        "share_of_fault_pixels": 0.0034650376063323153
+      },
+      {
+        "bbox": {
+          "col_start": 2905,
+          "col_stop": 3080,
+          "height_m": 15900.0,
+          "height_pixels": 159,
+          "row_start": 430,
+          "row_stop": 589,
+          "width_m": 17500.0,
+          "width_pixels": 175
+        },
+        "component_id": 697,
+        "pixels": 210,
+        "share_of_fault_pixels": 0.003448615627155385
+      },
+      {
+        "bbox": {
+          "col_start": 428,
+          "col_stop": 439,
+          "height_m": 19600.0,
+          "height_pixels": 196,
+          "row_start": 615,
+          "row_stop": 811,
+          "width_m": 1100.0,
+          "width_pixels": 11
+        },
+        "component_id": 962,
+        "pixels": 198,
+        "share_of_fault_pixels": 0.00325155187703222
+      },
+      {
+        "bbox": {
+          "col_start": 1831,
+          "col_stop": 1868,
+          "height_m": 19400.0,
+          "height_pixels": 194,
+          "row_start": 2126,
+          "row_stop": 2320,
+          "width_m": 3700.0,
+          "width_pixels": 37
+        },
+        "component_id": 2622,
+        "pixels": 194,
+        "share_of_fault_pixels": 0.0031858639603244985
+      },
+      {
+        "bbox": {
+          "col_start": 1552,
+          "col_stop": 1578,
+          "height_m": 2900.0,
+          "height_pixels": 29,
+          "row_start": 3251,
+          "row_stop": 3280,
+          "width_m": 2600.0,
+          "width_pixels": 26
+        },
+        "component_id": 3088,
+        "pixels": 172,
+        "share_of_fault_pixels": 0.0028245804184320296
+      },
+      {
+        "bbox": {
+          "col_start": 1309,
+          "col_stop": 1392,
+          "height_m": 3300.0,
+          "height_pixels": 33,
+          "row_start": 2986,
+          "row_stop": 3019,
+          "width_m": 8300.0,
+          "width_pixels": 83
+        },
+        "component_id": 2975,
+        "pixels": 171,
+        "share_of_fault_pixels": 0.002808158439255099
+      },
+      {
+        "bbox": {
+          "col_start": 2365,
+          "col_stop": 2391,
+          "height_m": 17000.0,
+          "height_pixels": 170,
+          "row_start": 24,
+          "row_stop": 194,
+          "width_m": 2600.0,
+          "width_pixels": 26
+        },
+        "component_id": 32,
+        "pixels": 170,
+        "share_of_fault_pixels": 0.0027917364600781687
+      },
+      {
+        "bbox": {
+          "col_start": 1829,
+          "col_stop": 1876,
+          "height_m": 8000.0,
+          "height_pixels": 80,
+          "row_start": 2420,
+          "row_stop": 2500,
+          "width_m": 4700.0,
+          "width_pixels": 47
+        },
+        "component_id": 2759,
+        "pixels": 169,
+        "share_of_fault_pixels": 0.002775314480901238
+      },
+      {
+        "bbox": {
+          "col_start": 1669,
+          "col_stop": 1695,
+          "height_m": 6900.0,
+          "height_pixels": 69,
+          "row_start": 2099,
+          "row_stop": 2168,
+          "width_m": 2600.0,
+          "width_pixels": 26
+        },
+        "component_id": 2602,
+        "pixels": 168,
+        "share_of_fault_pixels": 0.0027588925017243077
+      },
+      {
+        "bbox": {
+          "col_start": 1349,
+          "col_stop": 1405,
+          "height_m": 4500.0,
+          "height_pixels": 45,
+          "row_start": 2475,
+          "row_stop": 2520,
+          "width_m": 5600.0,
+          "width_pixels": 56
+        },
+        "component_id": 2793,
+        "pixels": 164,
+        "share_of_fault_pixels": 0.002693204585016586
+      },
+      {
+        "bbox": {
+          "col_start": 1172,
+          "col_stop": 1248,
+          "height_m": 6800.0,
+          "height_pixels": 68,
+          "row_start": 2938,
+          "row_stop": 3006,
+          "width_m": 7600.0,
+          "width_pixels": 76
+        },
+        "component_id": 2935,
+        "pixels": 162,
+        "share_of_fault_pixels": 0.0026603606266627253
+      },
+      {
+        "bbox": {
+          "col_start": 1966,
+          "col_stop": 2053,
+          "height_m": 13000.0,
+          "height_pixels": 130,
+          "row_start": 3373,
+          "row_stop": 3503,
+          "width_m": 8700.0,
+          "width_pixels": 87
+        },
+        "component_id": 3141,
+        "pixels": 158,
+        "share_of_fault_pixels": 0.0025946727099550038
+      }
+    ],
+    "valid_pixels": 5164312
+  },
+  "features": {
+    "bytes": 418912844,
+    "path": "data/raw/gems-geodawn-numerical-features.tif",
+    "raster": {
+      "band_tags": [
+        {
+          "band_name": "mag_anom",
+          "data_category": "magnetic_data",
+          "data_type": "numeric",
+          "description": "Magnetic anomaly - deviation from expected Earth's magnetic field"
+        },
+        {
+          "band_name": "rtp",
+          "data_category": "magnetic_data",
+          "data_type": "numeric",
+          "description": "Reduced to pole magnetic data - magnetic anomaly corrected for latitude effects"
+        },
+        {
+          "band_name": "tmi_hg",
+          "data_category": "magnetic_data",
+          "data_type": "numeric",
+          "description": "Total magnetic intensity horizontal gradient - rate of change in horizontal direction"
+        },
+        {
+          "band_name": "geod_2ndinv",
+          "data_category": "geodetic_strain",
+          "data_type": "numeric",
+          "description": "Geodetic second invariant - measure of strain rate tensor magnitude"
+        },
+        {
+          "band_name": "iso_grav_anom_slope",
+          "data_category": "gravity_data",
+          "data_type": "numeric",
+          "description": "Isostatic gravity anomaly slope - gradient of gravity after isostatic correction"
+        },
+        {
+          "band_name": "tc",
+          "data_category": "magnetic_data",
+          "data_type": "numeric",
+          "description": "Tilt angle or total curvature - magnetic field derivative for edge detection"
+        },
+        {
+          "band_name": "geod_shearrate",
+          "data_category": "geodetic_strain",
+          "data_type": "numeric",
+          "description": "Geodetic shear rate - rate of angular deformation from GPS/InSAR"
+        },
+        {
+          "band_name": "geod_dilaterate",
+          "data_category": "geodetic_strain",
+          "data_type": "numeric",
+          "description": "Geodetic dilatation rate - rate of volumetric strain (expansion/contraction)"
+        },
+        {
+          "band_name": "tmi_vg",
+          "data_category": "magnetic_data",
+          "data_type": "numeric",
+          "description": "Total magnetic intensity vertical gradient - rate of change in vertical direction"
+        },
+        {
+          "band_name": "deq_n100a15",
+          "data_category": "seismic",
+          "data_type": "numeric",
+          "description": "Distance to earthquake (n=100km radius, a=15\u00b0 azimuth parameters)"
+        },
+        {
+          "band_name": "iso_grav_anom_vg",
+          "data_category": "gravity_data",
+          "data_type": "numeric",
+          "description": "Isostatic gravity anomaly vertical gradient - vertical rate of change"
+        },
+        {
+          "band_name": "det_elev",
+          "data_category": "topographic",
+          "data_type": "numeric",
+          "description": "Detrended elevation - topography with regional trends removed"
+        },
+        {
+          "band_name": "iso_grav_anom",
+          "data_category": "gravity_data",
+          "data_type": "numeric",
+          "description": "Isostatic gravity anomaly - gravity after compensating for topographic mass"
+        },
+        {
+          "band_name": "tmi",
+          "data_category": "magnetic_data",
+          "data_type": "numeric",
+          "description": "Total magnetic intensity - total strength of magnetic field"
+        },
+        {
+          "band_name": "depth_to_base_surf",
+          "data_category": "subsurface",
+          "data_type": "numeric",
+          "description": "Depth to basement surface - thickness of sedimentary cover"
+        },
+        {
+          "band_name": "ieq_n100a15",
+          "data_category": "seismic",
+          "data_type": "numeric",
+          "description": "Earthquake intensity or density (n=100km radius, a=15\u00b0 parameters)"
+        },
+        {
+          "band_name": "cond_surf",
+          "data_category": "subsurface",
+          "data_type": "numeric",
+          "description": "Conductivity surface - electrical conductivity of subsurface"
+        },
+        {
+          "band_name": "iso_grav_anom_hg",
+          "data_category": "gravity_data",
+          "data_type": "numeric",
+          "description": "Isostatic gravity anomaly horizontal gradient - horizontal rate of change"
+        },
+        {
+          "band_name": "det_elev_slope",
+          "data_category": "topographic",
+          "data_type": "numeric",
+          "description": "Detrended elevation slope - gradient of elevation after detrending"
+        }
+      ],
+      "bounds": [
+        243350.0,
+        4135550.0,
+        572550.0,
+        4508550.0
+      ],
+      "count": 19,
+      "crs": "EPSG:32611",
+      "driver": "GTiff",
+      "dtypes": [
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32",
+        "float32"
+      ],
+      "height": 3730,
+      "nodata": -3.4028234663852886e+38,
+      "resolution": [
+        100.0,
+        100.0
+      ],
+      "transform": [
+        100.0,
+        0.0,
+        243350.0,
+        0.0,
+        -100.0,
+        4508550.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "width": 3292
+    },
+    "sha256": "4371c82e3b8339b807bdffcf4ef59a225520fe2988d521be208ae33743123bc5"
+  },
+  "labels": {
+    "bytes": 425830,
+    "path": "data/raw/existing_faults.tif",
+    "raster": {
+      "band_tags": [
+        {}
+      ],
+      "bounds": [
+        243350.0,
+        4135550.0,
+        572550.0,
+        4508550.0
+      ],
+      "count": 1,
+      "crs": "EPSG:32611",
+      "driver": "GTiff",
+      "dtypes": [
+        "int8"
+      ],
+      "height": 3730,
+      "nodata": -1.0,
+      "resolution": [
+        100.0,
+        100.0
+      ],
+      "transform": [
+        100.0,
+        0.0,
+        243350.0,
+        0.0,
+        -100.0,
+        4508550.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "width": 3292
+    },
+    "sha256": "7ba308ccdc4418b31a178f4f1ef21aaa6e152e4028f2f6f64b01f7eb25ae4093"
+  },
+  "raster": {
+    "crs": "EPSG:32611",
+    "height": 3730,
+    "resolution": [
+      100.0,
+      100.0
+    ],
+    "width": 3292
+  },
+  "schema_version": 1,
+  "spatial_blocks": {
+    "block_grid": [
+      15,
+      13
+    ],
+    "block_size_pixels": 256,
+    "fault_pixels_per_positive_block": {
+      "max": 1873.0,
+      "min": 5.0,
+      "p25": 317.0,
+      "p50": 559.0,
+      "p75": 901.0,
+      "p90": 1079.2,
+      "p95": 1236.599999999999,
+      "p99": 1826.9399999999998
+    },
+    "fault_positive_block_share": 0.9428571428571428,
+    "fault_positive_blocks": 99,
+    "total_blocks": 195,
+    "valid_blocks": 105
+  }
+}

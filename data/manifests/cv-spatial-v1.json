@@ -1,0 +1,253 @@
+{
+  "block_size": 256,
+  "buffer_pixels": 16,
+  "fold_summary": [
+    {
+      "excluded_from_training_pixels": 1213112,
+      "fold": 0,
+      "train_pixels": 3952740,
+      "validation_pixels": 1027471
+    },
+    {
+      "excluded_from_training_pixels": 1216227,
+      "fold": 1,
+      "train_pixels": 3949625,
+      "validation_pixels": 1033593
+    },
+    {
+      "excluded_from_training_pixels": 1142438,
+      "fold": 2,
+      "train_pixels": 4023414,
+      "validation_pixels": 965440
+    },
+    {
+      "excluded_from_training_pixels": 1067834,
+      "fold": 3,
+      "train_pixels": 4098018,
+      "validation_pixels": 899349
+    },
+    {
+      "excluded_from_training_pixels": 1462202,
+      "fold": 4,
+      "train_pixels": 3703650,
+      "validation_pixels": 1239999
+    }
+  ],
+  "folds": 5,
+  "inputs": {
+    "features": {
+      "bytes": 418912844,
+      "path": "data/raw/gems-geodawn-numerical-features.tif",
+      "raster": {
+        "band_tags": [
+          {
+            "band_name": "mag_anom",
+            "data_category": "magnetic_data",
+            "data_type": "numeric",
+            "description": "Magnetic anomaly - deviation from expected Earth's magnetic field"
+          },
+          {
+            "band_name": "rtp",
+            "data_category": "magnetic_data",
+            "data_type": "numeric",
+            "description": "Reduced to pole magnetic data - magnetic anomaly corrected for latitude effects"
+          },
+          {
+            "band_name": "tmi_hg",
+            "data_category": "magnetic_data",
+            "data_type": "numeric",
+            "description": "Total magnetic intensity horizontal gradient - rate of change in horizontal direction"
+          },
+          {
+            "band_name": "geod_2ndinv",
+            "data_category": "geodetic_strain",
+            "data_type": "numeric",
+            "description": "Geodetic second invariant - measure of strain rate tensor magnitude"
+          },
+          {
+            "band_name": "iso_grav_anom_slope",
+            "data_category": "gravity_data",
+            "data_type": "numeric",
+            "description": "Isostatic gravity anomaly slope - gradient of gravity after isostatic correction"
+          },
+          {
+            "band_name": "tc",
+            "data_category": "magnetic_data",
+            "data_type": "numeric",
+            "description": "Tilt angle or total curvature - magnetic field derivative for edge detection"
+          },
+          {
+            "band_name": "geod_shearrate",
+            "data_category": "geodetic_strain",
+            "data_type": "numeric",
+            "description": "Geodetic shear rate - rate of angular deformation from GPS/InSAR"
+          },
+          {
+            "band_name": "geod_dilaterate",
+            "data_category": "geodetic_strain",
+            "data_type": "numeric",
+            "description": "Geodetic dilatation rate - rate of volumetric strain (expansion/contraction)"
+          },
+          {
+            "band_name": "tmi_vg",
+            "data_category": "magnetic_data",
+            "data_type": "numeric",
+            "description": "Total magnetic intensity vertical gradient - rate of change in vertical direction"
+          },
+          {
+            "band_name": "deq_n100a15",
+            "data_category": "seismic",
+            "data_type": "numeric",
+            "description": "Distance to earthquake (n=100km radius, a=15\u00b0 azimuth parameters)"
+          },
+          {
+            "band_name": "iso_grav_anom_vg",
+            "data_category": "gravity_data",
+            "data_type": "numeric",
+            "description": "Isostatic gravity anomaly vertical gradient - vertical rate of change"
+          },
+          {
+            "band_name": "det_elev",
+            "data_category": "topographic",
+            "data_type": "numeric",
+            "description": "Detrended elevation - topography with regional trends removed"
+          },
+          {
+            "band_name": "iso_grav_anom",
+            "data_category": "gravity_data",
+            "data_type": "numeric",
+            "description": "Isostatic gravity anomaly - gravity after compensating for topographic mass"
+          },
+          {
+            "band_name": "tmi",
+            "data_category": "magnetic_data",
+            "data_type": "numeric",
+            "description": "Total magnetic intensity - total strength of magnetic field"
+          },
+          {
+            "band_name": "depth_to_base_surf",
+            "data_category": "subsurface",
+            "data_type": "numeric",
+            "description": "Depth to basement surface - thickness of sedimentary cover"
+          },
+          {
+            "band_name": "ieq_n100a15",
+            "data_category": "seismic",
+            "data_type": "numeric",
+            "description": "Earthquake intensity or density (n=100km radius, a=15\u00b0 parameters)"
+          },
+          {
+            "band_name": "cond_surf",
+            "data_category": "subsurface",
+            "data_type": "numeric",
+            "description": "Conductivity surface - electrical conductivity of subsurface"
+          },
+          {
+            "band_name": "iso_grav_anom_hg",
+            "data_category": "gravity_data",
+            "data_type": "numeric",
+            "description": "Isostatic gravity anomaly horizontal gradient - horizontal rate of change"
+          },
+          {
+            "band_name": "det_elev_slope",
+            "data_category": "topographic",
+            "data_type": "numeric",
+            "description": "Detrended elevation slope - gradient of elevation after detrending"
+          }
+        ],
+        "bounds": [
+          243350.0,
+          4135550.0,
+          572550.0,
+          4508550.0
+        ],
+        "count": 19,
+        "crs": "EPSG:32611",
+        "driver": "GTiff",
+        "dtypes": [
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32",
+          "float32"
+        ],
+        "height": 3730,
+        "nodata": -3.4028234663852886e+38,
+        "resolution": [
+          100.0,
+          100.0
+        ],
+        "transform": [
+          100.0,
+          0.0,
+          243350.0,
+          0.0,
+          -100.0,
+          4508550.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "width": 3292
+      },
+      "sha256": "4371c82e3b8339b807bdffcf4ef59a225520fe2988d521be208ae33743123bc5"
+    },
+    "labels": {
+      "bytes": 425830,
+      "path": "data/raw/existing_faults.tif",
+      "raster": {
+        "band_tags": [
+          {}
+        ],
+        "bounds": [
+          243350.0,
+          4135550.0,
+          572550.0,
+          4508550.0
+        ],
+        "count": 1,
+        "crs": "EPSG:32611",
+        "driver": "GTiff",
+        "dtypes": [
+          "int8"
+        ],
+        "height": 3730,
+        "nodata": -1.0,
+        "resolution": [
+          100.0,
+          100.0
+        ],
+        "transform": [
+          100.0,
+          0.0,
+          243350.0,
+          0.0,
+          -100.0,
+          4508550.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "width": 3292
+      },
+      "sha256": "7ba308ccdc4418b31a178f4f1ef21aaa6e152e4028f2f6f64b01f7eb25ae4093"
+    }
+  },
+  "schema_version": 1,
+  "scheme": "spatial",
+  "seed": 20260922
+}

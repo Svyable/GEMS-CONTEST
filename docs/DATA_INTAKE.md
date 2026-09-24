@@ -55,6 +55,16 @@ The renderer block-reduces fault presence so thin traces are not simply dropped 
 
 Inspect for unexpectedly fragmented traces, giant single-fold networks, obvious fold imbalance, strange study-boundary behavior, and spatial folds that divide a structure in ways likely to inflate or destabilize validation.
 
+## Official topology, 2026-09-23
+
+`data/manifests/label-profile.json` was produced from `existing_faults.tif` and the feature-raster valid mask.
+
+8-connected components are the fault-holdout unit. There are 3,198 of them, 60,894 fault pixels (1.18% of 5,164,312 valid pixels), a median size of 12 pixels (1.2 km), and a largest component of 360 pixels (0.59% of fault pixels). That is a set of separable traces, not one giant network. 4-connected labeling splits the same rasters into 25,058 pieces with a median size of 2 pixels, because the traces are mostly diagonal, so it is not the holdout unit.
+
+Spatial blocks of 256 pixels leave 105 valid blocks, and 99 of those contain at least one fault pixel. Five folds therefore all have supervision. Fold maps are `data/processed/cv-spatial-v1.tif` and `data/processed/cv-fault-v1.tif`; their JSON summaries are committed under `data/manifests/`. Preview PNGs were inspected: spatial folds are mixed across the study area, with white traces crossing block boundaries as this scheme intends, and fault-fold colors are interleaved along short traces rather than painting one region a single color. Fault-fold positive counts are balanced at about 12,180 withheld pixels per fold. Spatial validation area is less even (about 0.90M to 1.24M valid pixels) because blocks are balanced by count, not by valid area inside the irregular study mask. That imbalance is recorded and is not large enough to reject the first artifact.
+
+No organizer vector file was downloaded, so there are no source-feature IDs to group by. A trace-completion holdout is still a separate later view for continuations and splays. It does not replace these 8-connected component folds.
+
 ## Commit policy
 
-`data/manifests/official.json` and `data/manifests/label-profile.json` may be committed because they contain hashes and descriptive metadata rather than the gated rasters themselves. Confirm that any additional derived artifact does not reconstruct or redistribute restricted competition data before committing it.
+`data/manifests/official.json`, `data/manifests/label-profile.json`, and the CV JSON summaries may be committed because they contain hashes and descriptive metadata rather than the gated rasters themselves. Fold GeoTIFFs and preview PNGs stay under gitignored `data/processed/`: the previews depict the label traces. Confirm that any additional derived artifact does not reconstruct or redistribute restricted competition data before committing it.
