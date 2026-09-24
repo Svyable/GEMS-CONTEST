@@ -14,6 +14,17 @@ class SubmissionReport:
     warnings: tuple[str, ...]
 
 
+def _same_nodata(left: object, right: object) -> bool:
+    """Compare GeoTIFF nodata values, treating every NaN as the same sentinel."""
+    if left is None or right is None:
+        return left is None and right is None
+    left_value = np.asarray(left)
+    right_value = np.asarray(right)
+    if np.isnan(left_value) and np.isnan(right_value):
+        return True
+    return bool(left_value == right_value)
+
+
 def validate_submission(submission_path: str | Path, template_path: str | Path) -> SubmissionReport:
     """Validate a prediction GeoTIFF against the organizer's sample submission."""
     errors: list[str] = []
@@ -48,7 +59,7 @@ def validate_submission(submission_path: str | Path, template_path: str | Path) 
             if lo < 0.0 or hi > 1.0:
                 errors.append(f"prediction range must be [0, 1], found [{lo}, {hi}]")
 
-        if sub.nodata != ref.nodata:
+        if not _same_nodata(sub.nodata, ref.nodata):
             warnings.append(
                 f"nodata metadata differs: submission={sub.nodata}, template={ref.nodata}"
             )

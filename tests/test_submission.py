@@ -31,6 +31,7 @@ def test_valid_submission(tmp_path):
     _write(sub)
     report = validate_submission(sub, ref)
     assert report.ok, report.errors
+    assert report.warnings == ()
 
 
 def test_rejects_wrong_dtype(tmp_path):
