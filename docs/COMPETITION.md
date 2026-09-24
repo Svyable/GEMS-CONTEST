@@ -22,7 +22,7 @@ Organizer forum clarification (2026-09-16): known USGS/INGENIOUS fault pixels ar
 
 ## Provided features
 
-The official problem description currently lists the 100 m `training_features.tif` stack as including:
+The official problem description lists the 100 m feature stack, downloaded as `gems-geodawn-numerical-features.tif`, as including:
 
 - surface conductivity and conductive-base depth;
 - detrended elevation and detrended-elevation slope;
@@ -31,7 +31,7 @@ The official problem description currently lists the 100 m `training_features.ti
 - magnetic anomaly/intensity derivatives and top-of-crustal magnetic source-depth estimate;
 - earthquake density.
 
-The competition also provides `1m_DEM_links.csv` for high-resolution DEM retrieval.
+The competition also provides 1 m DEM download links. The file actually served is `tnm_items.json` (894 USGS TNM URLs), not `1m_DEM_links.csv`. Training labels are `existing_faults.tif` (GDR / INGENIOUS quaternary faults v2). The submission template is `example_submission.tif`.
 
 ## Submission contract
 

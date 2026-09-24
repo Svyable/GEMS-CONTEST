@@ -6,12 +6,12 @@ After downloading the official files, run for example:
 
 ```bash
 uv run python scripts/fingerprint_data.py \
-  data/raw/training_features.tif \
-  data/raw/labels.tif \
-  data/raw/sample_submission.tif \
-  data/raw/1m_DEM_links.csv \
+  data/raw/gems-geodawn-numerical-features.tif \
+  data/raw/existing_faults.tif \
+  data/raw/example_submission.tif \
+  data/raw/tnm_items.json \
   --root data/raw \
   --output data/manifests/official.json
 ```
 
-Use the actual filenames from the download page. The public competition page currently calls the feature raster `training_features.tif`; the organizer reference notebook currently uses `numeric_features.tif`, so the manifest is the source of truth for our local copy.
+`data/manifests/official.json` records the 2026-09-23 DrivenData download. Public pages still say `training_features.tif` / `1m_DEM_links.csv`, and the reference notebook still says `numeric_features.tif`. The manifest filenames are the source of truth.

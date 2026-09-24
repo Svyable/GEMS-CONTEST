@@ -6,6 +6,11 @@ data:
   organizer_reference_feature_filename: numeric_features.tif
   competition_page_feature_filename: training_features.tif
   labels_filename: labels.tif
+  # Actual DrivenData download names. Do not rename the files.
+  local_feature_filename: gems-geodawn-numerical-features.tif
+  local_labels_filename: existing_faults.tif
+  local_submission_template_filename: example_submission.tif
+  local_dem_links_filename: tnm_items.json
   normalization: per_channel_minmax_over_full_raster
   use_all_channels: true
 patches:

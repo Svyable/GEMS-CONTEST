@@ -7,7 +7,7 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 ## Start here
 
 1. Join the competition and accept the rules on DrivenData.
-2. Download the competition files into `data/raw/` (competition data is intentionally gitignored). Use the exact downloaded filenames; the public problem page currently says `training_features.tif`, while the organizer reference notebook currently uses `numeric_features.tif`.
+2. Download the competition files into `data/raw/` (competition data is intentionally gitignored). The 2026-09-23 download names, which win over the public page and the reference notebook, are `gems-geodawn-numerical-features.tif`, `existing_faults.tif`, `example_submission.tif`, and `tnm_items.json`. See `data/README.md`.
 3. Create an environment:
 
    ```bash
@@ -20,26 +20,26 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 
    ```bash
    uv run python scripts/verify_inputs.py \
-     --features data/raw/training_features.tif \
-     --labels data/raw/labels.tif
+     --features data/raw/gems-geodawn-numerical-features.tif \
+     --labels data/raw/existing_faults.tif
 
    uv run python scripts/fingerprint_data.py \
-     data/raw/training_features.tif \
-     data/raw/labels.tif \
-     data/raw/sample_submission.tif \
-     data/raw/1m_DEM_links.csv \
+     data/raw/gems-geodawn-numerical-features.tif \
+     data/raw/existing_faults.tif \
+     data/raw/example_submission.tif \
+     data/raw/tnm_items.json \
      --root data/raw \
      --output data/manifests/official.json
    ```
 
-   Adjust names to match the actual download. Commit the manifest, not the raw data.
+   These are the 2026-09-23 download names. Commit the manifest, not the raw data.
 
 5. Profile the real label topology before deciding that connected components are a sensible fault-holdout unit:
 
    ```bash
    uv run python scripts/profile_labels.py \
-     --labels data/raw/labels.tif \
-     --features data/raw/training_features.tif \
+     --labels data/raw/existing_faults.tif \
+     --features data/raw/gems-geodawn-numerical-features.tif \
      --block-size 256 \
      --output-json data/manifests/label-profile.json
    ```
@@ -50,27 +50,27 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 
    ```bash
    uv run python scripts/build_cv_manifest.py \
-     --features data/raw/training_features.tif \
-     --labels data/raw/labels.tif \
+     --features data/raw/gems-geodawn-numerical-features.tif \
+     --labels data/raw/existing_faults.tif \
      --scheme spatial \
      --output-prefix data/processed/cv-spatial-v1
 
    uv run python scripts/build_cv_manifest.py \
-     --features data/raw/training_features.tif \
-     --labels data/raw/labels.tif \
+     --features data/raw/gems-geodawn-numerical-features.tif \
+     --labels data/raw/existing_faults.tif \
      --scheme fault \
      --output-prefix data/processed/cv-fault-v1
 
    uv run python scripts/render_cv.py \
      --fold-map data/processed/cv-spatial-v1.tif \
-     --labels data/raw/labels.tif \
+     --labels data/raw/existing_faults.tif \
      --scheme spatial \
      --output data/processed/cv-spatial-v1.png
 
    uv run python scripts/render_cv.py \
      --fold-map data/processed/cv-fault-v1.tif \
-     --labels data/raw/labels.tif \
-     --valid-template data/raw/training_features.tif \
+     --labels data/raw/existing_faults.tif \
+     --valid-template data/raw/gems-geodawn-numerical-features.tif \
      --scheme fault \
      --output data/processed/cv-fault-v1.png
    ```
@@ -81,8 +81,8 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
 
    ```bash
    uv run python scripts/train_reference_oof.py \
-     --features data/raw/training_features.tif \
-     --labels data/raw/labels.tif \
+     --features data/raw/gems-geodawn-numerical-features.tif \
+     --labels data/raw/existing_faults.tif \
      --output outputs/reference-oof.tif \
      --metrics-json runs/reference-oof.json
    ```
@@ -94,14 +94,14 @@ The goal is to identify previously unmapped geologic faults in the GeoDAWN study
    ```bash
    uv run python scripts/validate_submission.py \
      --submission submissions/candidate.tif \
-     --template data/raw/sample_submission.tif
+     --template data/raw/example_submission.tif
    ```
 
 9. Score fold-specific predictions and record immutable run provenance:
 
    ```bash
    uv run python scripts/score_cv.py \
-     --truth data/raw/labels.tif \
+     --truth data/raw/existing_faults.tif \
      --fold-map data/processed/cv-spatial-v1.tif \
      --scheme spatial \
      --prediction-pattern 'runs/exp-001/fold-{fold}.tif' \

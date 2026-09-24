@@ -33,8 +33,8 @@ Run:
 ```bash
 uv sync --extra ml --extra cpu --extra dev --frozen
 uv run python scripts/train_reference_oof.py \
-  --features data/raw/training_features.tif \
-  --labels data/raw/labels.tif \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
   --output outputs/reference-oof.tif \
   --metrics-json runs/reference-oof.json
 ```
@@ -51,7 +51,7 @@ The notebook also pads by a full extra patch when an image dimension is exactly 
 
 ## Important filename discrepancy
 
-The current DrivenData problem-description page says the provided feature file is `training_features.tif`, while the public reference notebook currently hard-codes `numeric_features.tif`. Do not silently rename data. After downloading, record the actual organizer filenames in the data manifest and point commands/configs at them.
+The DrivenData problem page says `training_features.tif` and the public reference notebook hard-codes `numeric_features.tif`. The 2026-09-23 download is `gems-geodawn-numerical-features.tif`, with labels in `existing_faults.tif`. Those downloaded names are kept as-is and recorded in `data/manifests/official.json` and `configs/reference_unet.yaml`.
 
 ## Why this output is not a competition candidate
 

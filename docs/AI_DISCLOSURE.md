@@ -95,6 +95,16 @@ OpenAI ChatGPT (GPT-5.6 Sol) was used to review current public DrivenData compet
 
 These were public organizer/community materials; no gated competition data was supplied to the model.
 
+## 2026-09-23 — official data intake
+
+Grok (xAI Grok 4.7, in Grok Build) was used to:
+
+- place the four organizer files already downloaded by the competitor into `data/raw/` without renaming them;
+- record the DrivenData dataset list and the actual filenames in the repository docs and config;
+- run the repository's input verification, raster inspection, and SHA256/GeoTIFF fingerprint scripts.
+
+The model saw filenames, file sizes, the DEM-link JSON shape (a list of USGS TNM URLs), and raster metadata produced by the local inspection scripts. Raw raster pixels were not pasted into the conversation. Hashes and metadata in `data/manifests/official.json` were produced by local code, not invented by the model.
+
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.

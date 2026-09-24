@@ -39,14 +39,14 @@ After building fold rasters, render compact PNG previews:
 ```bash
 uv run python scripts/render_cv.py \
   --fold-map data/processed/cv-spatial-v1.tif \
-  --labels data/raw/labels.tif \
+  --labels data/raw/existing_faults.tif \
   --scheme spatial \
   --output data/processed/cv-spatial-v1.png
 
 uv run python scripts/render_cv.py \
   --fold-map data/processed/cv-fault-v1.tif \
-  --labels data/raw/labels.tif \
-  --valid-template data/raw/training_features.tif \
+  --labels data/raw/existing_faults.tif \
+  --valid-template data/raw/gems-geodawn-numerical-features.tif \
   --scheme fault \
   --output data/processed/cv-fault-v1.png
 ```

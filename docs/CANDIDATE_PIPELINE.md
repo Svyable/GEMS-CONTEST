@@ -23,7 +23,7 @@ If a model produces a full-size NumPy probability array:
 ```bash
 uv run python scripts/write_prediction.py \
   --prediction-npy outputs/candidate.npy \
-  --template data/raw/sample_submission.tif \
+  --template data/raw/example_submission.tif \
   --output submissions/candidate.tif
 ```
 
