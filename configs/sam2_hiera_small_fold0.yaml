@@ -1,13 +1,13 @@
 # Segment Anything 2 Hiera-small image encoder. A hierarchical vision
-# transformer, run as one U-Net on Apple MPS. Input is 224 because Hiera's
-# pretrained positions are tied to that size.
+# transformer, run as one U-Net on Apple MPS. Patch size stays 128 so the
+# spatial fold still supplies thousands of windows; 224 left only 124.
 seed_sequence: [20260922]
 data:
   normalization: per_channel_minmax_over_full_raster
   negative_ratio: 1.0
 patches:
-  patch_size: 224
-  train_step: 112
+  patch_size: 128
+  train_step: 32
 model:
   family: unet
   library: segmentation_models_pytorch
@@ -15,8 +15,8 @@ model:
   encoder_weights: imagenet
   classes: 1
 training:
-  epochs: 10
-  batch_size: 4
+  epochs: 20
+  batch_size: 8
   optimizer: adamw
   learning_rate: 0.0001
   loss: tversky

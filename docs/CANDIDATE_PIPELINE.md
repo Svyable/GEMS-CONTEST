@@ -56,6 +56,6 @@ There is no NVIDIA GPU here. The single-model upgrade is a pretrained open visio
 
 - `configs/resnet18_fold0.yaml` is the control.
 - `configs/convnextv2_tiny_fold0.yaml` is ConvNeXt V2-Tiny, pretrained by masked autoencoding.
-- `configs/sam2_hiera_small_fold0.yaml` is the Segment Anything 2 Hiera-Small image encoder at 224 px.
+- `configs/sam2_hiera_small_fold0.yaml` is the Segment Anything 2 Hiera-Small image encoder. Keep the patch at 128. At 224, the fold buffer leaves only about a hundred legal windows.
 
 Pass `--fold-map data/processed/cv-spatial-v1.tif --fold 0`. The printed holdout distance-weighted Tversky is the number to compare. A plain DINOv2 ViT does not fit this decoder: its feature pyramid does not downsample by 2 at every stage.
