@@ -234,3 +234,12 @@ and `docs/EXPERIMENT_LOG.md`.
 No competition data was used (this VM has none); no model was trained, no
 official-data score is claimed, and no DrivenData upload was made. A verdict is
 documented as evidence for the upload decision, not an upload trigger.
+
+## 2026-10-07 — spatial ablation matrix automation
+
+OpenAI ChatGPT (GPT-5.6 Sol) implemented a dry-run-by-default experiment matrix for
+the unchanged ResNet-18, grouped-gradient, and MS-EDGE-01 recipes across all five
+spatial folds. It also implemented paired fold-score aggregation and attaches the
+registration-sensitivity diagnostic only to the unchanged control. Unit tests use
+synthetic JSON metrics and command plans; no official raster training, paid
+compute, or leaderboard submission was launched by this automation work.
