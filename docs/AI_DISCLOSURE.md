@@ -127,3 +127,17 @@ alignment/fold checks, preprocessing and input-hash reporting, regression tests,
 and documentation. No raw competition rasters were available in this workspace;
 verification uses synthetic arrays and the repository test suite. No model training,
 leaderboard submission, or improvement in competition score is claimed.
+
+## 2026-10-07 — OpenAI math research screening and exact threshold optimization
+
+OpenAI ChatGPT/Codex was used to inspect the October 6 OpenAI mathematics release,
+its public catalogue, the official GEMS metric, repository code, and current issue
+status. It screened possible geophysical connections, recorded Svyable's prize
+objective, derived an exact binary-threshold event sweep from the official metric,
+and implemented a separate-calibration/evaluation CLI with SHA256 input provenance.
+Verification compares all threshold states on synthetic fixtures against both an
+independent coordinate-distance oracle and the existing metric, with geospatial
+CLI rejection tests. No OpenAI proof artifacts, competition rasters, or external
+datasets were imported; no paid API/compute, model training, submission, or measured
+competition-performance gain is claimed. The release's individual proofs were not
+independently verified in this work, and its unreleased model was not accessed.

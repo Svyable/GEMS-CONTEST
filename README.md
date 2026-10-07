@@ -2,6 +2,12 @@
 
 Competition workspace for the **DOE / NLR Geologic Enhanced Mapping System (GEMS) Prize Challenge** on DrivenData.
 
+Our operating goal is to advance **Svyable's entry toward winning**, using measured
+unknown-fault discovery and reproducible validation. Recent OpenAI mathematics is
+tracked in [`docs/MATH_RESEARCH.md`](docs/MATH_RESEARCH.md); the first implemented
+application is an independently tested exact distance-aware threshold optimizer.
+Its effect on real held-out GEMS performance remains unmeasured.
+
 The goal is to identify previously unmapped geologic faults in the GeoDAWN study area from geophysical and topographic data. The competition closes **2026-12-03 23:59 UTC** and uses a **distance-weighted Tversky index** with a 300 m tolerance (`alpha=0.2`, `beta=0.8`).
 
 ## Start here
