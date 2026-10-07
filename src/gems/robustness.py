@@ -6,8 +6,6 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from gems.tiling import Window
-
 
 NEIGHBOR_SHIFTS: tuple[tuple[int, int], ...] = (
     (-1, -1),
@@ -77,9 +75,9 @@ def shift_feature_channels(
 
 
 def windows_intersecting_mask(
-    windows: Sequence[Window],
+    windows: Sequence,
     mask: np.ndarray,
-) -> tuple[Window, ...]:
+) -> tuple:
     """Keep only windows touching at least one selected evaluation pixel."""
     selected = np.asarray(mask, dtype=bool)
     if selected.ndim != 2:
