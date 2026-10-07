@@ -65,3 +65,29 @@ Produce a geologist-facing candidate layer with supporting feature evidence. Exp
 ## Leaderboard policy
 
 The scored-submission allowance is three submissions in a rolling window, not a calendar-week reset. Each upload must answer a hypothesis. Log commit SHA/config, model/folds, local scores, artifact SHA256, leaderboard score, interpretation, and next experiment. Do not repeatedly tune to tiny public-LB changes.
+
+---
+
+## Next steps (2026-10-07)
+
+### Immediate priorities (ranked)
+
+1. **Complete fold-specific baseline training** – Train the ResNet-18 U-Net on all spatial folds with the corrected training-only normalization (PR #15 merged). Measure spatial and fault-discovery CV scores to establish the proper baseline for all future comparisons. This is blocked only by competition data availability.
+
+2. **Automated propose-and-verify experiment loop** – Implement a systematic search framework inspired by OpenAI's math release methodology (see `docs/OPENAI_MATH_LEADS.md`). Accept a candidate (feature channel, loss, architecture, post-processing) only if it beats the incumbent on ≥2 of 3 CV views (spatial, fault-discovery, trace-completion) by more than fold-to-fold standard deviation. Record every attempt in `EXPERIMENT_LOG.md`, not only winners. Raise the acceptance bar as more candidates are tried to avoid overfitting local CV noise. This is our defense against search pressure exploiting the gap between CV and the hidden test distribution.
+
+3. **Mumford-Shah edge-strength feature channel** – Run an Ambrosio-Tortorelli phase-field approximation of vector-valued Mumford-Shah on the normalized geophysical bands. The edge indicator field captures where gravity, magnetic, conductivity, and strain-rate fields jump — exactly the fault signature. The new OpenAI regularity result (Family 366) confirms the geometric prior: fault networks are smooth arcs, terminations, and Y-junctions. Ablate this channel like any Phase-2 feature through the propose-and-verify gate above.
+
+4. **Endpoint-extension post-processing for fault tips and splays** – Skeletonize probability maps into arcs, tips, and junctions. Extend arc endpoints along local orientation within ~300m (the metric's tolerance). With β=0.8, recovering plausible continuations of known faults is cheap recall. This targets the organizer-confirmed "newly mapped continuations" class and respects the Mumford-Shah arc-termination geometry.
+
+5. **Multi-scale gradient and structure-tensor features** – Add derived channels (edge magnitude, coherence, orientation, ridge/valley response) that expose lineaments. Use the Hilbert-transform lesson (Family 083): keep directional filter lengths below the scale where orientation changes significantly (~1/|∇v|). Each channel must pass the propose-and-verify gate on all three CV views.
+
+6. **Ensemble and calibration framework** – Build infrastructure to blend predictions from multiple models/seeds/folds with proper calibration against held-out data. With beta=0.8, optimal ensemble weights will differ from accuracy-based weights. Candidates enter through the propose-and-verify gate.
+
+7. **Trace-continuation validation and synthetic tests** – Expand the endpoint-holdout CV with synthetic gap-insertion tests to measure whether models can plausibly extend fault geometry from partial context, as the competition requires for newly mapped continuations.
+
+### Recent additions
+
+- **Threshold optimization (2026-10-07)**: Added `src/gems/optimization.py`, `scripts/optimize_threshold.py`, and comprehensive tests. Given beta=0.8 (recall) vs alpha=0.2 (precision), the optimal threshold is typically much lower than 0.5. The grid-search and golden-section tools directly maximize the Tversky metric on predictions, enabling principled post-processing. This is ready for use as soon as fold predictions are available.
+
+- **OpenAI math research integration (2026-10-07)**: Added `docs/OPENAI_MATH_LEADS.md`, which evaluates the 722-paper release for GEMS applicability. The top actionable lead is the *method* (massive generate-and-verify search with strict acceptance criteria), not the mathematics. Two geometry papers suggest concrete features and post-processing: Mumford-Shah regularity for edge-strength channels and endpoint extension, and Hilbert-transform stability for adaptive directional-filter design. See the document for full analysis and sources.
