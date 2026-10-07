@@ -139,14 +139,14 @@ def test_verdict_thresholds():
 
 
 def test_verify_candidate_end_to_end():
-    def big_win(mean_inc, mean_cand):
-        inc = _result(mean_inc, 0.01, [mean_inc - 0.01, mean_inc + 0.01, mean_inc])
-        cand = _result(mean_cand, 0.01, [mean_cand - 0.01, mean_cand + 0.01, mean_cand])
+    def big_win(mean_inc, mean_cand, scheme):
+        inc = _result(mean_inc, 0.01, [mean_inc - 0.01, mean_inc + 0.01, mean_inc], scheme=scheme)
+        cand = _result(mean_cand, 0.01, [mean_cand - 0.01, mean_cand + 0.01, mean_cand], scheme=scheme)
         return inc, cand
 
-    inc_sp, cand_sp = big_win(0.10, 0.20)
-    inc_fa, cand_fa = big_win(0.05, 0.12)
-    inc_tr, cand_tr = big_win(0.08, 0.081)
+    inc_sp, cand_sp = big_win(0.10, 0.20, "spatial")
+    inc_fa, cand_fa = big_win(0.05, 0.12, "fault")
+    inc_tr, cand_tr = big_win(0.08, 0.081, "trace")
     report = verify_candidate(
         "TEST-CANDIDATE",
         {"spatial": inc_sp, "fault": inc_fa, "trace": inc_tr},
