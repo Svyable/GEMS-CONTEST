@@ -37,10 +37,10 @@ from __future__ import annotations
 import json
 import math
 import re
-from statistics import mean, pstdev
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from statistics import mean, pstdev
 
 VIEWS = ("spatial", "fault", "trace")
 
@@ -112,7 +112,7 @@ def _parse_view_result(
 
     raw_protocol = result.get("evaluation_protocol")
     if not isinstance(raw_protocol, dict):
-        raise ValueError(f"{view}: missing evaluation_protocol; re-score with score_cv.py")
+        raise TypeError(f"{view}: missing evaluation_protocol; re-score with score_cv.py")
     missing = [key for key in PROTOCOL_FIELDS if key not in raw_protocol]
     if missing:
         raise ValueError(f"{view}: evaluation_protocol missing {', '.join(missing)}")
@@ -139,11 +139,11 @@ def _parse_view_result(
         if key not in result:
             raise ValueError(f"{view}: result is missing '{key}'")
     if not isinstance(result["folds"], list):
-        raise ValueError(f"{view}: folds must be a list")
+        raise TypeError(f"{view}: folds must be a list")
     folds: dict[int, tuple[float, int, int]] = {}
     for entry in result["folds"]:
         if not isinstance(entry, dict):
-            raise ValueError(f"{view}: fold record must be an object")
+            raise TypeError(f"{view}: fold record must be an object")
         fold = entry.get("fold")
         if type(fold) is not int or fold < 0:
             raise ValueError(f"{view}: invalid fold id {fold!r}")

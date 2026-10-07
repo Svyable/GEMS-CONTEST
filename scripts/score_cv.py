@@ -14,7 +14,6 @@ from gems.evaluation import (
     evaluate_trace_completion_predictions,
 )
 
-
 ALPHA = 0.2
 BETA = 0.8
 RADIUS_PIXELS = 3.0

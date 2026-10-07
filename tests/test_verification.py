@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-from statistics import pstdev
 import subprocess
 import sys
 from pathlib import Path
+from statistics import pstdev
 
 import pytest
 
