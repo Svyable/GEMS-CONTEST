@@ -2,7 +2,6 @@
 
 import numpy as np
 
-
 NEIGHBOR_SHIFTS: tuple[tuple[int, int], ...] = (
     (-1, -1),
     (-1, 0),
