@@ -127,3 +127,21 @@ alignment/fold checks, preprocessing and input-hash reporting, regression tests,
 and documentation. No raw competition rasters were available in this workspace;
 verification uses synthetic arrays and the repository test suite. No model training,
 leaderboard submission, or improvement in competition score is claimed.
+
+## 2026-10-07 — metric-aware threshold optimization
+
+Anthropic Claude Sonnet 4.5 (Cursor Cloud Agent) implemented threshold optimization
+tools that directly maximize the distance-weighted Tversky metric. Given the competition's
+beta=0.8 (recall weighting) vs alpha=0.2 (precision weighting) and 300m tolerance,
+the optimal probability threshold is typically much lower than 0.5. The implementation
+includes:
+
+- Grid search across threshold candidates with emphasis on [0, 0.5] range
+- Golden section search for efficient continuous optimization  
+- Prediction calibration utilities that remap optimal thresholds to 0.5
+- Comprehensive unit tests with synthetic linear fault patterns
+- CLI tool (`scripts/optimize_threshold.py`) with fold-aware evaluation support
+
+No competition data was available; testing uses synthetic arrays and the repository
+metric implementation. No model predictions, leaderboard submission, or score claim
+is made. This infrastructure is ready for use once fold-specific predictions exist.
