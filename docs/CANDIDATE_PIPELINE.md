@@ -303,3 +303,45 @@ ledger `docs/candidate-trials.jsonl` (one JSON object per line; `runs/` is
 gitignored so the ledger lives under `docs/`). `trials_before` is auto-counted
 from the ledger unless overridden. Use `--print-only` for a dry run that
 writes nothing.
+
+## Reproducible five-fold MS-EDGE matrix (2026-10-07)
+
+`configs/ms_edge_matrix.yaml` defines the exact comparison that should be run on
+the official training host:
+
+1. unchanged ResNet-18 control;
+2. grouped-gradient control;
+3. MS-EDGE-01 phase-edge candidate;
+
+across spatial folds 0 through 4 with the same 16-pixel holdout buffer and overlap.
+The registration-sensitivity diagnostic is attached only to the unchanged control.
+
+Preview all 15 commands without launching training:
+
+```bash
+uv run python scripts/run_spatial_ablation.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --fold-map data/processed/cv-spatial-v1.tif
+```
+
+Execution is opt-in:
+
+```bash
+uv run python scripts/run_spatial_ablation.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --fold-map data/processed/cv-spatial-v1.tif \
+  --execute \
+  --summary-json runs/ms-edge-01/summary.json
+```
+
+The summary reports each fold score, mean and population standard deviation, paired
+fold deltas against the unchanged control, and win/loss/tie counts. Treat the
+paired deltas as the primary ablation evidence; a better average driven by one fold
+is not enough to promote the feature.
+
+The runner is deliberately dry-run by default and does not launch compute merely
+because the repository was checked out.

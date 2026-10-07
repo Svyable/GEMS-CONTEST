@@ -1,0 +1,14 @@
+experiment_id: ms-edge-01
+folds: [0, 1, 2, 3, 4]
+buffer_pixels: 16
+overlap: 64
+variants:
+  control:
+    config: configs/resnet18_fold0.yaml
+    registration_sensitivity: true
+  gradient:
+    config: configs/resnet18_gradient.yaml
+    registration_sensitivity: false
+  ms_edge:
+    config: configs/resnet18_ms_edge.yaml
+    registration_sensitivity: false
