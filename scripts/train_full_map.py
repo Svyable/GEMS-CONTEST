@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import rasterio
 import yaml
-from scipy.ndimage import binary_dilation
 
 from gems.data import raster_alignment_errors, sha256_file
 from gems.metric import distance_weighted_tversky
@@ -17,6 +16,15 @@ from gems.reference_baseline import load_reference_arrays
 from gems.samples import training_origins
 from gems.submission import validate_submission
 from gems.tiling import blend_predictions, extract_patch, generate_windows
+from gems.training_split import candidate_training_split, masked_training_arrays
+
+
+def masked_binary_loss(criterion, logits, targets, supervision):
+    """Apply the same binary criterion only to supervised pixels across the batch."""
+    if not supervision.any():
+        return None
+    return criterion(logits[supervision].reshape(1, 1, -1),
+                     targets[supervision].reshape(1, 1, -1))
 
 
 def main() -> int:
@@ -32,12 +40,18 @@ def main() -> int:
     parser.add_argument("--overlap", type=int, default=64)
     parser.add_argument("--seed", type=int, default=20260922)
     parser.add_argument(
-        "--fold-map", help="Spatial fold GeoTIFF. Restricts training to the other folds."
+        "--fold-map", help="Spatial, complete-fault or endpoint fold GeoTIFF."
     )
+    parser.add_argument("--cv-scheme", choices=("spatial", "fault", "trace"), default="spatial")
     parser.add_argument("--fold", type=int, default=0)
     parser.add_argument("--buffer-pixels", type=int, default=16)
+    parser.add_argument("--known-fault-exclusion-pixels", type=int, default=0)
+    parser.add_argument("--min-training-fraction", type=float, default=0.5,
+                        help="Minimum supervised window fraction for fault/trace CV only")
     parser.add_argument("--metrics-json")
     args = parser.parse_args()
+    if not args.fold_map and (args.cv_scheme != "spatial" or args.known_fault_exclusion_pixels):
+        raise SystemExit("fault/trace validation requires --fold-map")
 
     config = yaml.safe_load(Path(args.config).read_text())
     patch_size = int(config["patches"]["patch_size"])
@@ -62,55 +76,48 @@ def main() -> int:
     with rasterio.open(args.features) as src:
         valid = src.dataset_mask() > 0
 
-    holdout = None
+    split = None
     allowed = None
     if args.fold_map:
         with rasterio.open(args.fold_map) as src:
             if src.count != 1 or not np.issubdtype(np.dtype(src.dtypes[0]), np.integer):
                 raise SystemExit("fold map must be a single-band integer raster")
             fold_values = src.read(1)
-        if fold_values.shape != labels.shape:
-            raise SystemExit("fold map shape does not match the label raster")
-        if np.any(valid & (fold_values < 0)):
-            raise SystemExit(
-                "spatial fold map must assign every valid pixel; "
-                "fault/trace fold maps are not supported by this trainer"
+        try:
+            split = candidate_training_split(
+                labels > 0, fold_values, scheme=args.cv_scheme, fold=args.fold,
+                valid_mask=valid, buffer_pixels=args.buffer_pixels,
+                known_fault_exclusion_pixels=args.known_fault_exclusion_pixels,
             )
-        holdout = valid & (fold_values == args.fold)
-        if args.fold < 0 or not holdout.any():
-            raise SystemExit("requested fold has no valid pixels")
-        if args.buffer_pixels < 0:
-            raise SystemExit("buffer-pixels must be non-negative")
-        if args.buffer_pixels:
-            radius = args.buffer_pixels
-            yy, xx = np.ogrid[-radius : radius + 1, -radius : radius + 1]
-            disk = xx * xx + yy * yy <= radius * radius
-            excluded = binary_dilation(holdout, structure=disk) & valid
-        else:
-            excluded = holdout
-        allowed = valid & ~excluded
-        print(
-            f"fold={args.fold} holdout_pixels={int(holdout.sum())} "
-            f"train_pixels={int(allowed.sum())}"
-        )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        allowed = split.train_mask
+        print(f"fold={args.fold} split={split.summary()}")
 
     features, normalization = normalize_training_features(
         features, valid if allowed is None else allowed
     )
 
+    masked_supervision = split is not None and args.cv_scheme in ("fault", "trace")
+    train_features, train_labels, supervision = features, labels, valid
+    if masked_supervision:
+        train_features, train_labels, supervision = masked_training_arrays(features, split)
+
     origins = training_origins(
-        labels,
+        train_labels,
         valid,
         patch_size=patch_size,
         step=step,
         negative_ratio=args.negative_ratio,
         seed=args.seed,
         allowed_mask=allowed,
+        min_allowed_fraction=args.min_training_fraction if masked_supervision else 1.0,
     )
     if not origins:
         raise SystemExit("no training windows were selected")
     n_positive = sum(
-        1 for row, col in origins if np.any(labels[row : row + patch_size, col : col + patch_size])
+        1 for row, col in origins
+        if np.any(train_labels[row : row + patch_size, col : col + patch_size])
     )
     print(f"windows={len(origins)} positive={n_positive} negative={len(origins) - n_positive}")
 
@@ -135,12 +142,16 @@ def main() -> int:
 
         def __getitem__(self, index: int):
             row, col = origins[index]
-            patch = features[row : row + patch_size, col : col + patch_size]
-            target = labels[row : row + patch_size, col : col + patch_size]
-            return (
+            patch = train_features[row : row + patch_size, col : col + patch_size]
+            target = train_labels[row : row + patch_size, col : col + patch_size]
+            result = (
                 torch.from_numpy(np.ascontiguousarray(patch.transpose(2, 0, 1))),
                 torch.from_numpy(np.ascontiguousarray(target)),
             )
+            if masked_supervision:
+                mask = supervision[row : row + patch_size, col : col + patch_size]
+                return (*result, torch.from_numpy(np.ascontiguousarray(mask)))
+            return result
 
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -186,17 +197,34 @@ def main() -> int:
     for epoch in range(epochs):
         model.train()
         total = 0.0
-        for batch_x, batch_y in loader:
+        steps, supervised_pixels = 0, 0
+        for batch in loader:
+            batch_x, batch_y = batch[:2]
             batch_x = batch_x.to(device)
             batch_y = batch_y.to(device)
-            batch_x, batch_y = transform(batch_x, tv_tensors.Mask(batch_y))
-            loss = criterion(model(batch_x)[:, 0], batch_y)
+            if masked_supervision:
+                mask = batch[2].to(device)
+                targets = torch.stack([batch_y, mask.to(batch_y.dtype)], dim=1)
+                batch_x, targets = transform(batch_x, tv_tensors.Mask(targets))
+                batch_y, mask = targets[:, 0], targets[:, 1].bool()
+                if not mask.any():
+                    continue
+                batch_x = batch_x.masked_fill(~mask[:, None], 0)
+                loss = masked_binary_loss(criterion, model(batch_x)[:, 0], batch_y, mask)
+                supervised_pixels += int(mask.sum().item())
+            else:
+                batch_x, batch_y = transform(batch_x, tv_tensors.Mask(batch_y))
+                loss = criterion(model(batch_x)[:, 0], batch_y)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
             total += float(loss.item())
-        mean_loss = total / len(loader)
-        history.append({"epoch": epoch, "train_loss": mean_loss})
+            steps += 1
+        if not steps:
+            raise SystemExit("augmentation left no supervised training batches")
+        mean_loss = total / steps
+        history.append({"epoch": epoch, "train_loss": mean_loss, "optimizer_steps": steps,
+                        "supervised_pixels": supervised_pixels if masked_supervision else None})
         print(f"epoch={epoch} train_loss={mean_loss:.6f}")
 
     windows = generate_windows(labels.shape, patch_size=patch_size, overlap=args.overlap)
@@ -241,8 +269,10 @@ def main() -> int:
     print(f"OK: wrote validated full-map prediction to {path}")
 
     holdout_score = None
-    if holdout is not None:
-        holdout_score = float(distance_weighted_tversky(blended, labels > 0, valid_mask=holdout))
+    if split is not None:
+        holdout_score = float(distance_weighted_tversky(
+            blended, split.evaluation_truth, valid_mask=split.evaluation_mask
+        ))
         print(f"holdout_distance_weighted_tversky={holdout_score:.8f}")
 
     if args.metrics_json:
@@ -260,6 +290,11 @@ def main() -> int:
                 if path
             },
             "buffer_pixels": args.buffer_pixels if args.fold_map else None,
+            "validation": split.summary() if split else None,
+            "known_fault_exclusion_pixels": args.known_fault_exclusion_pixels,
+            "training_input_mask": "zero_excluded_pixels" if masked_supervision else None,
+            "training_loss_mask": "supervised_pixels_only" if masked_supervision else None,
+            "min_training_fraction": args.min_training_fraction if masked_supervision else 1.0,
             "encoder": config["model"]["encoder"],
             "windows": len(origins),
             "positive_windows": n_positive,

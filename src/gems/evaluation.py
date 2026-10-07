@@ -6,7 +6,7 @@ from statistics import mean, pstdev
 
 import numpy as np
 
-from gems.cv import fault_discovery_fold
+from gems.cv import fault_discovery_fold, trace_completion_fold
 from gems.metric import distance_weighted_tversky
 
 
@@ -99,11 +99,12 @@ def evaluate_spatial_predictions(
     }
 
 
-def evaluate_fault_discovery_predictions(
+def _evaluate_discovery_predictions(
     predictions: Mapping[int, np.ndarray],
     truth: np.ndarray,
     component_folds: np.ndarray,
     *,
+    scheme: str,
     valid_mask: np.ndarray | None = None,
     known_fault_exclusion_pixels: int = 0,
     alpha: float = 0.2,
@@ -134,7 +135,8 @@ def evaluate_fault_discovery_predictions(
         prediction = np.asarray(predictions[fold], dtype=np.float64)
         if prediction.shape != gt.shape:
             raise ValueError(f"prediction for fold {fold} has wrong shape")
-        spec = fault_discovery_fold(
+        factory = fault_discovery_fold if scheme == "fault" else trace_completion_fold
+        spec = factory(
             gt,
             folds,
             fold=fold,
@@ -154,13 +156,41 @@ def evaluate_fault_discovery_predictions(
                 fold=fold,
                 score=score,
                 valid_pixels=int(spec.evaluation_mask.sum()),
-                truth_pixels=int(spec.validation_truth.sum()),
+                truth_pixels=int((spec.validation_truth & spec.evaluation_mask).sum()),
             )
         )
 
     return {
-        "scheme": "fault",
+        "scheme": scheme,
         "macro_mean": mean(item.score for item in per_fold),
         "macro_std": pstdev(item.score for item in per_fold),
         "folds": [item.__dict__ for item in per_fold],
     }
+
+
+def evaluate_fault_discovery_predictions(
+    predictions: Mapping[int, np.ndarray],
+    truth: np.ndarray,
+    component_folds: np.ndarray,
+    **kwargs,
+) -> dict:
+    """Score complete held-out components, masking retained known faults."""
+    return _evaluate_discovery_predictions(
+        predictions, truth, component_folds, scheme="fault", **kwargs
+    )
+
+
+def evaluate_trace_completion_predictions(
+    predictions: Mapping[int, np.ndarray],
+    truth: np.ndarray,
+    endpoint_folds: np.ndarray,
+    **kwargs,
+) -> dict:
+    """Score withheld endpoints, masking retained bodies and other known faults.
+
+    As with component CV, background regions overlap: report macro fold scores,
+    not a stitched global OOF score.
+    """
+    return _evaluate_discovery_predictions(
+        predictions, truth, endpoint_folds, scheme="trace", **kwargs
+    )

@@ -10,6 +10,7 @@ import rasterio
 from gems.evaluation import (
     evaluate_fault_discovery_predictions,
     evaluate_spatial_predictions,
+    evaluate_trace_completion_predictions,
 )
 
 
@@ -28,7 +29,7 @@ def main() -> int:
     )
     parser.add_argument("--truth", required=True)
     parser.add_argument("--fold-map", required=True)
-    parser.add_argument("--scheme", choices=("spatial", "fault"), required=True)
+    parser.add_argument("--scheme", choices=("spatial", "fault", "trace"), required=True)
     parser.add_argument(
         "--prediction-pattern",
         required=True,
@@ -59,7 +60,9 @@ def main() -> int:
             valid_mask=valid,
         )
     else:
-        result = evaluate_fault_discovery_predictions(
+        evaluator = (evaluate_fault_discovery_predictions if args.scheme == "fault"
+                     else evaluate_trace_completion_predictions)
+        result = evaluator(
             predictions,
             truth,
             fold_map,

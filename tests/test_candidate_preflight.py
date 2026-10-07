@@ -14,7 +14,7 @@ from rasterio.transform import from_origin
     "problem, message",
     [
         ("shift", "geotransform mismatch"),
-        ("sparse", "fault/trace fold maps"),
+        ("sparse", "spatial fold map must assign"),
         ("empty", "no valid pixels"),
         ("float", "integer raster"),
     ],

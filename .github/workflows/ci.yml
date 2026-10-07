@@ -19,3 +19,16 @@ jobs:
         run: uv run ruff check .
       - name: Pytest
         run: uv run pytest -q
+
+  training-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - name: Install locked CPU training environment
+        run: uv sync --extra ml --extra cpu --extra dev --frozen
+      - name: Train, infer and score synthetic discovery fixtures
+        run: uv run --no-sync pytest -q tests/test_training_ml.py

@@ -14,6 +14,7 @@ def training_origins(
     negative_ratio: float,
     seed: int,
     allowed_mask: np.ndarray | None = None,
+    min_allowed_fraction: float = 1.0,
 ) -> tuple[tuple[int, int], ...]:
     """Choose deterministic training windows, including background patches.
 
@@ -22,6 +23,9 @@ def training_origins(
     replacement, up to ``negative_ratio`` times the positive count. When
     ``allowed_mask`` is set, a window is kept only if it lies entirely inside
     that mask, which is how a buffered spatial fold stays out of training.
+    For sparse fault/trace masks, a fraction below one admits partially supervised
+    windows. Only allowed valid pixels then determine positive/negative sampling;
+    callers must mask both inputs and the loss using the same supervision mask.
     """
     truth = np.asarray(labels) > 0
     valid = np.asarray(valid_mask, dtype=bool)
@@ -30,6 +34,13 @@ def training_origins(
     allowed = None if allowed_mask is None else np.asarray(allowed_mask, dtype=bool)
     if allowed is not None and allowed.shape != truth.shape:
         raise ValueError("allowed_mask must match labels")
+    if not np.isfinite(min_allowed_fraction) or not 0 < min_allowed_fraction <= 1:
+        raise ValueError("min_allowed_fraction must lie in (0, 1]")
+    if min_allowed_fraction < 1:
+        if allowed is None:
+            raise ValueError("partial supervision requires allowed_mask")
+        allowed = allowed & valid
+        truth = truth & allowed
     if patch_size <= 1:
         raise ValueError("patch_size must be greater than 1")
     if step <= 0 or step > patch_size:
@@ -50,8 +61,10 @@ def training_origins(
             col_end = col + patch_size
             if not bool(valid[row:row_end, col:col_end].any()):
                 continue
-            if allowed is not None and not bool(allowed[row:row_end, col:col_end].all()):
-                continue
+            if allowed is not None:
+                coverage = allowed[row:row_end, col:col_end]
+                if coverage.sum() < min_allowed_fraction * coverage.size:
+                    continue
             origin = (int(row), int(col))
             if bool(truth[row:row_end, col:col_end].any()):
                 positive.append(origin)

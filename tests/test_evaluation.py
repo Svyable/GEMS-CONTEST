@@ -4,6 +4,7 @@ import pytest
 from gems.evaluation import (
     evaluate_fault_discovery_predictions,
     evaluate_spatial_predictions,
+    evaluate_trace_completion_predictions,
 )
 
 
@@ -67,3 +68,17 @@ def test_fault_discovery_requires_all_prediction_folds():
             truth,
             folds,
         )
+
+
+def test_trace_scores_endpoints_and_excludes_retained_bodies():
+    truth = np.zeros((24, 24), dtype=bool)
+    truth[4, 2:12] = truth[18, 2:12] = True
+    folds = np.full(truth.shape, -1, dtype=np.int16)
+    folds[4, 10:12], folds[18, 10:12] = 0, 1
+    predictions = {fold: truth.astype(float) for fold in [0, 1]}
+    # Models may predict retained known bodies; they must not count as TP or FP.
+    result = evaluate_trace_completion_predictions(predictions, truth, folds)
+    assert result["scheme"] == "trace"
+    assert result["macro_mean"] == pytest.approx(1)
+    assert "aggregate_score" not in result
+    assert [item["truth_pixels"] for item in result["folds"]] == [2, 2]

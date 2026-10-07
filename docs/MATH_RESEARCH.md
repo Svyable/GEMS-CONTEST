@@ -87,9 +87,11 @@ held-out region. No real-data score improvement is claimed for this implementati
    on evaluation; preserve immutable masks and input hashes. Ordinary OOF folds
    used as mutual calibration/evaluation are not automatically independent: a
    calibration fold's model may have trained on the evaluation fold's labels.
-3. Implement and score fault-discovery and trace-completion supervision, which the
-   current spatial-only trainer does not support. Verify calibration across these
-   tasks before promoting it to final-map inference.
+3. Score the newly implemented fault-discovery and trace-completion supervision
+   paths. Both pass synthetic CPU U-Net train/infer/score tests; neither has an
+   official-data model score. Verify calibration across these tasks before
+   promoting it to final-map inference. See `docs/CANDIDATE_PIPELINE.md` for masking
+   assumptions and the training/inference distribution-shift limitation.
 4. Compare distance-aware training, directional features and external DEM channels
    one at a time under the same validation/provenance contract.
 

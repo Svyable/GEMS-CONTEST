@@ -179,3 +179,17 @@ for GEMS applicability. Anthropic Claude Sonnet 4.5 (Cursor Cloud Agent) then:
 Both the research document and the integration work were AI-generated. No new executable
 code, model training, or competition submission was produced in this step; the contribution
 was research synthesis, prioritization, and documentation.
+
+## 2026-10-07 — runnable discovery and endpoint validation
+
+OpenAI ChatGPT/Codex inspected candidate training, sampling, fold generation and
+evaluation code, plus installed locked library source. It implemented explicit
+spatial/fault/trace training splits, sparse masked supervision, paired target/mask
+augmentation, trace-aware scoring, input-protocol metadata, and CPU training-smoke
+CI. Tests poison withheld feature values, check that excluded logits receive no
+loss gradient, reject malformed fold maps, and train real randomly initialized
+U-Nets on synthetic GeoTIFFs through validated inference and scoring. The work
+used synthetic data and local CPU execution only; it did not use raw competition
+data, download pretrained weights, run paid compute/API calls, or submit predictions.
+No official-data model improvement is claimed. Masked-input training is documented
+as an ablation with potential artificial-edge and distribution-shift effects.
