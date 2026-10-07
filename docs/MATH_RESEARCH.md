@@ -19,10 +19,19 @@ reviews or established GEMS improvements.
 
 | Family | Catalogue subject | GEMS connection / next evidence needed | Decision |
 | --- | --- | --- | --- |
+| 366 | Planar Mumford--Shah regularity | Closest theorem-adjacent match to lineament geometry: minimizer discontinuity sets locally form regular arcs, crack tips, or three-way junctions. Test Ambrosio--Tortorelli/Mumford--Shah-derived edge channels, but do not impose theorem-specific angles/topology on geology. | TEST as a derived-feature ablation |
 | 365 | Joint metric/connection recovery; contrasting conductivity nonuniqueness | Conductivity is an input layer, but GEMS has raster features, not the theorem's boundary measurement setup. Do not infer unique fault geometry from one layer. Test independent feature-family ablations. | WATCH; assumptions do not match our observations |
 | 372 | Uniqueness in smooth isotropic elasticity | Potential conceptual relevance to deformation, but static boundary displacement/traction and smooth Lamé moduli are not supplied GEMS data. Need an actual forward model and matching observations. | WATCH; no executable transfer established |
 | 374 | Sharp stability exponent for optimal transport maps | Could inform a future alignment sensitivity experiment, but transport maps between probability measures are not fault probabilities. Need a licensed alignment method and held-out ablation. | WATCH; no direct metric guarantee |
 | 212–214 | Percolation/geodesic and critical-cluster results | Candidate traces are spatial networks, but iid or quasi-transitive assumptions do not describe geologic rasters. Do not impose a theoretical critical threshold on model confidence. | DEFER |
+
+Detailed source notes and experiment specifications are in
+[`docs/research/OPENAI_MATH_RELEASES_2026-10-07.md`](research/OPENAI_MATH_RELEASES_2026-10-07.md).
+The highest-priority new idea from the catalogue is `MS-EDGE-01`: a controlled
+Mumford--Shah/Ambrosio--Tortorelli lineament-channel ablation after the corrected
+five-fold control and fault/trace validation path are in place. `REG-SENS-01` is a
+secondary one-pixel feature-family misregistration stress test; the optimal
+transport papers motivate the question but do not supply a guarantee for GEMS.
 
 The [unit-distance result](https://openai.com/index/model-disproves-discrete-geometry-conjecture/)
 uses algebraic number theory to construct extremal point sets. Its exact unit-distance
