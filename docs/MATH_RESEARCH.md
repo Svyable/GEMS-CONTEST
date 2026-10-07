@@ -28,8 +28,10 @@ reviews or established GEMS improvements.
 Detailed source notes and experiment specifications are in
 [`docs/research/OPENAI_MATH_RELEASES_2026-10-07.md`](research/OPENAI_MATH_RELEASES_2026-10-07.md).
 The highest-priority new idea from the catalogue is `MS-EDGE-01`: a controlled
-Mumford--Shah/Ambrosio--Tortorelli lineament-channel ablation after the corrected
-five-fold control and fault/trace validation path are in place. `REG-SENS-01` is a
+Mumford--Shah/Ambrosio--Tortorelli lineament-channel ablation. The transform and a
+plain grouped-gradient control are now implemented in `src/gems/lineament.py` and
+wired into `scripts/train_full_map.py`; official-data spatial-fold runs remain the
+next evidence gate. `REG-SENS-01` is a
 secondary one-pixel feature-family misregistration stress test; the optimal
 transport papers motivate the question but do not supply a guarantee for GEMS.
 
