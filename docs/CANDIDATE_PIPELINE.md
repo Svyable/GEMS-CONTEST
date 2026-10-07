@@ -226,3 +226,41 @@ that path zeros withheld inputs, and we should define whether derived filters ar
 computed before or after that masking before treating discovery scores as evidence.
 
 No official-data score has been measured for these derived features yet.
+
+## REG-SENS-01 feature-family registration stress test (2026-10-07)
+
+For a **base-feature spatial-fold model**, the trainer can now measure sensitivity
+to a one-pixel (100 m) relative translation of each physical feature family while
+holding the trained model fixed. This is a robustness diagnostic, not a correction
+or a theorem-derived guarantee.
+
+Add `--registration-sensitivity-json` to a normal spatial-fold run:
+
+```bash
+uv run python scripts/train_full_map.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --fold-map data/processed/cv-spatial-v1.tif \
+  --cv-scheme spatial \
+  --fold 0 \
+  --buffer-pixels 16 \
+  --config configs/resnet18_fold0.yaml \
+  --output runs/reg-sens-01/fold-0.tif \
+  --metrics-json runs/reg-sens-01/fold-0.json \
+  --registration-sensitivity-json runs/reg-sens-01/fold-0-registration.json
+```
+
+The diagnostic uses the raster `data_category` tags and, by default, perturbs
+`magnetic_data`, `gravity_data`, `geodetic_strain`, and `topographic`.
+For each family it evaluates all eight neighboring one-pixel offsets and records
+the held-out distance-weighted Tversky score and delta from the unchanged baseline.
+Only inference windows that touch the held-out region are recomputed.
+
+The current implementation intentionally rejects derived-lineament configs. Shifting
+base bands while leaving derived channels fixed would not represent a coherent
+registration perturbation; evaluate REG-SENS-01 on the unchanged base model first.
+
+A large negative worst-shift delta is evidence of brittleness, not proof that the
+source raster is misregistered. Any translation augmentation, alignment correction,
+or shift ensemble must be tested as a separate held-out experiment.

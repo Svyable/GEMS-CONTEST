@@ -206,3 +206,14 @@ explicit block on fault/trace CV until masked-input transform semantics are
 specified. The model did not receive raw competition raster pixels in this chat,
 no paid compute or model training was initiated, and no competition-performance
 improvement is claimed.
+
+## 2026-10-07 — REG-SENS-01 registration robustness diagnostic
+
+OpenAI ChatGPT (GPT-5.6 Sol) implemented a spatial-registration stress test for the
+candidate training path. It shifts one physical feature family at a time by each
+neighboring one-pixel offset, reuses the same trained fold model, recomputes only
+held-out inference windows, and records distance-weighted Tversky deltas with
+input/config hashes. Synthetic tests cover the perturbation helpers and an
+end-to-end CPU U-Net train/infer/report path. No raw competition pixels were
+provided in this chat, no paid compute was initiated, and no claim is made that
+the official feature stack is actually misregistered.

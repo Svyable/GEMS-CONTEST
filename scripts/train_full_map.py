@@ -14,6 +14,7 @@ from gems.metric import distance_weighted_tversky
 from gems.prediction import write_prediction_like_template
 from gems.preprocessing import normalize_training_features
 from gems.reference_baseline import load_reference_arrays
+from gems.robustness import NEIGHBOR_SHIFTS, shift_feature_channels, windows_intersecting_mask
 from gems.samples import training_origins
 from gems.submission import validate_submission
 from gems.tiling import blend_predictions, extract_patch, generate_windows
@@ -50,6 +51,10 @@ def main() -> int:
     parser.add_argument("--min-training-fraction", type=float, default=0.5,
                         help="Minimum supervised window fraction for fault/trace CV only")
     parser.add_argument("--metrics-json")
+    parser.add_argument(
+        "--registration-sensitivity-json",
+        help="Write one-pixel feature-family registration stress-test results (spatial CV only).",
+    )
     args = parser.parse_args()
     if not args.fold_map and (args.cv_scheme != "spatial" or args.known_fault_exclusion_pixels):
         raise SystemExit("fault/trace validation requires --fold-map")
@@ -272,22 +277,28 @@ def main() -> int:
 
     windows = generate_windows(labels.shape, patch_size=patch_size, overlap=args.overlap)
     model.eval()
-    predictions: list[np.ndarray] = []
-    batch: list[np.ndarray] = []
-    with torch.no_grad():
-        for window in windows:
-            patch = extract_patch(features, window, patch_size=patch_size, fill_value=0.0)
-            batch.append(np.ascontiguousarray(patch.transpose(2, 0, 1)))
-            if len(batch) == batch_size:
+
+    def infer_windows(feature_stack, selected_windows):
+        predictions: list[np.ndarray] = []
+        batch: list[np.ndarray] = []
+        with torch.no_grad():
+            for window in selected_windows:
+                patch = extract_patch(
+                    feature_stack, window, patch_size=patch_size, fill_value=0.0
+                )
+                batch.append(np.ascontiguousarray(patch.transpose(2, 0, 1)))
+                if len(batch) == batch_size:
+                    tensor = torch.from_numpy(np.stack(batch)).to(device)
+                    probabilities = functional.sigmoid(model(tensor)[:, 0]).cpu().numpy()
+                    predictions.extend(probabilities)
+                    batch = []
+            if batch:
                 tensor = torch.from_numpy(np.stack(batch)).to(device)
                 probabilities = functional.sigmoid(model(tensor)[:, 0]).cpu().numpy()
                 predictions.extend(probabilities)
-                batch = []
-        if batch:
-            tensor = torch.from_numpy(np.stack(batch)).to(device)
-            probabilities = functional.sigmoid(model(tensor)[:, 0]).cpu().numpy()
-            predictions.extend(probabilities)
+        return predictions
 
+    predictions = infer_windows(features, windows)
     blended = blend_predictions(
         labels.shape,
         windows,
@@ -317,6 +328,124 @@ def main() -> int:
             blended, split.evaluation_truth, valid_mask=split.evaluation_mask
         ))
         print(f"holdout_distance_weighted_tversky={holdout_score:.8f}")
+
+    if args.registration_sensitivity_json:
+        if split is None or args.cv_scheme != "spatial":
+            raise SystemExit("registration sensitivity requires --fold-map with --cv-scheme spatial")
+        if lineament_metadata is not None:
+            raise SystemExit(
+                "registration sensitivity currently requires a base-feature config without "
+                "derived lineament channels"
+            )
+        sensitivity_config = config.get("robustness", {}).get(
+            "registration_sensitivity", {}
+        )
+        sensitivity_categories = tuple(
+            sensitivity_config.get(
+                "categories",
+                ("magnetic_data", "gravity_data", "geodetic_strain", "topographic"),
+            )
+        )
+        try:
+            sensitivity_groups = raster_category_groups(
+                args.features, sensitivity_categories
+            )
+        except ValueError as exc:
+            raise SystemExit(f"registration sensitivity: {exc}") from exc
+
+        evaluation_windows = windows_intersecting_mask(windows, split.evaluation_mask)
+        baseline_eval = blend_predictions(
+            labels.shape,
+            evaluation_windows,
+            infer_windows(features, evaluation_windows),
+            patch_size=patch_size,
+            valid_mask=split.evaluation_mask,
+        )
+        baseline_eval = np.nan_to_num(baseline_eval, nan=0.0)
+        baseline_eval_score = float(
+            distance_weighted_tversky(
+                baseline_eval,
+                split.evaluation_truth,
+                valid_mask=split.evaluation_mask,
+            )
+        )
+        if holdout_score is None or not np.isclose(
+            baseline_eval_score, holdout_score, rtol=0, atol=1e-7
+        ):
+            raise RuntimeError(
+                "evaluation-window filtering changed the baseline holdout score"
+            )
+
+        sensitivity_results = {}
+        for category, channels in sensitivity_groups.items():
+            shifts = []
+            for row_offset, col_offset in NEIGHBOR_SHIFTS:
+                perturbed = shift_feature_channels(
+                    features,
+                    channels,
+                    row_offset=row_offset,
+                    col_offset=col_offset,
+                    valid_mask=valid,
+                    fill_value=0.0,
+                )
+                perturbed_eval = blend_predictions(
+                    labels.shape,
+                    evaluation_windows,
+                    infer_windows(perturbed, evaluation_windows),
+                    patch_size=patch_size,
+                    valid_mask=split.evaluation_mask,
+                )
+                perturbed_eval = np.nan_to_num(perturbed_eval, nan=0.0)
+                score = float(
+                    distance_weighted_tversky(
+                        perturbed_eval,
+                        split.evaluation_truth,
+                        valid_mask=split.evaluation_mask,
+                    )
+                )
+                shifts.append(
+                    {
+                        "row_offset": row_offset,
+                        "col_offset": col_offset,
+                        "score": score,
+                        "delta_from_baseline": score - baseline_eval_score,
+                    }
+                )
+                print(
+                    "registration_sensitivity "
+                    f"category={category} shift=({row_offset},{col_offset}) "
+                    f"score={score:.8f} delta={score - baseline_eval_score:+.8f}"
+                )
+            worst = min(shifts, key=lambda item: item["score"])
+            sensitivity_results[category] = {
+                "channels_zero_based": list(channels),
+                "shifts": shifts,
+                "worst_score": worst["score"],
+                "worst_delta_from_baseline": worst["delta_from_baseline"],
+            }
+
+        with rasterio.open(args.features) as src:
+            resolution = [float(src.res[0]), float(src.res[1])]
+        sensitivity_payload = {
+            "schema_version": 1,
+            "method": "one_pixel_feature_family_translation_v1",
+            "fold": args.fold,
+            "baseline_score": baseline_eval_score,
+            "evaluation_windows": len(evaluation_windows),
+            "pixel_resolution": resolution,
+            "fill_value": 0.0,
+            "categories": sensitivity_results,
+            "config_sha256": sha256_file(args.config),
+            "input_sha256": {
+                "features": sha256_file(args.features),
+                "labels": sha256_file(args.labels),
+                "fold_map": sha256_file(args.fold_map),
+            },
+        }
+        sensitivity_path = Path(args.registration_sensitivity_json)
+        sensitivity_path.parent.mkdir(parents=True, exist_ok=True)
+        sensitivity_path.write_text(json.dumps(sensitivity_payload, indent=2) + "\n")
+        print(f"wrote {sensitivity_path}")
 
     if args.metrics_json:
         payload = {
