@@ -1,7 +1,5 @@
 """Robustness perturbations for spatially registered raster feature stacks."""
 
-from __future__ import annotations
-
 import numpy as np
 
 
