@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Compare official GEMS rasters with the committed manifest and band physics gate.
 
 Use the metadata-only mode for preparation; it is *never* enough to authorize a
