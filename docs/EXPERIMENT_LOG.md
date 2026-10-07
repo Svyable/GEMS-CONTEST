@@ -24,6 +24,16 @@ Create a record with `scripts/record_run.py`. Never overwrite a submitted run's 
 | encoder-fold0-e20 | 2026-09-23 | faae632 | data/manifests/official.json | resnet18_fold0.yaml and sam2_hiera_small_fold0.yaml | 0.1478 / 0.0990 | — | not submitted | — | 20 epochs, same fold and windows. ResNet-18 holdout 0.1478. SAM2 Hiera-small holdout 0.0990, down from 0.1281 at 10 epochs, so the extra epochs overfit the training blocks. ResNet-18 remains the best single model on this holdout. Not uploaded. |
 | verify-loop-v1 | 2026-10-07 | — | n/a (infrastructure, synthetic tests only) | n/a | — | — | — | — | STRATEGY.md priority #2 implemented: propose-and-verify acceptance gate (`src/gems/verification.py`, `scripts/verify_candidate.py`, 15 tests). Candidate beats incumbent on ≥2 of 3 CV views by more than max(fold-std) × (1 + 0.5·log2(1+n_trials)); INCONCLUSIVE never accepts. Every verdict is appended to the committed ledger `docs/candidate-trials.jsonl` (honest failure log). Verdict is evidence, not an upload trigger. No official-data scores involved. |
 
+## 2026-10-07 — band-integrity preflight augmentation (INFRASTRUCTURE)
+
+Synthetic tests exercised the canonical GEMS manifest contract, file hash and
+band-tag tampering, grid mismatch, label sanity, nodata coverage, and mask
+disagreement. **No official rasters were read in this session**, no ResNet-18
+folds were retrained, and no scored fault-discovery uplift was measured. The
+metadata-only report leaves geophysical units and physical transform suitability
+blocked. Produce a live `PASS` report before P0a. Do not
+count this as model validation or a new leaderboard experiment.
+
 ## Scoring conventions
 
 For **spatial CV**, `scripts/score_cv.py` reports each fold plus a stitched global OOF score because spatial validation regions are disjoint.
