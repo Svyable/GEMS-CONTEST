@@ -279,10 +279,10 @@ Rules, in one place:
   `escalation(n) = 1 + 0.5 * log2(1 + n)` and `n` is the number of trials
   already in the ledger. The bar rises with search pressure by design; the
   schedule is a judgment call, recorded in the ledger with every verdict.
-- Verdicts: **ACCEPT** if ≥2 comparable views won; **REJECT** if ≥2 comparable
-  views decided but fewer than 2 won; **INCONCLUSIVE** if fewer than 2 views
-  are comparable (fold-id mismatch, missing view, <2 folds, non-finite
-  scores). INCONCLUSIVE never accepts.
+- Verdicts: **ACCEPT** if ≥2 comparable views won; **REJECT** if ≥2
+  comparable views lost; **INCONCLUSIVE** otherwise (including one win,
+  one loss, and a missing third view). Missing or invalid view evidence
+  never counts as a win, but cannot prematurely rule out a candidate either.
 - A verdict is evidence for the upload decision, not an upload trigger. The
   three-per-rolling-window DrivenData allowance is still spent only on
   pre-registered hypotheses per the leaderboard policy.

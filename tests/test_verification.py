@@ -136,6 +136,8 @@ def test_verdict_thresholds():
     assert verdict([comp(False), comp(False), comp(False)]) == REJECT
     assert verdict([comp(True)]) == INCONCLUSIVE  # fewer than 2 comparable views
     assert verdict([comp(True), comp(True, comparable=False)]) == INCONCLUSIVE
+    assert verdict([comp(True), comp(False), comp(False, comparable=False)]) == INCONCLUSIVE
+    assert verdict([comp(False), comp(False), comp(True, comparable=False)]) == REJECT
 
 
 def test_verify_candidate_end_to_end():

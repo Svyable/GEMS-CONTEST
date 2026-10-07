@@ -25,8 +25,8 @@ theorem; its exact parameters live in the trial ledger so the bar is auditable.
 Verdicts:
 
 - ACCEPT: >= 2 comparable views won.
-- REJECT: >= 2 comparable views and fewer than 2 won (enough evidence to stop).
-- INCONCLUSIVE: fewer than 2 comparable views (cannot decide; do not accept).
+- REJECT: >= 2 comparable losses, so two wins are no longer possible.
+- INCONCLUSIVE: neither acceptance nor rejection is logically decided.
 
 Every call is appended to a JSONL trial ledger (both winners and losers),
 which is the honest failure log required by docs/OPENAI_MATH_LEADS.md.
@@ -233,9 +233,14 @@ def compare_view(
 def verdict(comparisons: list[ViewComparison]) -> str:
     """Return ACCEPT / REJECT / INCONCLUSIVE for a set of view comparisons."""
     decided = [c for c in comparisons if c.comparable]
-    if len(decided) < 2:
-        return INCONCLUSIVE
-    return ACCEPT if sum(c.won for c in decided) >= 2 else REJECT
+    wins = sum(c.won for c in decided)
+    losses = len(decided) - wins
+    if wins >= 2:
+        return ACCEPT
+    if losses >= 2:
+        return REJECT
+    # One win + one loss leaves the third view decisive; missing is not rejection.
+    return INCONCLUSIVE
 
 
 def load_view_results(directory: str | Path) -> dict[str, dict]:
