@@ -76,10 +76,73 @@ Earlier fold-0 numbers above used full-raster normalization. Keep them as histor
 diagnostics; rerun the ResNet-18 control with this correction before comparing new
 features, losses, or encoders. No new model score has been measured for this change.
 
-The trainer checks raster geometry for labels, template, and folds, and rejects
-empty folds and sparse fault/trace fold maps. Its `--fold-map` supports spatial
-folds only; fault-discovery training still needs a dedicated supervision path.
+The trainer checks raster geometry for labels, template, and folds. Spatial maps
+must assign every valid pixel. Sparse fault/trace maps require the explicit
+`--cv-scheme fault` or `--cv-scheme trace` path described below.
 Use `scripts/record_run.py` as before to bind the run to its commit and data manifest.
+
+## Fault-discovery and trace-completion training (2026-10-07)
+
+The same candidate trainer can now run all three validation views. Complete-fault
+maps must assign every valid positive pixel and keep each 8-connected component
+in one fold. Endpoint maps must leave a retained body for every withheld component.
+Both reject IDs assigned to background and empty/invalid folds.
+
+```bash
+uv run python scripts/train_full_map.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --config configs/resnet18_fold0.yaml \
+  --fold-map data/processed/cv-fault-v1.tif \
+  --cv-scheme fault --fold 0 --buffer-pixels 16 \
+  --output runs/discovery-control/fold-0.tif \
+  --metrics-json runs/discovery-control/fold-0.json
+```
+
+For trace completion, use `cv-trace-v1.tif`, `--cv-scheme trace`, and
+`--buffer-pixels 3` to match that artifact's documented buffer. Repeat each scheme
+for folds 0–4 before comparing models.
+
+Sparse holdouts cannot use only completely unmasked windows without discarding
+much of the retained trace body. This path admits windows with at least
+`--min-training-fraction 0.5` supervised area. Normalization fits only training
+pixels. Excluded input pixels are filled with zero; their targets and neighborhood
+buffer are omitted from the loss. Targets and supervision masks undergo the same
+nearest-neighbor geometric augmentation, and excluded inputs are zeroed again
+after augmentation. Window sampling uses supervised positives only. Full-region
+inference uses the original normalized inputs, without training holes.
+
+This **masked-input training is an ablation**: zero-filled holes can introduce
+synthetic edges and a training/inference distribution shift. It is not identical
+to the spatial protocol, whose windows remain wholly outside the buffered holdout.
+Keep the scheme, buffer, coverage fraction and input/loss masking method in run
+metadata. Loss remains the baseline's ordinary Tversky criterion; it is not the
+distance-weighted competition metric. Its existing empty-positive-batch behavior
+is unchanged. Choose any future loss change by independent held-out scores.
+
+Fault evaluation excludes retained known faults. Trace evaluation also excludes
+retained bodies (`-1` positive pixels), so known body reconstruction does not earn
+credit for discovering the withheld endpoint. The default known-fault exclusion
+radius is zero, matching pixel exclusion; a wider radius is an explicit sensitivity
+experiment and can remove nearby targets. The trainer aborts if none remain.
+
+After all folds have their own predictions:
+
+```bash
+uv run python scripts/score_cv.py \
+  --truth data/raw/existing_faults.tif \
+  --fold-map data/processed/cv-trace-v1.tif \
+  --scheme trace \
+  --prediction-pattern 'runs/trace-control/fold-{fold}.tif' \
+  --output-json runs/trace-control/scores.json
+```
+
+Use `--scheme fault` and the component map for complete-fault scoring. These
+evaluation regions overlap on background; report macro fold scores, not a stitched
+OOF aggregate. Synthetic CPU U-Net tests exercise both paths through GeoTIFF
+validation and confirm the trainer's score equals the shared evaluator's score.
+No official-data discovery or trace-completion score has been measured yet.
 
 ## Exact binary threshold candidate (2026-10-07)
 
