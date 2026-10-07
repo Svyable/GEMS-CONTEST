@@ -9,6 +9,7 @@ import rasterio
 import yaml
 
 from gems.data import raster_alignment_errors, sha256_file
+from gems.lineament import grouped_lineament_features, raster_category_groups
 from gems.metric import distance_weighted_tversky
 from gems.prediction import write_prediction_like_template
 from gems.preprocessing import normalize_training_features
@@ -97,6 +98,48 @@ def main() -> int:
     features, normalization = normalize_training_features(
         features, valid if allowed is None else allowed
     )
+
+    lineament_metadata = None
+    lineament_config = config.get("derived_features", {}).get("lineament", {})
+    if lineament_config.get("enabled", False):
+        if split is not None and args.cv_scheme in ("fault", "trace"):
+            raise SystemExit(
+                "derived lineament features currently support train-all or spatial CV only; "
+                "fault/trace CV needs a masked-input transform protocol before comparison"
+            )
+        categories = tuple(lineament_config.get("categories", ()))
+        sigma_pixels = float(lineament_config.get("sigma_pixels", 1.0))
+        if split is not None:
+            required_buffer = int(np.ceil(4 * sigma_pixels)) + 1
+            if args.buffer_pixels < required_buffer:
+                raise SystemExit(
+                    "lineament filtering requires --buffer-pixels >= "
+                    f"{required_buffer} for sigma_pixels={sigma_pixels}"
+                )
+        try:
+            groups = raster_category_groups(args.features, categories)
+            derived, lineament_metadata = grouped_lineament_features(
+                features,
+                groups,
+                valid_mask=valid,
+                kind=str(lineament_config.get("kind", "phase_edge")),
+                sigma_pixels=sigma_pixels,
+                phase_epsilon_pixels=float(
+                    lineament_config.get("phase_epsilon_pixels", 1.0)
+                ),
+            )
+        except ValueError as exc:
+            raise SystemExit(f"lineament features: {exc}") from exc
+        base_channels = features.shape[-1]
+        features = np.concatenate([features, derived], axis=-1)
+        lineament_metadata["base_channels"] = int(base_channels)
+        lineament_metadata["derived_channels"] = int(derived.shape[-1])
+        lineament_metadata["total_channels"] = int(features.shape[-1])
+        print(
+            "lineament_features="
+            f"{lineament_metadata['kind']} "
+            f"derived_channels={derived.shape[-1]} total_channels={features.shape[-1]}"
+        )
 
     masked_supervision = split is not None and args.cv_scheme in ("fault", "trace")
     train_features, train_labels, supervision = features, labels, valid
@@ -278,6 +321,14 @@ def main() -> int:
     if args.metrics_json:
         payload = {
             "normalization": normalization,
+            "derived_features": {"lineament": lineament_metadata}
+            if lineament_metadata is not None
+            else None,
+            "feature_channels": {
+                "base": len(normalization["minimum"]),
+                "derived": 0 if lineament_metadata is None else lineament_metadata["derived_channels"],
+                "total": features.shape[-1],
+            },
             "config_sha256": sha256_file(args.config),
             "input_sha256": {
                 name: sha256_file(path)
