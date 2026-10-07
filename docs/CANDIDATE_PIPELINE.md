@@ -279,10 +279,10 @@ Rules, in one place:
   `escalation(n) = 1 + 0.5 * log2(1 + n)` and `n` is the number of trials
   already in the ledger. The bar rises with search pressure by design; the
   schedule is a judgment call, recorded in the ledger with every verdict.
-- Verdicts: **ACCEPT** if ≥2 comparable views won; **REJECT** if ≥2 comparable
-  views decided but fewer than 2 won; **INCONCLUSIVE** if fewer than 2 views
-  are comparable (fold-id mismatch, missing view, <2 folds, non-finite
-  scores). INCONCLUSIVE never accepts.
+- Verdicts: **ACCEPT** if ≥2 comparable views won; **REJECT** if ≥2
+  comparable views lost; **INCONCLUSIVE** otherwise (including one win,
+  one loss, and a missing third view). Missing or invalid view evidence
+  never counts as a win, but cannot prematurely rule out a candidate either.
 - A verdict is evidence for the upload decision, not an upload trigger. The
   three-per-rolling-window DrivenData allowance is still spent only on
   pre-registered hypotheses per the leaderboard policy.
@@ -303,6 +303,17 @@ ledger `docs/candidate-trials.jsonl` (one JSON object per line; `runs/` is
 gitignored so the ledger lives under `docs/`). `trials_before` is auto-counted
 from the ledger unless overridden. Use `--print-only` for a dry run that
 writes nothing.
+
+**Comparability is now enforced, not assumed.** Fresh `score_cv.py` reports
+include `evaluation_protocol` with SHA256 of the exact truth and fold-map
+GeoTIFFs, the scoring kernel/parameters, schema version, and known-fault
+exclusion radius. `verify_candidate.py` refuses to compare reports with
+missing or mismatched protocol, incorrect view labels, different validation
+pixel counts, non-finite/out-of-range fold scores, or macro statistics that
+disagree with the individual folds. Such views are **INCOMPARABLE**; they
+cannot contribute to an ACCEPT verdict. Re-score historical fold predictions
+with the current scorer before using them as promotion evidence. This guards
+the selection process; it does not establish actual model improvement.
 
 ## Reproducible five-fold MS-EDGE matrix (2026-10-07)
 

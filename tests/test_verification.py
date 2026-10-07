@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from statistics import pstdev
 
 import pytest
 
@@ -25,8 +26,22 @@ from gems.verification import (
 
 
 def _result(mean: float, std: float, scores: list[float], scheme: str = "spatial") -> dict:
+    # Construct an honest sample with the requested population standard deviation.
+    spread = pstdev(scores)
+    if spread:
+        scores = [mean + (score - mean) * std / spread for score in scores]
     return {
         "scheme": scheme,
+        "evaluation_protocol": {
+            "schema_version": 1,
+            "metric": "distance_weighted_tversky",
+            "alpha": 0.2,
+            "beta": 0.8,
+            "radius_pixels": 3.0,
+            "truth_sha256": "a" * 64,
+            "fold_map_sha256": "b" * 64,
+            "known_fault_exclusion_pixels": 0,
+        },
         "macro_mean": mean,
         "macro_std": std,
         "folds": [
@@ -94,8 +109,8 @@ def test_compare_view_fold_id_mismatch_not_comparable():
     inc = _result(0.10, 0.01, [0.09, 0.11, 0.10])
     cand = dict(_result(0.14, 0.01, [0.13, 0.15, 0.14]))
     cand["folds"] = [
-        {"fold": i, "score": s, "valid_pixels": 100, "truth_pixels": 10}
-        for i, s in enumerate([0.13, 0.15, 0.14], start=1)
+        {**entry, "fold": i + 1}
+        for i, entry in enumerate(cand["folds"])
     ]
     comp = compare_view("spatial", inc, cand, trials_before=0)
     assert not comp.comparable
@@ -121,17 +136,19 @@ def test_verdict_thresholds():
     assert verdict([comp(False), comp(False), comp(False)]) == REJECT
     assert verdict([comp(True)]) == INCONCLUSIVE  # fewer than 2 comparable views
     assert verdict([comp(True), comp(True, comparable=False)]) == INCONCLUSIVE
+    assert verdict([comp(True), comp(False), comp(False, comparable=False)]) == INCONCLUSIVE
+    assert verdict([comp(False), comp(False), comp(True, comparable=False)]) == REJECT
 
 
 def test_verify_candidate_end_to_end():
-    def big_win(mean_inc, mean_cand):
-        inc = _result(mean_inc, 0.01, [mean_inc - 0.01, mean_inc + 0.01, mean_inc])
-        cand = _result(mean_cand, 0.01, [mean_cand - 0.01, mean_cand + 0.01, mean_cand])
+    def big_win(mean_inc, mean_cand, scheme):
+        inc = _result(mean_inc, 0.01, [mean_inc - 0.01, mean_inc + 0.01, mean_inc], scheme=scheme)
+        cand = _result(mean_cand, 0.01, [mean_cand - 0.01, mean_cand + 0.01, mean_cand], scheme=scheme)
         return inc, cand
 
-    inc_sp, cand_sp = big_win(0.10, 0.20)
-    inc_fa, cand_fa = big_win(0.05, 0.12)
-    inc_tr, cand_tr = big_win(0.08, 0.081)
+    inc_sp, cand_sp = big_win(0.10, 0.20, "spatial")
+    inc_fa, cand_fa = big_win(0.05, 0.12, "fault")
+    inc_tr, cand_tr = big_win(0.08, 0.081, "trace")
     report = verify_candidate(
         "TEST-CANDIDATE",
         {"spatial": inc_sp, "fault": inc_fa, "trace": inc_tr},
@@ -285,3 +302,77 @@ def test_verify_candidate_cli_print_only_writes_nothing(tmp_path: Path):
     assert proc.returncode == 0, proc.stderr
     assert not ledger.exists()
     assert json.loads(proc.stdout)["verdict"] == ACCEPT
+
+
+
+def test_missing_protocol_cannot_be_promoted():
+    inc = _result(0.10, 0.01, [0.09, 0.11, 0.10])
+    cand = _result(0.30, 0.01, [0.29, 0.31, 0.30])
+    cand.pop("evaluation_protocol")
+    comp = compare_view("spatial", inc, cand, trials_before=0)
+    assert not comp.comparable
+    assert "re-score" in comp.reason
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("truth_sha256", "c" * 64),
+        ("fold_map_sha256", "d" * 64),
+        ("known_fault_exclusion_pixels", 2),
+    ],
+)
+def test_different_evaluation_protocols_are_incomparable(field, replacement):
+    inc = _result(0.10, 0.01, [0.09, 0.11, 0.10], scheme="fault")
+    cand = _result(0.30, 0.01, [0.29, 0.31, 0.30], scheme="fault")
+    cand["evaluation_protocol"][field] = replacement
+    comp = compare_view("fault", inc, cand, trials_before=0)
+    assert not comp.comparable
+    assert field in comp.reason
+
+
+def test_mislabeled_scheme_cannot_be_promoted():
+    inc = _result(0.10, 0.01, [0.09, 0.11, 0.10])
+    cand = _result(0.30, 0.01, [0.29, 0.31, 0.30], scheme="trace")
+    comp = compare_view("spatial", inc, cand, trials_before=0)
+    assert not comp.comparable
+    assert "scheme mismatch" in comp.reason
+
+
+def test_forged_macro_mean_is_incomparable():
+    inc = _result(0.10, 0.01, [0.09, 0.11, 0.10])
+    cand = _result(0.30, 0.01, [0.29, 0.31, 0.30])
+    cand["macro_mean"] = 0.9
+    comp = compare_view("spatial", inc, cand, trials_before=0)
+    assert not comp.comparable
+    assert "disagree" in comp.reason
+
+
+def test_validation_coverage_mismatch_is_incomparable():
+    inc = _result(0.10, 0.01, [0.09, 0.11, 0.10])
+    cand = _result(0.30, 0.01, [0.29, 0.31, 0.30])
+    cand["folds"][0]["truth_pixels"] = 11
+    comp = compare_view("spatial", inc, cand, trials_before=0)
+    assert not comp.comparable
+    assert "coverage" in comp.reason
+
+
+def test_invalid_fold_score_is_incomparable():
+    inc = _result(0.10, 0.01, [0.09, 0.11, 0.10])
+    cand = _result(0.30, 0.01, [0.29, 0.31, 0.30])
+    cand["folds"][0]["score"] = 1.5
+    comp = compare_view("spatial", inc, cand, trials_before=0)
+    assert not comp.comparable
+    assert "invalid score" in comp.reason
+
+
+def test_protocol_mismatch_for_two_views_blocks_acceptance():
+    inc = {v: _result(0.10, 0.01, [0.09, 0.11, 0.10], scheme=v)
+           for v in ("spatial", "fault", "trace")}
+    cand = {v: _result(0.30, 0.01, [0.29, 0.31, 0.30], scheme=v)
+            for v in ("spatial", "fault", "trace")}
+    for view in ("fault", "trace"):
+        cand[view]["evaluation_protocol"]["fold_map_sha256"] = "f" * 64
+    report = verify_candidate("blocked", inc, cand, trials_before=0)
+    assert report["verdict"] == INCONCLUSIVE
+    assert sum(v["comparable"] for v in report["views"]) == 1
