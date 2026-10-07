@@ -80,3 +80,35 @@ The trainer checks raster geometry for labels, template, and folds, and rejects
 empty folds and sparse fault/trace fold maps. Its `--fold-map` supports spatial
 folds only; fault-discovery training still needs a dedicated supervision path.
 Use `scripts/record_run.py` as before to bind the run to its commit and data manifest.
+
+## Exact binary threshold candidate (2026-10-07)
+
+The threshold sweep tests every distinct binary state under the **distance-weighted**
+metric, rather than optimizing ordinary pixel precision/recall. It is an optional
+post-processing ablation. Keep the original soft prediction as the control.
+
+Use predictions from a model trained outside **both** buffered regions below;
+neither region may inform preprocessing, training, or checkpoint selection.
+Masks must be aligned, single-band binary GeoTIFFs, with `1` selecting a region.
+
+```bash
+uv run python scripts/calibrate_threshold.py \
+  --prediction runs/exp-001/heldout.tif \
+  --truth data/raw/existing_faults.tif \
+  --calibration-mask data/processed/calibration-region.tif \
+  --evaluation-mask data/processed/evaluation-region.tif \
+  --output-json runs/exp-001/calibration.json
+```
+
+The CLI rejects overlapping or invalid regions, fits using calibration labels
+only, and reports unchanged-soft versus fixed-threshold evaluation scores plus
+input SHA256 hashes. It cannot establish training independence from raster files;
+bind model/config/fold provenance with `scripts/record_run.py`. Do not repeatedly
+tune using the evaluation scores or apply a threshold fitted on train-on-all output.
+
+`gems.calibration.binary_threshold(prediction, report["threshold"])` applies the
+selected `>=` rule. Write the resulting array with the existing template writer
+and validate it before considering submission. A threshold above the maximum
+represents an empty prediction; this can occur when calibration labels are empty.
+No calibrated submission or measured GEMS improvement has been produced yet.
+See [`MATH_RESEARCH.md`](MATH_RESEARCH.md) for the derivation and experiment order.
