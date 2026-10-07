@@ -254,3 +254,15 @@ cover both pass and fail cases. No gated raster pixel data, model checkpoints,
 GPU training, external datasets, paid compute, submission uploads, or
 competition score improvements were involved. The tool was added to the
 repository via a CI-gated pull request; actual-data preflight is still pending.
+
+
+## 2026-10-07 — score provenance and acceptance-gate hardening
+
+OpenAI ChatGPT (GPT-6) inspected the candidate verifier, scoring CLI, synthetic
+regression tests, and repository CI. It added exact truth/fold-map fingerprints
+and explicit metric semantics to score reports, made the propose-and-verify
+gate fail closed on incomparable protocols or inconsistent fold aggregates,
+and added synthetic regression tests. The work used source code and synthetic
+fixtures only, not gated competition rasters or external datasets. No paid
+compute, model retraining, leaderboard upload, or measured GEMS improvement
+is claimed. CI verification is required before merge.

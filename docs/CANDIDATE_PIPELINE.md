@@ -304,6 +304,17 @@ gitignored so the ledger lives under `docs/`). `trials_before` is auto-counted
 from the ledger unless overridden. Use `--print-only` for a dry run that
 writes nothing.
 
+**Comparability is now enforced, not assumed.** Fresh `score_cv.py` reports
+include `evaluation_protocol` with SHA256 of the exact truth and fold-map
+GeoTIFFs, the scoring kernel/parameters, schema version, and known-fault
+exclusion radius. `verify_candidate.py` refuses to compare reports with
+missing or mismatched protocol, incorrect view labels, different validation
+pixel counts, non-finite/out-of-range fold scores, or macro statistics that
+disagree with the individual folds. Such views are **INCOMPARABLE**; they
+cannot contribute to an ACCEPT verdict. Re-score historical fold predictions
+with the current scorer before using them as promotion evidence. This guards
+the selection process; it does not establish actual model improvement.
+
 ## Reproducible five-fold MS-EDGE matrix (2026-10-07)
 
 `configs/ms_edge_matrix.yaml` defines the exact comparison that should be run on

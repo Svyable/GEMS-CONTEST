@@ -7,11 +7,17 @@ from pathlib import Path
 import numpy as np
 import rasterio
 
+from gems.data import sha256_file
 from gems.evaluation import (
     evaluate_fault_discovery_predictions,
     evaluate_spatial_predictions,
     evaluate_trace_completion_predictions,
 )
+
+
+ALPHA = 0.2
+BETA = 0.8
+RADIUS_PIXELS = 3.0
 
 
 def _read_aligned(path: str, reference) -> np.ndarray:
@@ -38,6 +44,8 @@ def main() -> int:
     parser.add_argument("--known-fault-exclusion-pixels", type=int, default=0)
     parser.add_argument("--output-json")
     args = parser.parse_args()
+    if args.known_fault_exclusion_pixels < 0:
+        parser.error("--known-fault-exclusion-pixels must be non-negative")
 
     with rasterio.open(args.truth) as truth_src:
         truth = truth_src.read(1) > 0
@@ -58,6 +66,9 @@ def main() -> int:
             truth,
             fold_map,
             valid_mask=valid,
+            alpha=ALPHA,
+            beta=BETA,
+            radius_pixels=RADIUS_PIXELS,
         )
     else:
         evaluator = (evaluate_fault_discovery_predictions if args.scheme == "fault"
@@ -68,7 +79,25 @@ def main() -> int:
             fold_map,
             valid_mask=valid,
             known_fault_exclusion_pixels=args.known_fault_exclusion_pixels,
+            alpha=ALPHA,
+            beta=BETA,
+            radius_pixels=RADIUS_PIXELS,
         )
+
+    # Bind comparisons to the exact labels, holdout assignment, and metric
+    # semantics. Candidate prediction hashes deliberately differ by design.
+    result["evaluation_protocol"] = {
+        "schema_version": 1,
+        "metric": "distance_weighted_tversky",
+        "alpha": ALPHA,
+        "beta": BETA,
+        "radius_pixels": RADIUS_PIXELS,
+        "truth_sha256": sha256_file(args.truth),
+        "fold_map_sha256": sha256_file(args.fold_map),
+        "known_fault_exclusion_pixels": (
+            args.known_fault_exclusion_pixels if args.scheme != "spatial" else 0
+        ),
+    }
 
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     print(payload, end="")
