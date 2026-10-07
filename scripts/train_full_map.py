@@ -9,9 +9,11 @@ import rasterio
 import yaml
 from scipy.ndimage import binary_dilation
 
+from gems.data import raster_alignment_errors, sha256_file
 from gems.metric import distance_weighted_tversky
 from gems.prediction import write_prediction_like_template
-from gems.reference_baseline import load_reference_arrays, normalize_reference_features
+from gems.preprocessing import normalize_training_features
+from gems.reference_baseline import load_reference_arrays
 from gems.samples import training_origins
 from gems.submission import validate_submission
 from gems.tiling import blend_predictions, extract_patch, generate_windows
@@ -29,27 +31,13 @@ def main() -> int:
     parser.add_argument("--negative-ratio", type=float, default=1.0)
     parser.add_argument("--overlap", type=int, default=64)
     parser.add_argument("--seed", type=int, default=20260922)
-    parser.add_argument("--fold-map", help="Spatial fold GeoTIFF. Restricts training to the other folds.")
+    parser.add_argument(
+        "--fold-map", help="Spatial fold GeoTIFF. Restricts training to the other folds."
+    )
     parser.add_argument("--fold", type=int, default=0)
     parser.add_argument("--buffer-pixels", type=int, default=16)
     parser.add_argument("--metrics-json")
     args = parser.parse_args()
-
-    try:
-        import torch
-        from segmentation_models_pytorch import Unet
-        from segmentation_models_pytorch.losses import TverskyLoss
-        from torch import optim
-        from torch.nn import functional
-        from torch.utils.data import DataLoader, Dataset
-        from torchvision import tv_tensors
-        from torchvision.transforms import v2
-        from torchvision.transforms.functional import InterpolationMode
-    except ImportError as exc:
-        raise SystemExit(
-            "ML dependencies are missing. Install with "
-            "uv sync --extra ml --extra cpu --extra dev."
-        ) from exc
 
     config = yaml.safe_load(Path(args.config).read_text())
     patch_size = int(config["patches"]["patch_size"])
@@ -60,8 +48,17 @@ def main() -> int:
     alpha = float(config["training"]["alpha"])
     beta = float(config["training"]["beta"])
 
+    for name, path in [
+        ("labels", args.labels),
+        ("template", args.template),
+        ("fold map", args.fold_map),
+    ]:
+        if path:
+            errors = raster_alignment_errors(args.features, path)
+            if errors:
+                raise SystemExit(f"{name}: " + "; ".join(errors))
+
     features, labels, _ = load_reference_arrays(args.features, args.labels)
-    features = np.nan_to_num(normalize_reference_features(features)).astype(np.float32)
     with rasterio.open(args.features) as src:
         valid = src.dataset_mask() > 0
 
@@ -69,10 +66,19 @@ def main() -> int:
     allowed = None
     if args.fold_map:
         with rasterio.open(args.fold_map) as src:
+            if src.count != 1 or not np.issubdtype(np.dtype(src.dtypes[0]), np.integer):
+                raise SystemExit("fold map must be a single-band integer raster")
             fold_values = src.read(1)
         if fold_values.shape != labels.shape:
             raise SystemExit("fold map shape does not match the label raster")
+        if np.any(valid & (fold_values < 0)):
+            raise SystemExit(
+                "spatial fold map must assign every valid pixel; "
+                "fault/trace fold maps are not supported by this trainer"
+            )
         holdout = valid & (fold_values == args.fold)
+        if args.fold < 0 or not holdout.any():
+            raise SystemExit("requested fold has no valid pixels")
         if args.buffer_pixels < 0:
             raise SystemExit("buffer-pixels must be non-negative")
         if args.buffer_pixels:
@@ -88,6 +94,10 @@ def main() -> int:
             f"train_pixels={int(allowed.sum())}"
         )
 
+    features, normalization = normalize_training_features(
+        features, valid if allowed is None else allowed
+    )
+
     origins = training_origins(
         labels,
         valid,
@@ -100,14 +110,24 @@ def main() -> int:
     if not origins:
         raise SystemExit("no training windows were selected")
     n_positive = sum(
-        1
-        for row, col in origins
-        if np.any(labels[row : row + patch_size, col : col + patch_size])
+        1 for row, col in origins if np.any(labels[row : row + patch_size, col : col + patch_size])
     )
-    print(
-        f"windows={len(origins)} positive={n_positive} "
-        f"negative={len(origins) - n_positive}"
-    )
+    print(f"windows={len(origins)} positive={n_positive} negative={len(origins) - n_positive}")
+
+    try:
+        import torch
+        from segmentation_models_pytorch import Unet
+        from segmentation_models_pytorch.losses import TverskyLoss
+        from torch import optim
+        from torch.nn import functional
+        from torch.utils.data import DataLoader, Dataset
+        from torchvision import tv_tensors
+        from torchvision.transforms import v2
+        from torchvision.transforms.functional import InterpolationMode
+    except ImportError as exc:
+        raise SystemExit(
+            "ML dependencies are missing. Install with uv sync --extra ml --extra cpu --extra dev."
+        ) from exc
 
     class WindowDataset(Dataset):
         def __len__(self) -> int:
@@ -156,12 +176,8 @@ def main() -> int:
                 ratio=tuple(config["augmentation"]["random_resized_crop"]["ratio"]),
                 interpolation=InterpolationMode.BILINEAR,
             ),
-            v2.RandomHorizontalFlip(
-                p=float(config["augmentation"]["horizontal_flip_probability"])
-            ),
-            v2.RandomVerticalFlip(
-                p=float(config["augmentation"]["vertical_flip_probability"])
-            ),
+            v2.RandomHorizontalFlip(p=float(config["augmentation"]["horizontal_flip_probability"])),
+            v2.RandomVerticalFlip(p=float(config["augmentation"]["vertical_flip_probability"])),
             v2.RandomRotation(float(config["augmentation"]["random_rotation_degrees"])),
         ]
     )
@@ -226,13 +242,24 @@ def main() -> int:
 
     holdout_score = None
     if holdout is not None:
-        holdout_score = float(
-            distance_weighted_tversky(blended, labels > 0, valid_mask=holdout)
-        )
+        holdout_score = float(distance_weighted_tversky(blended, labels > 0, valid_mask=holdout))
         print(f"holdout_distance_weighted_tversky={holdout_score:.8f}")
 
     if args.metrics_json:
         payload = {
+            "normalization": normalization,
+            "config_sha256": sha256_file(args.config),
+            "input_sha256": {
+                name: sha256_file(path)
+                for name, path in [
+                    ("features", args.features),
+                    ("labels", args.labels),
+                    ("template", args.template),
+                    ("fold_map", args.fold_map),
+                ]
+                if path
+            },
+            "buffer_pixels": args.buffer_pixels if args.fold_map else None,
             "encoder": config["model"]["encoder"],
             "windows": len(origins),
             "positive_windows": n_positive,

@@ -118,3 +118,12 @@ The model saw raster metadata, training logs, and scores. It did not receive raw
 ## Add future entries
 
 For each material use, record date, tool/model, what information was provided, what was generated, and what verification was performed before relying on the output.
+
+## 2026-10-07 — candidate validation preprocessing repair
+
+OpenAI ChatGPT/Codex inspected repository code, issue status, and a user-provided
+research shortlist. It implemented training-region normalization, candidate raster
+alignment/fold checks, preprocessing and input-hash reporting, regression tests,
+and documentation. No raw competition rasters were available in this workspace;
+verification uses synthetic arrays and the repository test suite. No model training,
+leaderboard submission, or improvement in competition score is claimed.

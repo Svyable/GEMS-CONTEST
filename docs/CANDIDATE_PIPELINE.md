@@ -58,6 +58,25 @@ There is no NVIDIA GPU here. The single-model upgrade is a pretrained open visio
 - `configs/convnextv2_tiny_fold0.yaml` is ConvNeXt V2-Tiny, pretrained by masked autoencoding.
 - `configs/sam2_hiera_small_fold0.yaml` is the Segment Anything 2 Hiera-Small image encoder. Keep the patch at 128. At 224, the fold buffer leaves only about a hundred legal windows.
 
-Pass `--fold-map data/processed/cv-spatial-v1.tif --fold 0`. The printed holdout distance-weighted Tversky is the number to compare. A plain DINOv2 ViT does not fit this decoder: its feature pyramid does not downsample by 2 at every stage.
+Pass `--fold-map data/processed/cv-spatial-v1.tif --fold 0`. The printed holdout distance-weighted Tversky is the number to compare across runs using the same preprocessing version. A plain DINOv2 ViT does not fit this decoder: its feature pyramid does not downsample by 2 at every stage.
 
 Measured on that fold, 10 epochs: ResNet-18 0.143, SAM2 Hiera-small 0.128, ConvNeXt V2-tiny 0.121. At 20 epochs ResNet-18 moved to 0.148 and Hiera fell to 0.099. The pretrained hierarchical encoders did not beat the small CNN once the score was a real held-out block.
+
+## Training-only normalization correction (2026-10-07)
+
+The candidate trainer now fits per-channel min/max on the valid training region
+**after** excluding the spatial holdout and its buffer. The fitted ranges, finite
+sample counts, constant channels, buffer width, config hash, and input-file hashes
+are saved in `--metrics-json`. Held-out values are not clipped to the training
+range. Nonfinite inputs become zero; a training-constant channel becomes zero
+everywhere, and a channel with no finite training observations aborts the run.
+The organizer reproduction keeps its original full-raster preprocessing.
+
+Earlier fold-0 numbers above used full-raster normalization. Keep them as historical
+diagnostics; rerun the ResNet-18 control with this correction before comparing new
+features, losses, or encoders. No new model score has been measured for this change.
+
+The trainer checks raster geometry for labels, template, and folds, and rejects
+empty folds and sparse fault/trace fold maps. Its `--fold-map` supports spatial
+folds only; fault-discovery training still needs a dedicated supervision path.
+Use `scripts/record_run.py` as before to bind the run to its commit and data manifest.

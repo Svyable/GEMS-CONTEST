@@ -3,7 +3,7 @@
 # spatial fold still supplies thousands of windows; 224 left only 124.
 seed_sequence: [20260922]
 data:
-  normalization: per_channel_minmax_over_full_raster
+  normalization: per_channel_minmax_over_training_region
   negative_ratio: 1.0
 patches:
   patch_size: 128

@@ -2,7 +2,7 @@
 # outside fold 0 so the holdout score is not an in-sample fit.
 seed_sequence: [20260922]
 data:
-  normalization: per_channel_minmax_over_full_raster
+  normalization: per_channel_minmax_over_training_region
   negative_ratio: 1.0
 patches:
   patch_size: 128
