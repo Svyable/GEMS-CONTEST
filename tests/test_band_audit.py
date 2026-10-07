@@ -10,8 +10,13 @@ import rasterio
 from rasterio.transform import from_origin
 
 from gems.band_audit import (
-    BAND_NAMES, FEATURE_FILE, FILES, LABEL_FILE, TEMPLATE_FILE,
-    audit_manifest, build_report,
+    BAND_NAMES,
+    FEATURE_FILE,
+    FILES,
+    LABEL_FILE,
+    TEMPLATE_FILE,
+    audit_manifest,
+    build_report,
 )
 from gems.data import fingerprint_files
 
