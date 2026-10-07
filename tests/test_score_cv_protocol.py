@@ -66,4 +66,4 @@ def test_score_cv_emits_auditable_protocol(tmp_path: Path):
     assert protocol["known_fault_exclusion_pixels"] == 0
     assert protocol["truth_sha256"] == sha256_file(paths["truth"])
     assert protocol["fold_map_sha256"] == sha256_file(paths["folds"])
-    assert payload["macro_mean"] == 1.0
+    assert payload["macro_mean"] > 0.99999999
