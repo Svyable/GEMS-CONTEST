@@ -109,8 +109,8 @@ def test_compare_view_fold_id_mismatch_not_comparable():
     inc = _result(0.10, 0.01, [0.09, 0.11, 0.10])
     cand = dict(_result(0.14, 0.01, [0.13, 0.15, 0.14]))
     cand["folds"] = [
-        {"fold": i, "score": s, "valid_pixels": 100, "truth_pixels": 10}
-        for i, s in enumerate([0.13, 0.15, 0.14], start=1)
+        {**entry, "fold": i + 1}
+        for i, entry in enumerate(cand["folds"])
     ]
     comp = compare_view("spatial", inc, cand, trials_before=0)
     assert not comp.comparable
