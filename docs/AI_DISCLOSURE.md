@@ -217,3 +217,20 @@ input/config hashes. Synthetic tests cover the perturbation helpers and an
 end-to-end CPU U-Net train/infer/report path. No raw competition pixels were
 provided in this chat, no paid compute was initiated, and no claim is made that
 the official feature stack is actually misregistered.
+
+## 2026-10-07 — propose-and-verify acceptance gate
+
+Muse (Anthropic) implemented the automated propose-and-verify experiment loop,
+the top infrastructure priority from the OpenAI math-research scan
+(`docs/OPENAI_MATH_LEADS.md` #1). The deliverable is new executable code:
+`src/gems/verification.py` (acceptance rule with search-pressure escalation:
+win ≥2 of 3 CV views by more than max fold-to-fold std × (1 + 0.5·log2(1+n
+trials))), `scripts/verify_candidate.py` (CLI over score_cv.py JSONs with a
+committed JSONL trial ledger), and 15 unit/CLI tests in
+`tests/test_verification.py` — all passing on synthetic scores, plus ruff-clean.
+Documentation was updated in `docs/STRATEGY.md`, `docs/CANDIDATE_PIPELINE.md`,
+and `docs/EXPERIMENT_LOG.md`.
+
+No competition data was used (this VM has none); no model was trained, no
+official-data score is claimed, and no DrivenData upload was made. A verdict is
+documented as evidence for the upload decision, not an upload trigger.

@@ -264,3 +264,42 @@ registration perturbation; evaluate REG-SENS-01 on the unchanged base model firs
 A large negative worst-shift delta is evidence of brittleness, not proof that the
 source raster is misregistered. Any translation augmentation, alignment correction,
 or shift ensemble must be tested as a separate held-out experiment.
+
+## Propose-and-verify acceptance gate (2026-10-07)
+
+Every candidate (feature channel, loss, architecture, post-processing) enters
+through `src/gems/verification.py` before it can displace the incumbent. The
+gate compares `scripts/score_cv.py` JSON outputs for the three validation
+views: `spatial.json`, `fault.json`, `trace.json`.
+
+Rules, in one place:
+
+- A view is won only if `candidate_macro_mean - incumbent_macro_mean` strictly
+  exceeds `max(incumbent_std, candidate_std) * escalation(n)`, where
+  `escalation(n) = 1 + 0.5 * log2(1 + n)` and `n` is the number of trials
+  already in the ledger. The bar rises with search pressure by design; the
+  schedule is a judgment call, recorded in the ledger with every verdict.
+- Verdicts: **ACCEPT** if ≥2 comparable views won; **REJECT** if ≥2 comparable
+  views decided but fewer than 2 won; **INCONCLUSIVE** if fewer than 2 views
+  are comparable (fold-id mismatch, missing view, <2 folds, non-finite
+  scores). INCONCLUSIVE never accepts.
+- A verdict is evidence for the upload decision, not an upload trigger. The
+  three-per-rolling-window DrivenData allowance is still spent only on
+  pre-registered hypotheses per the leaderboard policy.
+
+```bash
+# after scoring both recipes on all three views into <dir>/{spatial,fault,trace}.json
+uv run python scripts/verify_candidate.py \
+  --candidate MS-EDGE-01 \
+  --hypothesis "Ambrosio-Tortorelli edge channel improves hidden-fault discovery" \
+  --incumbent-dir runs/spatial-fault-trace-control \
+  --candidate-dir runs/ms-edge-01 \
+  --config configs/resnet18_ms_edge.yaml \
+  --config-sha256 <sha256>
+```
+
+Every attempt — ACCEPT, REJECT, or INCONCLUSIVE — is appended to the committed
+ledger `docs/candidate-trials.jsonl` (one JSON object per line; `runs/` is
+gitignored so the ledger lives under `docs/`). `trials_before` is auto-counted
+from the ledger unless overridden. Use `--print-only` for a dry run that
+writes nothing.

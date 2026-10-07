@@ -101,3 +101,20 @@ held-out region. No real-data score improvement is claimed for this implementati
 The blocker here is access to official rasters and held-out predictions on the
 training host, not absence of another speculative architecture. This change runs
 without paid model calls or paid compute and does not upload a submission.
+
+## Verification status: the generate-and-verify method (2026-10-07)
+
+The highest-priority transfer from the catalogue was not a theorem but the
+*method* behind the results: massive generate-and-verify search with a strict
+verifier and a significance filter (see `docs/OPENAI_MATH_LEADS.md` #1). Status:
+**IMPLEMENTED**. `src/gems/verification.py` + `scripts/verify_candidate.py`
+realize it for GEMS: generator = agent-proposed candidates; verifier =
+`scripts/score_cv.py` on all three CV views with the published metric;
+significance filter = win ≥2 of 3 views by more than fold-to-fold std,
+escalated by (1 + 0.5·log2(1 + n_trials)); honest failure log =
+`docs/candidate-trials.jsonl` (every verdict recorded, not only ACCEPTs).
+The blunt caveat from the scan still holds: our CV is a noisy proxy for the
+hidden label distribution, not a Lean proof, so the escalation schedule is a
+documented judgment call, not a guarantee. The next evidence gate is an actual
+candidate comparison — e.g. MS-EDGE-01 vs the resnet18 control — once official
+fold scores are measured on Sven's Mac.

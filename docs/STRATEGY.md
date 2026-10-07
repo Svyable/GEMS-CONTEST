@@ -74,7 +74,17 @@ The scored-submission allowance is three submissions in a rolling window, not a 
 
 1. **Complete fold-specific baseline training** – Train the ResNet-18 U-Net on all spatial folds with the corrected training-only normalization (PR #15 merged). Measure spatial and fault-discovery CV scores to establish the proper baseline for all future comparisons. This is blocked only by competition data availability.
 
-2. **Automated propose-and-verify experiment loop** – Implement a systematic search framework inspired by OpenAI's math release methodology (see `docs/OPENAI_MATH_LEADS.md`). Accept a candidate (feature channel, loss, architecture, post-processing) only if it beats the incumbent on ≥2 of 3 CV views (spatial, fault-discovery, trace-completion) by more than fold-to-fold standard deviation. Record every attempt in `EXPERIMENT_LOG.md`, not only winners. Raise the acceptance bar as more candidates are tried to avoid overfitting local CV noise. This is our defense against search pressure exploiting the gap between CV and the hidden test distribution.
+2. **Automated propose-and-verify experiment loop** – ✅ IMPLEMENTED 2026-10-07
+   (`src/gems/verification.py`, `scripts/verify_candidate.py`, 15 tests in
+   `tests/test_verification.py`). Accept a candidate only if it beats the
+   incumbent on ≥2 of 3 CV views (spatial, fault-discovery, trace-completion)
+   by more than max(incumbent, candidate) fold-to-fold std, escalated by
+   (1 + 0.5·log2(1 + n)) as recorded trials n grow. Every attempt — ACCEPT,
+   REJECT, or INCONCLUSIVE — is appended to the committed ledger
+   `docs/candidate-trials.jsonl` (the honest failure log). This is our defense
+   against search pressure exploiting the gap between CV and the hidden test
+   distribution. Verdicts are one input to the upload decision, not an
+   automatic upload trigger.
 
 3. **Mumford-Shah edge-strength feature channel** – Run an Ambrosio-Tortorelli phase-field approximation of vector-valued Mumford-Shah on the normalized geophysical bands. The edge indicator field captures where gravity, magnetic, conductivity, and strain-rate fields jump — exactly the fault signature. The new OpenAI regularity result (Family 366) confirms the geometric prior: fault networks are smooth arcs, terminations, and Y-junctions. Ablate this channel like any Phase-2 feature through the propose-and-verify gate above.
 
