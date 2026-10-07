@@ -175,3 +175,54 @@ and validate it before considering submission. A threshold above the maximum
 represents an empty prediction; this can occur when calibration labels are empty.
 No calibrated submission or measured GEMS improvement has been produced yet.
 See [`MATH_RESEARCH.md`](MATH_RESEARCH.md) for the derivation and experiment order.
+
+## MS-EDGE-01 grouped lineament ablation (2026-10-07)
+
+The candidate trainer can append one derived channel per physical feature family,
+using the official GeoTIFF band metadata rather than hard-coded band positions.
+The first experiment uses magnetic, gravity, geodetic-strain, and topographic
+families. Base channels are normalized from the training region before the derived
+transform is evaluated.
+
+Two otherwise matched configs are provided:
+
+- `configs/resnet18_gradient.yaml`: root-mean-square grouped gradient energy;
+- `configs/resnet18_ms_edge.yaml`: the same gradient energy mapped through a
+  bounded local Ambrosio--Tortorelli fixed-image phase relation.
+
+The phase channel is intentionally a scalable **AT-inspired edge indicator**, not
+a numerical solution of the complete alternating Mumford--Shah problem. It omits
+the phase-field diffusion term. This keeps the first test interpretable: the
+gradient config answers whether extra edge information helps at all, while the
+phase config answers whether the bounded phase mapping helps beyond that control.
+
+Run the unchanged control, gradient control, and MS-edge candidate on every spatial
+fold with otherwise identical settings:
+
+```bash
+uv run python scripts/train_full_map.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --fold-map data/processed/cv-spatial-v1.tif \
+  --cv-scheme spatial \
+  --fold 0 \
+  --buffer-pixels 16 \
+  --config configs/resnet18_ms_edge.yaml \
+  --output runs/ms-edge-01/fold-0.tif \
+  --metrics-json runs/ms-edge-01/fold-0.json
+```
+
+Repeat with `configs/resnet18_fold0.yaml` and
+`configs/resnet18_gradient.yaml`, then repeat all three recipes for the remaining
+fold IDs. Derived-feature metadata, selected zero-based source channels, and total
+model input channels are written to the metrics JSON.
+
+For spatial CV, the trainer requires the holdout buffer to exceed the Gaussian
+filter support plus the one-pixel gradient stencil. With the current
+`sigma_pixels: 1.0`, the existing 16-pixel buffer is comfortably larger than the
+required 5 pixels. The lineament configs are currently rejected for fault/trace CV:
+that path zeros withheld inputs, and we should define whether derived filters are
+computed before or after that masking before treating discovery scores as evidence.
+
+No official-data score has been measured for these derived features yet.

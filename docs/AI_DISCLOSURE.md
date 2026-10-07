@@ -193,3 +193,16 @@ used synthetic data and local CPU execution only; it did not use raw competition
 data, download pretrained weights, run paid compute/API calls, or submit predictions.
 No official-data model improvement is claimed. Masked-input training is documented
 as an ablation with potential artificial-edge and distribution-shift effects.
+
+## 2026-10-07 — MS-EDGE-01 lineament feature implementation
+
+OpenAI ChatGPT (GPT-5.6 Sol) used the public OpenAI mathematics research scan, the
+repository's official feature-band metadata, and existing candidate-training code
+to implement grouped lineament feature transforms and wire them into the candidate
+U-Net experiment path. The implementation includes a plain grouped-gradient
+control and a bounded local Ambrosio--Tortorelli-inspired phase-edge transform,
+with synthetic unit tests, provenance metadata, spatial-buffer checks, and an
+explicit block on fault/trace CV until masked-input transform semantics are
+specified. The model did not receive raw competition raster pixels in this chat,
+no paid compute or model training was initiated, and no competition-performance
+improvement is claimed.
