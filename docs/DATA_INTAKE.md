@@ -2,6 +2,27 @@
 
 The official rasters are the next empirical decision point. Do not move directly from download to model training.
 
+Before adding potential-field or high-resolution terrain channels, run the
+read-only band-integrity gate against the authoritative data manifest and all
+three raw organizer rasters:
+
+```bash
+uv run python scripts/audit_band_integrity.py \
+  --manifest data/manifests/official.json \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --output runs/preflight/band-integrity-live.json
+```
+
+Require a `PASS` for manifest hashes/size, band order, grid metadata and label
+values, then inspect any mask/coverage warnings. `METADATA_ONLY` and
+`UNVERIFIED_HASHES` do **not** clear this gate. Grid equality is not proof of
+true geophysical co-registration. Even `PASS` cannot authorize Harmonica
+transforms: source units, field definitions, and license/provenance still need
+independent documentation. No raw rasters or report-derived fault geometries
+belong in Git.
+
 ## Intake sequence
 
 1. Verify feature/label geometry with `scripts/verify_inputs.py`.
