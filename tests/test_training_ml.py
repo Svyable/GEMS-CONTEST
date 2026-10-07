@@ -103,3 +103,97 @@ def test_actual_unet_train_infer_validate_and_discovery_score(tmp_path, monkeypa
     assert report["holdout_distance_weighted_tversky"] == pytest.approx(
         result["folds"][0]["score"], abs=1e-10
     )
+
+def test_registration_sensitivity_runs_on_spatial_holdout(tmp_path, monkeypatch):
+    module = _trainer()
+    truth = np.zeros((64, 96), dtype="uint8")
+    truth[16, 5:90] = 1
+    truth[48, 5:90] = 1
+    folds = np.zeros_like(truth, dtype="int16")
+    folds[:, 48:] = 1
+    features = np.random.default_rng(7).random((3, *truth.shape), dtype=np.float32)
+    profile = {
+        "driver": "GTiff",
+        "width": 96,
+        "height": 64,
+        "crs": "EPSG:32611",
+        "transform": from_origin(300000, 4400000, 100, 100),
+    }
+    paths = {}
+    for name, data, nodata in [
+        ("features", features, None),
+        ("labels", truth[None], None),
+        ("template", np.zeros((1, 64, 96), dtype="float32"), np.nan),
+        ("fold-map", folds[None], -1),
+    ]:
+        path = tmp_path / f"{name}.tif"
+        with rasterio.open(
+            path,
+            "w",
+            **profile,
+            dtype=data.dtype,
+            count=data.shape[0],
+            nodata=nodata,
+        ) as dst:
+            dst.write(data)
+            if name == "features":
+                dst.update_tags(1, data_category="magnetic_data")
+                dst.update_tags(2, data_category="gravity_data")
+                dst.update_tags(3, data_category="topographic")
+        paths[name] = str(path)
+
+    root = Path(__file__).resolve().parents[1]
+    config = yaml.safe_load((root / "configs/resnet18_fold0.yaml").read_text())
+    config["model"]["encoder_weights"] = None
+    config["training"].update(epochs=1, batch_size=2)
+    config["patches"].update(patch_size=32, train_step=32)
+    config["robustness"] = {
+        "registration_sensitivity": {"categories": ["magnetic_data"]}
+    }
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(yaml.safe_dump(config))
+    output = tmp_path / "prediction.tif"
+    metrics = tmp_path / "metrics.json"
+    sensitivity = tmp_path / "registration.json"
+    argv = ["train_full_map"]
+    for name, path in paths.items():
+        argv.extend([f"--{name}", path])
+    argv.extend(
+        [
+            "--cv-scheme",
+            "spatial",
+            "--buffer-pixels",
+            "2",
+            "--fold",
+            "0",
+            "--overlap",
+            "8",
+            "--config",
+            str(config_path),
+            "--output",
+            str(output),
+            "--metrics-json",
+            str(metrics),
+            "--registration-sensitivity-json",
+            str(sensitivity),
+        ]
+    )
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
+    previous_threads = torch.get_num_threads()
+    torch.set_num_threads(1)
+    try:
+        assert module.main() == 0
+    finally:
+        torch.set_num_threads(previous_threads)
+
+    report = json.loads(sensitivity.read_text())
+    assert report["method"] == "one_pixel_feature_family_translation_v1"
+    assert report["pixel_resolution"] == [100.0, 100.0]
+    assert set(report["categories"]) == {"magnetic_data"}
+    category = report["categories"]["magnetic_data"]
+    assert category["channels_zero_based"] == [0]
+    assert len(category["shifts"]) == 8
+    assert all("delta_from_baseline" in item for item in category["shifts"])
+
