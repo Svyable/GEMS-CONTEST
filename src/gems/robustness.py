@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 import numpy as np
 
 
@@ -21,7 +19,7 @@ NEIGHBOR_SHIFTS: tuple[tuple[int, int], ...] = (
 
 def shift_feature_channels(
     features: np.ndarray,
-    channels: Sequence[int],
+    channels,
     *,
     row_offset: int,
     col_offset: int,
@@ -75,7 +73,7 @@ def shift_feature_channels(
 
 
 def windows_intersecting_mask(
-    windows: Sequence,
+    windows,
     mask: np.ndarray,
 ) -> tuple:
     """Keep only windows touching at least one selected evaluation pixel."""
