@@ -243,3 +243,14 @@ spatial folds. It also implemented paired fold-score aggregation and attaches th
 registration-sensitivity diagnostic only to the unchanged control. Unit tests use
 synthetic JSON metrics and command plans; no official raster training, paid
 compute, or leaderboard submission was launched by this automation work.
+
+## 2026-10-07 — official band-integrity audit augmentation
+
+OpenAI ChatGPT (GPT-6) drafted a read-only, block-streamed preflight tool using
+the repository's existing NumPy/Rasterio dependencies and manifest fingerprint
+helpers. It checks SHA256, file sizes, band identities/order, raster metadata,
+label values, nodata coverage, and mask disagreements. Synthetic pytest fixtures
+cover both pass and fail cases. No gated raster pixel data, model checkpoints,
+GPU training, external datasets, paid compute, submission uploads, or
+competition score improvements were involved. The tool was added to the
+repository via a CI-gated pull request; actual-data preflight is still pending.
