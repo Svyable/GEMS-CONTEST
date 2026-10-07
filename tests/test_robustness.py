@@ -34,7 +34,7 @@ def test_shift_selected_channel_without_wraparound():
     assert np.all(shifted[:, 3, 0] == -5)
 
 
-def test_invalid_source_pixels_become_fill_value():
+def test_invalid_source_and_destination_pixels_become_fill_value():
     features = np.arange(9, dtype=np.float32).reshape(3, 3, 1)
     valid = np.ones((3, 3), bool)
     valid[1, 1] = False
@@ -47,7 +47,8 @@ def test_invalid_source_pixels_become_fill_value():
         fill_value=0,
     )
     assert shifted[1, 2, 0] == 0
-    assert shifted[1, 1, 0] == features[1, 0, 0]
+    assert shifted[1, 1, 0] == 0
+    assert shifted[0, 1, 0] == features[0, 0, 0]
 
 
 def test_windows_intersecting_mask_filters_to_evaluation_area():
