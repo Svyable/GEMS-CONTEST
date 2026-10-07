@@ -67,10 +67,12 @@ def shift_feature_channels(
         return output
 
     source_valid = valid[src_r0:src_r1, src_c0:src_c1]
+    destination_valid = valid[dst_r0:dst_r1, dst_c0:dst_c1]
+    transfer = source_valid & destination_valid
     for index in indices:
         source = x[src_r0:src_r1, src_c0:src_c1, index]
         destination = output[dst_r0:dst_r1, dst_c0:dst_c1, index]
-        destination[source_valid] = source[source_valid]
+        destination[transfer] = source[transfer]
     return output
 
 
