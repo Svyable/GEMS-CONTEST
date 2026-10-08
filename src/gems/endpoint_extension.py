@@ -9,7 +9,12 @@ mapped continuations, splays, and parallel strands.
 from __future__ import annotations
 
 import numpy as np
-from skimage.morphology import skeletonize
+
+try:
+    from skimage.morphology import skeletonize
+    HAS_SKIMAGE = True
+except ImportError:
+    HAS_SKIMAGE = False
 
 
 def compute_structure_tensor_orientation(
@@ -192,6 +197,8 @@ def extend_fault_endpoints(
 ) -> np.ndarray:
     """Extend fault trace endpoints to recover continuations and splays.
     
+    Requires scikit-image to be installed.
+    
     Args:
         probabilities: Float32 probability map in [0, 1]
         threshold: Probability threshold for skeletonization
@@ -204,7 +211,16 @@ def extend_fault_endpoints(
     
     Returns:
         Extended probability map (float32, [0, 1])
+    
+    Raises:
+        ImportError: If scikit-image is not installed
     """
+    if not HAS_SKIMAGE:
+        raise ImportError(
+            "endpoint extension requires scikit-image. "
+            "Install with: pip install scikit-image"
+        )
+    
     probs = np.asarray(probabilities, dtype=np.float32)
     
     if probs.ndim != 2:
