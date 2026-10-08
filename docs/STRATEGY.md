@@ -86,19 +86,31 @@ The scored-submission allowance is three submissions in a rolling window, not a 
    verification.py approach. Both defend against CV overfitting through multiple-comparisons 
    correction. Verdicts inform upload decisions, don't trigger uploads.
 
-3. **Mumford-Shah edge-strength feature channel** – ✅ COMPLETED 2026-10-08
+3. **LoG edge-strength feature channel (inspired by Mumford-Shah geometry)** – ✅ COMPLETED 2026-10-08
    
    Implemented Laplacian of Gaussian (LoG) edge detection for geophysical bands 
-   (`src/gems/mumford_shah.py`, 16 tests). Integrated into derived feature pipeline 
-   (`src/gems/lineament.py`) with new `kind: mumford_shah_log` option. Computes edge-strength 
-   from second derivatives to distinguish sharp discontinuities from smooth gradients, capturing 
-   where gravity, magnetic, conductivity, and strain-rate fields jump. Uses fold-pure 
-   normalization (training-region-only stats) to prevent validation leakage. Candidate config: 
-   `configs/resnet18_mumford_shah_log.yaml`. OpenAI Family 366 (Mumford-Shah regularity) 
-   confirms geometric prior: fault networks are smooth arcs with bounded curvature. Ready for 
-   ablation through the propose-and-verify gate once training data is available.
+   (`src/gems/mumford_shah.py`, 16 tests). This is a classical edge detector using second 
+   derivatives, not an Ambrosio-Tortorelli solver. Integrated into derived feature pipeline 
+   (`src/gems/lineament.py`) with new `kind: mumford_shah_log` option. Distinguishes sharp 
+   discontinuities from smooth gradients, capturing where gravity, magnetic, conductivity, and 
+   strain-rate fields jump. Uses fold-pure normalization (training-region-only stats) to prevent 
+   validation leakage. Candidate config: `configs/resnet18_mumford_shah_log.yaml`. The feature 
+   design is motivated by OpenAI Family 366 (Mumford-Shah regularity), which confirms the 
+   geometric prior: fault networks are smooth arcs with bounded curvature. Ready for ablation 
+   through the propose-and-verify gate once training data is available.
 
-4. **Endpoint-extension post-processing for fault tips and splays** – Skeletonize probability maps into arcs, tips, and junctions. Extend arc endpoints along local orientation within ~300m (the metric's tolerance). With β=0.8, recovering plausible continuations of known faults is cheap recall. This targets the organizer-confirmed "newly mapped continuations" class and respects the Mumford-Shah arc-termination geometry.
+4. **Endpoint-extension post-processing for fault tips and splays** – ✅ COMPLETED 2026-10-08
+   
+   Implemented skeletonization-based endpoint extension (`src/gems/endpoint_extension.py`, 
+   `scripts/extend_endpoints.py`, 19 tests). Finds skeleton endpoints, estimates local orientation 
+   via structure tensor/PCA, extends probability along that direction with exponential decay over 
+   bounded distance (300m default, configurable). Optional edge-strength gating prevents extension 
+   into unsupported regions. Preserves float32 [0,1] range and valid-region masks. Config: 
+   `configs/resnet18_with_endpoint_extension.yaml`. Tests verify gap-bridging (broken lines with 
+   gaps < extension distance), noise-blob stability (isolated blobs don't sprout long tails), mask 
+   preservation, idempotence/bounded growth. With β=0.8, this targets cheap recall on organizer-confirmed 
+   "newly mapped continuations" class. Motivated by Mumford-Shah arc-termination geometry (Family 366). 
+   Ready for OOF ablation via canonical gate once training data is available.
 
 5. **Multi-scale gradient and structure-tensor features** – Add derived channels (edge magnitude, coherence, orientation, ridge/valley response) that expose lineaments. Use the Hilbert-transform lesson (Family 083): keep directional filter lengths below the scale where orientation changes significantly (~1/|∇v|). Each channel must pass the propose-and-verify gate on all three CV views.
 
