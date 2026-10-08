@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -257,7 +257,7 @@ def evaluate_candidate(
         )
     
     decision = GateDecision(
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         incumbent_id=incumbent_id,
         candidate_id=candidate_id,
         view_comparisons=comparisons,

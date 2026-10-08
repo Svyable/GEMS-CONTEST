@@ -22,6 +22,7 @@ Every decision (accept or reject) is appended to the ledger.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -158,7 +159,7 @@ def main() -> int:
             base_alpha=args.base_alpha,
             min_views_to_win=args.min_views,
         )
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, json.JSONDecodeError) as e:
         print(f"Error during evaluation: {e}", file=sys.stderr)
         return 1
     
@@ -166,7 +167,7 @@ def main() -> int:
     try:
         append_to_ledger(decision, args.ledger)
         print(f"Decision appended to ledger: {args.ledger}")
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
         print(f"Error writing ledger: {e}", file=sys.stderr)
         return 1
     
