@@ -1,0 +1,38 @@
+# ResNet-18 U-Net baseline with endpoint-extension post-processing
+# Priority #4: extend fault trace endpoints to recover continuations and splays
+seed_sequence: [20260922]
+data:
+  normalization: per_channel_minmax_over_training_region
+  negative_ratio: 1.0
+patches:
+  patch_size: 128
+  train_step: 32
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
+training:
+  epochs: 20
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.8, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30
+postprocessing:
+  endpoint_extension:
+    enabled: true
+    threshold: 0.5
+    max_distance_m: 300.0
+    pixel_size_m: 100.0
+    decay_rate: 0.15
+    edge_threshold: 0.3
