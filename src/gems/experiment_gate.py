@@ -1,5 +1,12 @@
 """Automated propose-and-verify experiment gate with multiple-comparisons correction.
 
+⚠️  DEPRECATED: Use gems.verification (scripts/verify_candidate.py) as the canonical gate.
+    This module remains for backward compatibility but verification.py is preferred:
+    - Better protocol validation (checks truth/fold SHA256)
+    - More transparent escalation schedule
+    - Committable JSONL ledger at docs/candidate-trials.jsonl
+    - Simpler paired-fold-differences implementation
+
 Implements roadmap priority #2: accept a candidate run only if it beats the incumbent
 on ≥2 of 3 CV views (spatial, fault-discovery, trace-completion) by more than
 fold-to-fold noise, with a multiple-comparisons-aware acceptance bar that tightens

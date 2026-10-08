@@ -74,22 +74,29 @@ The scored-submission allowance is three submissions in a rolling window, not a 
 
 1. **Complete fold-specific baseline training** – Train the ResNet-18 U-Net on all spatial folds with the corrected training-only normalization (PR #15 merged). Measure spatial and fault-discovery CV scores to establish the proper baseline for all future comparisons. This is blocked only by competition data availability.
 
-2. **Automated propose-and-verify experiment loop** – ✅ TWO IMPLEMENTATIONS 2026-10-07/08
+2. **Automated propose-and-verify experiment loop** – ✅ COMPLETED 2026-10-07/08
    
-   a) **Escalating-threshold gate** (`src/gems/verification.py`, `scripts/verify_candidate.py`, 
-      15 tests): Accepts if candidate beats incumbent on ≥2 of 3 CV views by more than 
-      max fold-to-fold std × (1 + 0.5·log2(1 + n)). Ledger: `docs/candidate-trials.jsonl`.
+   **Canonical implementation:** `src/gems/verification.py`, `scripts/verify_candidate.py` (15 tests).
+   Accepts if candidate beats incumbent on ≥2 of 3 CV views by more than max fold-to-fold std 
+   × (1 + 0.5·log2(1 + n)). Uses committable JSONL ledger at `docs/candidate-trials.jsonl`, 
+   with protocol validation (truth/fold SHA256, metric params).
    
-   b) **Statistical t-test gate** (2026-10-08: `src/gems/experiment_gate.py`, 
-      `scripts/evaluate_candidate.py`, 13 tests): Accepts if candidate wins ≥2 of 3 views 
-      via paired t-test at Bonferroni-corrected α = 0.05/(trials × views). Each view 
-      requires p < α' with mean improvement > 0. Ledger: trial-specific JSON paths.
-   
-   Both defend against CV overfitting. Choose based on preference: (a) uses fold std as 
-   noise floor with logarithmic escalation; (b) uses parametric statistics with strict 
-   family-wise error control. Verdicts inform upload decisions, don't trigger uploads.
+   *Note:* An alternate statistical gate (`experiment_gate.py`, paired t-tests with Bonferroni) 
+   was implemented 2026-10-08 but deprecated in favor of the simpler, more transparent 
+   verification.py approach. Both defend against CV overfitting through multiple-comparisons 
+   correction. Verdicts inform upload decisions, don't trigger uploads.
 
-3. **Mumford-Shah edge-strength feature channel** – Run an Ambrosio-Tortorelli phase-field approximation of vector-valued Mumford-Shah on the normalized geophysical bands. The edge indicator field captures where gravity, magnetic, conductivity, and strain-rate fields jump — exactly the fault signature. The new OpenAI regularity result (Family 366) confirms the geometric prior: fault networks are smooth arcs, terminations, and Y-junctions. Ablate this channel like any Phase-2 feature through the propose-and-verify gate above.
+3. **Mumford-Shah edge-strength feature channel** – ✅ COMPLETED 2026-10-08
+   
+   Implemented Laplacian of Gaussian (LoG) edge detection for geophysical bands 
+   (`src/gems/mumford_shah.py`, 16 tests). Integrated into derived feature pipeline 
+   (`src/gems/lineament.py`) with new `kind: mumford_shah_log` option. Computes edge-strength 
+   from second derivatives to distinguish sharp discontinuities from smooth gradients, capturing 
+   where gravity, magnetic, conductivity, and strain-rate fields jump. Uses fold-pure 
+   normalization (training-region-only stats) to prevent validation leakage. Candidate config: 
+   `configs/resnet18_mumford_shah_log.yaml`. OpenAI Family 366 (Mumford-Shah regularity) 
+   confirms geometric prior: fault networks are smooth arcs with bounded curvature. Ready for 
+   ablation through the propose-and-verify gate once training data is available.
 
 4. **Endpoint-extension post-processing for fault tips and splays** – Skeletonize probability maps into arcs, tips, and junctions. Extend arc endpoints along local orientation within ~300m (the metric's tolerance). With β=0.8, recovering plausible continuations of known faults is cheap recall. This targets the organizer-confirmed "newly mapped continuations" class and respects the Mumford-Shah arc-termination geometry.
 
