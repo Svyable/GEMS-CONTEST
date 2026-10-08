@@ -112,7 +112,18 @@ The scored-submission allowance is three submissions in a rolling window, not a 
    "newly mapped continuations" class. Motivated by Mumford-Shah arc-termination geometry (Family 366). 
    Ready for OOF ablation via canonical gate once training data is available.
 
-5. **Multi-scale gradient and structure-tensor features** – Add derived channels (edge magnitude, coherence, orientation, ridge/valley response) that expose lineaments. Use the Hilbert-transform lesson (Family 083): keep directional filter lengths below the scale where orientation changes significantly (~1/|∇v|). Each channel must pass the propose-and-verify gate on all three CV views.
+5. **Multi-scale gradient and structure-tensor features** – ⚡ PARTIALLY COMPLETED 2026-10-08
+   
+   **Implemented:** Structure tensor coherence and orientation channels (`src/gems/lineament.py`, 
+   7 tests). Coherence (λ1-λ2)/(λ1+λ2+ε) measures directional structure strength [0,1]; orientation 
+   gives dominant angle [-π/2, π/2]. High coherence + consistent orientation = lineament. Configurable 
+   smoothing windows (sigma_pixels for gradient pre-smoothing, structure_tensor_window for gradient-product 
+   smoothing). Config: `configs/resnet18_structure_tensor.yaml`. Motivated by OpenAI Family 083 
+   (Hilbert/Lipschitz): keep filter lengths below orientation-change scale (~1/|∇v|).
+   
+   **Still needed:** Ridge/valley response (eigenvalue analysis for valley-following), multi-scale 
+   variants (pyramid of window sizes), directional/steerable filters. Each new channel must pass the 
+   propose-and-verify gate on all three CV views once training data is available.
 
 6. **Ensemble and calibration framework** – Build infrastructure to blend predictions from multiple models/seeds/folds with proper calibration against held-out data. With beta=0.8, optimal ensemble weights will differ from accuracy-based weights. Candidates enter through the propose-and-verify gate.
 
