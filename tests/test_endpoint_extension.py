@@ -3,19 +3,11 @@
 import numpy as np
 import pytest
 
-from gems.endpoint_extension import HAS_SKIMAGE
-
-if HAS_SKIMAGE:
-    from gems.endpoint_extension import (
-        compute_structure_tensor_orientation,
-        extend_endpoint,
-        extend_fault_endpoints,
-        find_skeleton_endpoints,
-    )
-
-pytestmark = pytest.mark.skipif(
-    not HAS_SKIMAGE,
-    reason="endpoint extension requires scikit-image (install with: pip install scikit-image)",
+from gems.endpoint_extension import (
+    compute_structure_tensor_orientation,
+    extend_endpoint,
+    extend_fault_endpoints,
+    find_skeleton_endpoints,
 )
 
 
