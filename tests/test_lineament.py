@@ -271,3 +271,152 @@ def test_structure_tensor_multi_channel_aggregation():
     # than either alone (more isotropic)
     assert result.shape == (30, 30, 1)
     assert np.all((0 <= result) & (result <= 1))
+
+
+def _vertical_gaussian_trough(size, center_col, width, amplitude=1.0):
+    """Field with a vertical trough (valley) line at center_col."""
+    xx = np.arange(size, dtype=np.float32)
+    profile = -amplitude * np.exp(-((xx - center_col) ** 2) / (2 * width**2))
+    field = np.tile(profile, (size, 1))
+    return field[..., np.newaxis]
+
+
+def _vertical_gaussian_crest(size, center_col, width, amplitude=1.0):
+    """Field with a vertical crest (ridge) line at center_col."""
+    xx = np.arange(size, dtype=np.float32)
+    profile = amplitude * np.exp(-((xx - center_col) ** 2) / (2 * width**2))
+    field = np.tile(profile, (size, 1))
+    return field[..., np.newaxis]
+
+
+def test_ridge_valley_response_detects_valley():
+    """A concave-up trough line should give a strong positive signed response."""
+    size, center = 60, 30
+    features = _vertical_gaussian_trough(size, center, width=1.5)
+    valid = np.ones((size, size), dtype=bool)
+
+    result, metadata = grouped_lineament_features(
+        features,
+        {"trough": (0,)},
+        valid_mask=valid,
+        kind="ridge_valley_response",
+        sigma_pixels=1.0,
+        structure_tensor_window=2.0,
+    )
+
+    assert result.shape == (size, size, 1)
+    assert np.all((-1 <= result) & (result <= 1))
+    center_response = result[size // 2, center, 0]
+    assert center_response > 0.5, f"expected strong valley response, got {center_response}"
+    # Far from the line the response should be near zero.
+    background = result[size // 2, 0, 0]
+    assert abs(background) < 0.1, f"expected quiet background, got {background}"
+    assert metadata["output_channels"] == ["trough:ridge_valley_response"]
+    assert metadata["phase_interpretation"] == (
+        "signed_multiscale_hessian_eigenvalue_ridge_valley_response"
+    )
+
+
+def test_ridge_valley_response_detects_ridge():
+    """A concave-down crest line should give a strong negative signed response."""
+    size, center = 60, 30
+    features = _vertical_gaussian_crest(size, center, width=1.5)
+    valid = np.ones((size, size), dtype=bool)
+
+    result, _ = grouped_lineament_features(
+        features,
+        {"crest": (0,)},
+        valid_mask=valid,
+        kind="ridge_valley_response",
+        sigma_pixels=1.0,
+        structure_tensor_window=2.0,
+    )
+
+    center_response = result[size // 2, center, 0]
+    assert center_response < -0.5, f"expected strong ridge response, got {center_response}"
+    background = result[size // 2, 0, 0]
+    assert abs(background) < 0.1, f"expected quiet background, got {background}"
+
+
+def test_ridge_valley_response_constant_field_is_zero():
+    """A constant field has zero Hessian and therefore zero response."""
+    features = np.ones((25, 25, 1), dtype=np.float32) * 3.0
+    valid = np.ones((25, 25), dtype=bool)
+
+    result, metadata = grouped_lineament_features(
+        features,
+        {"constant": (0,)},
+        valid_mask=valid,
+        kind="ridge_valley_response",
+        sigma_pixels=1.0,
+        structure_tensor_window=2.0,
+    )
+
+    assert result.shape == (25, 25, 1)
+    assert np.allclose(result, 0.0, atol=1e-6)
+    assert metadata["multiscale_sigmas"] == [1.0]
+
+
+def test_ridge_valley_response_multiscale_picks_best_scale():
+    """Multi-scale max should detect the valley and record every scale."""
+    size, center = 60, 30
+    features = _vertical_gaussian_trough(size, center, width=2.0)
+    valid = np.ones((size, size), dtype=bool)
+
+    result, metadata = grouped_lineament_features(
+        features,
+        {"trough": (0,)},
+        valid_mask=valid,
+        kind="ridge_valley_response",
+        sigma_pixels=1.0,
+        structure_tensor_window=2.0,
+        ridge_valley_scales=(0.5, 2.0, 4.0),
+    )
+
+    assert metadata["multiscale_sigmas"] == [0.5, 2.0, 4.0]
+    center_response = result[size // 2, center, 0]
+    assert center_response > 0.5, f"expected multiscale valley response, got {center_response}"
+    assert np.all((-1 <= result) & (result <= 1))
+
+
+def test_ridge_valley_response_handles_invalid_regions():
+    """Invalid pixels must stay zero and not poison the Hessian."""
+    size, center = 50, 25
+    features = _vertical_gaussian_trough(size, center, width=1.5)
+    features[0, 0, 0] = np.nan
+    valid = np.ones((size, size), dtype=bool)
+    valid[:4, :4] = False
+
+    result, _ = grouped_lineament_features(
+        features,
+        {"trough": (0,)},
+        valid_mask=valid,
+        kind="ridge_valley_response",
+        sigma_pixels=1.0,
+        structure_tensor_window=2.0,
+    )
+
+    assert np.isfinite(result).all()
+    assert not result[:4, :4].any()
+    # Valley line far from the invalid corner still responds.
+    assert result[size // 2, center, 0] > 0.3
+
+
+@pytest.mark.parametrize(
+    "scales",
+    [
+        [],
+        (-1.0,),
+        (1.0, float("inf")),
+        (float("nan"),),
+    ],
+)
+def test_invalid_ridge_valley_scales_are_rejected(scales):
+    with pytest.raises(ValueError):
+        grouped_lineament_features(
+            np.ones((8, 8, 1), dtype=np.float32),
+            {"group": (0,)},
+            valid_mask=np.ones((8, 8), bool),
+            kind="ridge_valley_response",
+            ridge_valley_scales=scales,
+        )

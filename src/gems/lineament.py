@@ -69,6 +69,25 @@ def _masked_gaussian(
     return result
 
 
+def _symmetric_eigenvalues(
+    a: np.ndarray,
+    b: np.ndarray,
+    c: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Eigenvalues (descending order) of the 2x2 symmetric matrix [[a, c], [c, b]].
+
+    Computed elementwise: trace = a + b, det = a*b - c**2,
+    lambda = (trace +/- sqrt(trace**2 - 4*det)) / 2.
+    """
+    trace = a + b
+    det = a * b - c * c
+    discriminant = np.maximum(trace * trace - 4.0 * det, 0.0)
+    sqrt_disc = np.sqrt(discriminant)
+    lambda_max = (trace + sqrt_disc) / 2.0
+    lambda_min = (trace - sqrt_disc) / 2.0
+    return lambda_max, lambda_min
+
+
 def grouped_lineament_features(
     features: np.ndarray,
     groups: Mapping[str, Sequence[int]],
@@ -78,6 +97,7 @@ def grouped_lineament_features(
     sigma_pixels: float = 1.0,
     phase_epsilon_pixels: float = 1.0,
     structure_tensor_window: float = 3.0,
+    ridge_valley_scales: Sequence[float] | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Create one derived lineament channel per physical feature family.
 
@@ -109,6 +129,24 @@ def grouped_lineament_features(
     structure_tensor_orientation computes the dominant orientation angle
     (in radians, [-π/2, π/2]) from the structure tensor eigenvector. This
     indicates the direction of maximum change perpendicular to the lineament.
+
+    ridge_valley_response computes the Hessian of each smoothed band, takes
+    the eigenvalues λmax >= λmin of the cross-channel-averaged Hessian, and
+    forms a signed valley-following channel:
+
+        valley = relu(λmax - λmin) * relu(λmax)    (concave-up trough)
+        ridge  = relu(λmax - λmin) * relu(-λmin)   (concave-down crest)
+        signed = valley - ridge
+
+    The eigenvalue-gap factor suppresses isotropic blobs; the sign term
+    distinguishes valleys (fault-parallel topographic troughs, conductivity
+    lows) from ridges. With ridge_valley_scales set to a tuple of pixel
+    scales, the response is computed at each scale and the valley/ridge terms
+    are maxed independently across the pyramid (Frangi-style multi-scale
+    detection). The signed channel is normalized by the 99th percentile of
+    its magnitude over the valid region (fold-pure: statistics from valid
+    only) and clipped to [-1, 1]; 0 means no directional second-order
+    structure.
     """
     x = np.asarray(features, dtype=np.float32)
     valid = np.asarray(valid_mask, dtype=bool)
@@ -116,7 +154,8 @@ def grouped_lineament_features(
         raise ValueError("features must be HWC and valid_mask must match HW")
     allowed_kinds = {
         "gradient_energy", "phase_edge", "mumford_shah_log",
-        "structure_tensor_coherence", "structure_tensor_orientation"
+        "structure_tensor_coherence", "structure_tensor_orientation",
+        "ridge_valley_response",
     }
     if kind not in allowed_kinds:
         raise ValueError(f"kind must be one of {allowed_kinds}")
@@ -126,6 +165,12 @@ def grouped_lineament_features(
         raise ValueError("phase_epsilon_pixels must be finite and positive")
     if structure_tensor_window <= 0 or not np.isfinite(structure_tensor_window):
         raise ValueError("structure_tensor_window must be finite and positive")
+    if ridge_valley_scales is not None:
+        ridge_valley_scales = tuple(float(s) for s in ridge_valley_scales)
+        if not ridge_valley_scales:
+            raise ValueError("ridge_valley_scales must be non-empty when given")
+        if any(s < 0 or not np.isfinite(s) for s in ridge_valley_scales):
+            raise ValueError("ridge_valley_scales must be finite and nonnegative")
     if not groups:
         raise ValueError("at least one feature group is required")
 
@@ -229,6 +274,54 @@ def grouped_lineament_features(
                 # This gives the angle of the dominant direction (perpendicular to lineament)
                 # Range [-π/2, π/2]
                 derived = 0.5 * np.arctan2(2 * jxy, jxx - jyy).astype(np.float32, copy=False)
+        elif kind == "ridge_valley_response":
+            # Hessian eigenvalue analysis: fault-parallel troughs and crests
+            # produce strongly asymmetric second derivatives — large curvature
+            # across the lineament, near-zero curvature along it.
+            scales = (
+                tuple(ridge_valley_scales)
+                if ridge_valley_scales is not None
+                else (float(sigma_pixels),)
+            )
+            max_valley = np.zeros(x.shape[:2], dtype=np.float32)
+            max_ridge = np.zeros(x.shape[:2], dtype=np.float32)
+
+            for scale in scales:
+                hxx = np.zeros(x.shape[:2], dtype=np.float32)
+                hyy = np.zeros(x.shape[:2], dtype=np.float32)
+                hxy = np.zeros(x.shape[:2], dtype=np.float32)
+
+                for index in indices:
+                    smoothed = _masked_gaussian(x[..., index], valid, scale)
+                    grad_y, grad_x = np.gradient(smoothed)
+                    # Second derivatives: d²/dx², d²/dy², d²/dxdy
+                    dxx = np.gradient(grad_x.astype(np.float32, copy=False), axis=1)
+                    dyy = np.gradient(grad_y.astype(np.float32, copy=False), axis=0)
+                    dxy = np.gradient(grad_x.astype(np.float32, copy=False), axis=0)
+
+                    hxx += _masked_gaussian(dxx, valid, structure_tensor_window)
+                    hyy += _masked_gaussian(dyy, valid, structure_tensor_window)
+                    hxy += _masked_gaussian(dxy, valid, structure_tensor_window)
+
+                hxx /= np.float32(len(indices))
+                hyy /= np.float32(len(indices))
+                hxy /= np.float32(len(indices))
+
+                lambda_max, lambda_min = _symmetric_eigenvalues(hxx, hyy, hxy)
+                gap = np.maximum(lambda_max - lambda_min, 0.0)
+                valley = gap * np.maximum(lambda_max, 0.0)
+                ridge = gap * np.maximum(-lambda_min, 0.0)
+                max_valley = np.maximum(max_valley, valley)
+                max_ridge = np.maximum(max_ridge, ridge)
+
+            signed = max_valley - max_ridge
+            # Fold-pure robust scale: 99th percentile over the valid region only.
+            valid_signed = np.abs(signed[valid]) if valid.any() else np.array([])
+            denom = float(np.percentile(valid_signed, 99.0)) if valid_signed.size else 0.0
+            if denom > 0:
+                derived = np.clip(signed / denom, -1.0, 1.0).astype(np.float32, copy=False)
+            else:
+                derived = np.zeros(x.shape[:2], dtype=np.float32)
         else:
             # Original gradient_energy and phase_edge implementations
             energy = np.zeros(x.shape[:2], dtype=np.float32)
@@ -263,6 +356,8 @@ def grouped_lineament_features(
         interpretation = "eigenvalue_coherence_from_smoothed_structure_tensor"
     elif kind == "structure_tensor_orientation":
         interpretation = "dominant_orientation_angle_from_structure_tensor_eigenvector"
+    elif kind == "ridge_valley_response":
+        interpretation = "signed_multiscale_hessian_eigenvalue_ridge_valley_response"
     else:
         interpretation = None
     
@@ -278,5 +373,13 @@ def grouped_lineament_features(
     
     if kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
         metadata["structure_tensor_window"] = float(structure_tensor_window)
-    
+
+    if kind == "ridge_valley_response":
+        metadata["structure_tensor_window"] = float(structure_tensor_window)
+        metadata["multiscale_sigmas"] = (
+            [float(s) for s in ridge_valley_scales]
+            if ridge_valley_scales is not None
+            else [float(sigma_pixels)]
+        )
+
     return stacked, metadata

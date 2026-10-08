@@ -112,7 +112,7 @@ The scored-submission allowance is three submissions in a rolling window, not a 
    "newly mapped continuations" class. Motivated by Mumford-Shah arc-termination geometry (Family 366). 
    Ready for OOF ablation via canonical gate once training data is available.
 
-5. **Multi-scale gradient and structure-tensor features** – ⚡ PARTIALLY COMPLETED 2026-10-08
+5. **Multi-scale gradient and structure-tensor features** – ⚡ MOSTLY COMPLETED 2026-10-08
    
    **Implemented:** Structure tensor coherence and orientation channels (`src/gems/lineament.py`, 
    7 tests). Coherence (λ1-λ2)/(λ1+λ2+ε) measures directional structure strength [0,1]; orientation 
@@ -120,9 +120,18 @@ The scored-submission allowance is three submissions in a rolling window, not a 
    smoothing windows (sigma_pixels for gradient pre-smoothing, structure_tensor_window for gradient-product 
    smoothing). Config: `configs/resnet18_structure_tensor.yaml`. Motivated by OpenAI Family 083 
    (Hilbert/Lipschitz): keep filter lengths below orientation-change scale (~1/|∇v|).
+
+   **Implemented 2026-10-08:** Hessian-eigenvalue ridge/valley response + multi-scale
+   pyramid (`src/gems/lineament.py` `kind: ridge_valley_response`, 9 new tests;
+   config `configs/resnet18_ridge_valley.yaml`). signed = valley−ridge where
+   valley = relu(λmax−λmin)·relu(λmax) and ridge = relu(λmax−λmin)·relu(−λmin),
+   normalized by the fold-pure 99th percentile of |signed| to [−1,1]. The
+   `ridge_valley_scales` pyramid maxes valley/ridge terms independently
+   (Frangi-style); `structure_tensor_window` smooths the Hessian components.
+   Distinguishes fault-parallel troughs/crests from isotropic blobs and step
+   edges (already covered by gradient/structure-tensor channels).
    
-   **Still needed:** Ridge/valley response (eigenvalue analysis for valley-following), multi-scale 
-   variants (pyramid of window sizes), directional/steerable filters. Each new channel must pass the 
+   **Still needed:** Directional/steerable filters. Each new channel must pass the 
    propose-and-verify gate on all three CV views once training data is available.
 
 6. **Ensemble and calibration framework** – Build infrastructure to blend predictions from multiple models/seeds/folds with proper calibration against held-out data. With beta=0.8, optimal ensemble weights will differ from accuracy-based weights. Candidates enter through the propose-and-verify gate.
