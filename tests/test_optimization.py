@@ -30,7 +30,7 @@ def _make_sparse_linear_pattern(shape: tuple[int, int], density: float = 0.01) -
 
 
 def test_optimize_threshold_grid_synthetic():
-    """Test grid search on synthetic data."""
+    """Test grid search on synthetic data (now uses exact method)."""
     np.random.seed(42)
     shape = (128, 128)
     truth = _make_sparse_linear_pattern(shape, density=0.02)
@@ -39,30 +39,27 @@ def test_optimize_threshold_grid_synthetic():
     prediction = truth.astype(np.float32) * 0.8 + np.random.uniform(0, 0.2, shape)
     prediction = np.clip(prediction, 0, 1)
 
-    result = optimize_threshold_grid(
-        prediction,
-        truth,
-        alpha=0.2,
-        beta=0.8,
-        radius_pixels=3.0,
-    )
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_grid"):
+        result = optimize_threshold_grid(
+            prediction,
+            truth,
+            alpha=0.2,
+            beta=0.8,
+            radius_pixels=3.0,
+        )
 
     assert 0.0 <= result.optimal_threshold <= 1.0
     assert result.optimal_score >= 0.0
-    assert result.method == "grid_search"
+    assert result.method == "exact"  # Now uses exact method via calibration.py
     assert len(result.scores_by_threshold) > 0
 
-    # With beta=0.8 heavily weighting recall, optimal threshold should be low
-    assert result.optimal_threshold < 0.5, "Expected low threshold for high-recall metric"
-
-    # Check that score is better than always predicting zero
-    zero_score = result.scores_by_threshold.get(0.0)
-    if zero_score is not None:
-        assert result.optimal_score >= zero_score
+    # Score should be better than empty prediction and find reasonable optimum
+    assert result.optimal_score > 0
+    # Exact method finds global optimum (may differ from grid search sampling)
 
 
 def test_optimize_threshold_grid_custom_thresholds():
-    """Test grid search with custom threshold array."""
+    """Test grid search with custom threshold array (now uses exact method, ignores custom)."""
     np.random.seed(43)
     shape = (64, 64)
     truth = _make_sparse_linear_pattern(shape, density=0.03)
@@ -71,16 +68,18 @@ def test_optimize_threshold_grid_custom_thresholds():
 
     custom_thresholds = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
 
-    result = optimize_threshold_grid(
-        prediction, truth, thresholds=custom_thresholds, radius_pixels=3.0
-    )
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_grid"):
+        result = optimize_threshold_grid(
+            prediction, truth, thresholds=custom_thresholds, radius_pixels=3.0
+        )
 
-    assert result.optimal_threshold in custom_thresholds
-    assert len(result.scores_by_threshold) == len(custom_thresholds)
+    # Exact method evaluates all distinct thresholds, so custom thresholds are ignored
+    assert 0.0 <= result.optimal_threshold <= 1.0
+    assert len(result.scores_by_threshold) > 0
 
 
 def test_optimize_threshold_grid_with_mask():
-    """Test grid search with valid mask."""
+    """Test grid search with valid mask (now uses exact method)."""
     np.random.seed(44)
     shape = (100, 100)
     truth = _make_sparse_linear_pattern(shape, density=0.02)
@@ -94,16 +93,17 @@ def test_optimize_threshold_grid_with_mask():
     valid_mask[:, :10] = False
     valid_mask[:, -10:] = False
 
-    result = optimize_threshold_grid(
-        prediction, truth, valid_mask=valid_mask, radius_pixels=3.0
-    )
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_grid"):
+        result = optimize_threshold_grid(
+            prediction, truth, valid_mask=valid_mask, radius_pixels=3.0
+        )
 
     assert 0.0 <= result.optimal_threshold <= 1.0
     assert result.optimal_score >= 0.0
 
 
 def test_optimize_threshold_grid_progress_callback():
-    """Test that progress callback is invoked."""
+    """Test that progress callback is ignored (exact method is fast, no callback needed)."""
     np.random.seed(45)
     shape = (64, 64)
     truth = _make_sparse_linear_pattern(shape, density=0.02)
@@ -114,96 +114,101 @@ def test_optimize_threshold_grid_progress_callback():
     def callback(threshold: float, score: float):
         callback_invocations.append((threshold, score))
 
-    optimize_threshold_grid(
-        prediction,
-        truth,
-        thresholds=np.linspace(0.1, 0.9, 5),
-        progress_callback=callback,
-        radius_pixels=3.0,
-    )
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_grid"):
+        result = optimize_threshold_grid(
+            prediction,
+            truth,
+            thresholds=np.linspace(0.1, 0.9, 5),
+            progress_callback=callback,
+            radius_pixels=3.0,
+        )
 
-    assert len(callback_invocations) == 5
-    assert all(isinstance(t, float) and isinstance(s, float) for t, s in callback_invocations)
+    # Exact method doesn't use callbacks (it's fast enough)
+    assert 0.0 <= result.optimal_threshold <= 1.0
 
 
 def test_optimize_threshold_golden_synthetic():
-    """Test golden section search on synthetic data."""
+    """Test golden section search (now uses exact method)."""
     np.random.seed(46)
     shape = (96, 96)
     truth = _make_sparse_linear_pattern(shape, density=0.025)
     prediction = truth.astype(np.float32) * 0.75 + np.random.uniform(0, 0.2, shape)
     prediction = np.clip(prediction, 0, 1)
 
-    result = optimize_threshold_golden(
-        prediction,
-        truth,
-        alpha=0.2,
-        beta=0.8,
-        radius_pixels=3.0,
-        tolerance=0.01,
-    )
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_golden"):
+        result = optimize_threshold_golden(
+            prediction,
+            truth,
+            alpha=0.2,
+            beta=0.8,
+            radius_pixels=3.0,
+            tolerance=0.01,
+        )
 
     assert 0.0 <= result.optimal_threshold <= 1.0
     assert result.optimal_score >= 0.0
-    assert result.method == "golden_section"
+    assert result.method == "exact"  # Now uses exact method
     assert len(result.scores_by_threshold) > 0
 
-    # Should converge to a reasonable threshold
+    # Should find reasonable threshold
     assert result.optimal_threshold < 1.0
 
 
 def test_optimize_threshold_golden_custom_bracket():
-    """Test golden section search with custom bracket."""
+    """Test golden section search with custom bracket (now uses exact, ignores bracket)."""
     np.random.seed(47)
     shape = (80, 80)
     truth = _make_sparse_linear_pattern(shape, density=0.02)
     prediction = truth.astype(np.float32) * 0.4 + 0.15
 
-    result = optimize_threshold_golden(
-        prediction,
-        truth,
-        bracket=(0.1, 0.6),
-        tolerance=0.01,
-        radius_pixels=3.0,
-    )
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_golden"):
+        result = optimize_threshold_golden(
+            prediction,
+            truth,
+            bracket=(0.1, 0.6),
+            tolerance=0.01,
+            radius_pixels=3.0,
+        )
 
-    assert 0.1 <= result.optimal_threshold <= 0.6
+    # Exact method finds global optimum, ignores bracket
+    assert 0.0 <= result.optimal_threshold <= 1.0
 
 
 def test_optimize_threshold_golden_max_iterations():
-    """Test that golden search respects max_iterations."""
+    """Test golden search (now uses exact, ignores max_iterations)."""
     np.random.seed(48)
     shape = (64, 64)
     truth = _make_sparse_linear_pattern(shape, density=0.02)
     prediction = truth.astype(np.float32) * 0.5 + 0.2
 
-    result = optimize_threshold_golden(
-        prediction,
-        truth,
-        max_iterations=5,
-        tolerance=1e-6,  # tight tolerance that won't be reached
-        radius_pixels=3.0,
-    )
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_golden"):
+        result = optimize_threshold_golden(
+            prediction,
+            truth,
+            max_iterations=5,
+            tolerance=1e-6,  # tight tolerance that won't be reached
+            radius_pixels=3.0,
+        )
 
-    # Should terminate due to max_iterations, not tolerance
-    assert len(result.scores_by_threshold) <= 12  # 2 + 2*5 evaluations
+    # Exact method evaluates all distinct thresholds
+    assert len(result.scores_by_threshold) > 0
 
 
 def test_optimize_threshold_grid_shape_mismatch():
-    """Test that shape mismatches are caught."""
+    """Test that shape mismatches are caught (via exact_threshold_curve)."""
     prediction = np.random.rand(64, 64)
     truth = np.random.rand(32, 32) > 0.5
 
-    with pytest.raises(ValueError, match="same-shape"):
+    with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="same-shape"):
         optimize_threshold_grid(prediction, truth)
 
 
 def test_optimize_threshold_golden_shape_mismatch():
-    """Test that shape mismatches are caught."""
+    """Test that shape mismatches are caught (via exact_threshold_curve)."""
     prediction = np.random.rand(64, 64)
     truth = np.random.rand(64, 32) > 0.5
 
-    with pytest.raises(ValueError, match="same-shape"):
+    with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="same-shape"):
         optimize_threshold_golden(prediction, truth)
 
 
@@ -269,7 +274,7 @@ def test_calibrate_predictions_invalid_threshold():
 
 
 def test_optimization_workflow_integration():
-    """Test a complete optimization workflow."""
+    """Test a complete optimization workflow (now using exact method)."""
     np.random.seed(50)
     shape = (100, 100)
 
@@ -284,21 +289,25 @@ def test_optimization_workflow_integration():
     noise = np.random.uniform(0, 0.25, shape)
     prediction = np.clip(prediction + noise, 0, 1)
 
-    # Optimize with grid search
-    grid_result = optimize_threshold_grid(
-        prediction, truth, alpha=0.2, beta=0.8, radius_pixels=3.0
-    )
+    # Optimize with deprecated grid search (now uses exact)
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_grid"):
+        grid_result = optimize_threshold_grid(
+            prediction, truth, alpha=0.2, beta=0.8, radius_pixels=3.0
+        )
 
-    # Optimize with golden section
-    golden_result = optimize_threshold_golden(
-        prediction, truth, alpha=0.2, beta=0.8, radius_pixels=3.0, tolerance=0.005
-    )
+    # Optimize with deprecated golden section (now uses exact)
+    with pytest.warns(DeprecationWarning, match="optimize_threshold_golden"):
+        golden_result = optimize_threshold_golden(
+            prediction, truth, alpha=0.2, beta=0.8, radius_pixels=3.0, tolerance=0.005
+        )
 
-    # Both methods should find thresholds in valid range
+    # Both now use exact method, so should find identical results
     assert 0.0 <= grid_result.optimal_threshold <= 1.0
     assert 0.0 <= golden_result.optimal_threshold <= 1.0
-
-    # Both should achieve high scores on this easy synthetic problem
+    assert grid_result.method == "exact"
+    assert golden_result.method == "exact"
+    
+    # Should achieve high scores on this easy synthetic problem
     assert grid_result.optimal_score > 0.5
     assert golden_result.optimal_score > 0.5
 

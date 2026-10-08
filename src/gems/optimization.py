@@ -1,26 +1,33 @@
-"""Threshold and prediction optimization for the Tversky metric.
+"""Deprecated threshold optimization (superseded by calibration.py).
 
-The competition uses a distance-weighted Tversky index with alpha=0.2, beta=0.8,
-and 300m tolerance. This heavily weights recall over precision, so the optimal
-probability threshold is typically much lower than 0.5.
+DEPRECATION NOTICE: This module is deprecated. Use gems.calibration instead.
 
-This module provides tools to find optimal thresholds and potentially refine
-predictions to maximize the competition metric.
+The exact_threshold_curve() function in gems.calibration evaluates every distinct
+threshold state efficiently via event-based cumulative sums, making it both faster
+and more accurate than the grid-search approach here.
+
+Migration guide:
+- optimize_threshold_grid() -> use exact_threshold_curve() from gems.calibration
+- optimize_threshold_golden() -> use exact_threshold_curve() (finds exact global optimum)
+- calibrate_predictions() -> unchanged, kept for compatibility
+
+This module now wraps gems.calibration for backward compatibility.
 """
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
 
-from gems.metric import distance_weighted_tversky
+from gems.calibration import exact_threshold_curve
 
 
 @dataclass(frozen=True)
 class ThresholdResult:
-    """Result from threshold optimization."""
+    """Result from threshold optimization (deprecated)."""
 
     optimal_threshold: float
     optimal_score: float
@@ -39,13 +46,11 @@ def optimize_threshold_grid(
     thresholds: np.ndarray | None = None,
     progress_callback: Callable[[float, float], None] | None = None,
 ) -> ThresholdResult:
-    """Find optimal threshold via grid search.
+    """Find optimal threshold (DEPRECATED: use gems.calibration.exact_threshold_curve).
 
-    This exhaustively evaluates the Tversky metric at each threshold and
-    returns the threshold that maximizes the score.
-
-    The default search grid emphasizes the lower probability range where
-    the optimal threshold likely lies given beta=0.8 > alpha=0.2.
+    This now wraps exact_threshold_curve() for backward compatibility.
+    The exact method evaluates every distinct threshold state efficiently
+    and is both faster and more accurate than grid search.
 
     Args:
         prediction: Continuous probability array in [0, 1]
@@ -54,60 +59,38 @@ def optimize_threshold_grid(
         alpha: Tversky alpha (false positive penalty weight)
         beta: Tversky beta (false negative penalty weight)
         radius_pixels: Distance tolerance in pixels
-        thresholds: Custom threshold grid (default: emphasis on [0, 0.5])
-        progress_callback: Optional callback(threshold, score) for monitoring
+        thresholds: Ignored (exact method evaluates all thresholds)
+        progress_callback: Ignored (exact method is fast)
 
     Returns:
         ThresholdResult with optimal threshold and scores
     """
-    pred = np.asarray(prediction, dtype=np.float64)
-    gt = np.asarray(truth).astype(bool)
+    warnings.warn(
+        "optimize_threshold_grid() is deprecated. Use gems.calibration.exact_threshold_curve() "
+        "for exact, efficient threshold optimization.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    if pred.ndim != 2 or gt.ndim != 2 or pred.shape != gt.shape:
-        raise ValueError("prediction and truth must be same-shape 2D arrays")
+    # Use exact method from calibration.py
+    curve = exact_threshold_curve(
+        prediction,
+        truth,
+        valid_mask=valid_mask,
+        alpha=alpha,
+        beta=beta,
+        radius_pixels=radius_pixels,
+    )
 
-    if thresholds is None:
-        # Dense sampling in [0, 0.5] where optimal likely lies,
-        # sparser in [0.5, 1.0]
-        thresholds = np.concatenate(
-            [
-                np.linspace(0.0, 0.5, 51),  # every 0.01 up to 0.5
-                np.linspace(0.52, 1.0, 25),  # every 0.02 above 0.5
-            ]
-        )
-
-    scores: dict[float, float] = {}
-    best_threshold = 0.0
-    best_score = -np.inf
-
-    for threshold in thresholds:
-        # Threshold predictions remain as soft values,
-        # just evaluating at this threshold level
-        binary_pred = (pred >= threshold).astype(np.float32)
-
-        score = distance_weighted_tversky(
-            binary_pred,
-            gt,
-            alpha=alpha,
-            beta=beta,
-            radius_pixels=radius_pixels,
-            valid_mask=valid_mask,
-        )
-
-        scores[float(threshold)] = score
-
-        if score > best_score:
-            best_score = score
-            best_threshold = float(threshold)
-
-        if progress_callback is not None:
-            progress_callback(float(threshold), score)
+    scores_dict = {
+        float(t): float(s) for t, s in zip(curve.thresholds, curve.scores, strict=False)
+    }
 
     return ThresholdResult(
-        optimal_threshold=best_threshold,
-        optimal_score=best_score,
-        scores_by_threshold=scores,
-        method="grid_search",
+        optimal_threshold=curve.best_threshold,
+        optimal_score=float(curve.scores.max()),
+        scores_by_threshold=scores_dict,
+        method="exact",
     )
 
 
@@ -124,11 +107,11 @@ def optimize_threshold_golden(
     max_iterations: int = 50,
     progress_callback: Callable[[float, float], None] | None = None,
 ) -> ThresholdResult:
-    """Find optimal threshold via golden section search.
+    """Find optimal threshold (DEPRECATED: use gems.calibration.exact_threshold_curve).
 
-    This is more efficient than grid search for smooth objective functions,
-    but may miss local optima. Use grid search first to understand the
-    landscape, then golden search for refinement if needed.
+    This now wraps exact_threshold_curve() for backward compatibility.
+    The exact method finds the global optimum directly without search,
+    making golden section search unnecessary.
 
     Args:
         prediction: Continuous probability array in [0, 1]
@@ -137,77 +120,40 @@ def optimize_threshold_golden(
         alpha: Tversky alpha (false positive penalty weight)
         beta: Tversky beta (false negative penalty weight)
         radius_pixels: Distance tolerance in pixels
-        bracket: Search interval (default [0, 1])
-        tolerance: Convergence tolerance
-        max_iterations: Maximum search iterations
-        progress_callback: Optional callback(threshold, score) for monitoring
+        bracket: Ignored (exact method evaluates all thresholds)
+        tolerance: Ignored
+        max_iterations: Ignored
+        progress_callback: Ignored
 
     Returns:
         ThresholdResult with optimal threshold and scores
     """
-    pred = np.asarray(prediction, dtype=np.float64)
-    gt = np.asarray(truth).astype(bool)
+    warnings.warn(
+        "optimize_threshold_golden() is deprecated. Use gems.calibration.exact_threshold_curve() "
+        "which finds the exact global optimum without search.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
-    if pred.ndim != 2 or gt.ndim != 2 or pred.shape != gt.shape:
-        raise ValueError("prediction and truth must be same-shape 2D arrays")
+    # Use exact method from calibration.py
+    curve = exact_threshold_curve(
+        prediction,
+        truth,
+        valid_mask=valid_mask,
+        alpha=alpha,
+        beta=beta,
+        radius_pixels=radius_pixels,
+    )
 
-    phi = (1 + np.sqrt(5)) / 2  # golden ratio
-    resphi = 2 - phi
-
-    def evaluate(threshold: float) -> float:
-        binary_pred = (pred >= threshold).astype(np.float32)
-        score = distance_weighted_tversky(
-            binary_pred,
-            gt,
-            alpha=alpha,
-            beta=beta,
-            radius_pixels=radius_pixels,
-            valid_mask=valid_mask,
-        )
-        if progress_callback is not None:
-            progress_callback(threshold, score)
-        return score
-
-    a, b = bracket
-    scores: dict[float, float] = {}
-
-    # Initial points
-    c = b - resphi * (b - a)
-    d = a + resphi * (b - a)
-    score_c = evaluate(c)
-    score_d = evaluate(d)
-    scores[c] = score_c
-    scores[d] = score_d
-
-    for _ in range(max_iterations):
-        if b - a < tolerance:
-            break
-
-        # Golden section maximization (note: we want maximum, not minimum)
-        if score_c > score_d:
-            b = d
-            d = c
-            score_d = score_c
-            c = b - resphi * (b - a)
-            score_c = evaluate(c)
-            scores[c] = score_c
-        else:
-            a = c
-            c = d
-            score_c = score_d
-            d = a + resphi * (b - a)
-            score_d = evaluate(d)
-            scores[d] = score_d
-
-    optimal_threshold = (a + b) / 2
-    optimal_score = evaluate(optimal_threshold)
-    scores[optimal_threshold] = optimal_score
+    scores_dict = {
+        float(t): float(s) for t, s in zip(curve.thresholds, curve.scores, strict=False)
+    }
 
     return ThresholdResult(
-        optimal_threshold=optimal_threshold,
-        optimal_score=optimal_score,
-        scores_by_threshold=scores,
-        method="golden_section",
+        optimal_threshold=curve.best_threshold,
+        optimal_score=float(curve.scores.max()),
+        scores_by_threshold=scores_dict,
+        method="exact",
     )
 
 

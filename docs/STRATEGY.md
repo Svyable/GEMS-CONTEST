@@ -74,17 +74,20 @@ The scored-submission allowance is three submissions in a rolling window, not a 
 
 1. **Complete fold-specific baseline training** – Train the ResNet-18 U-Net on all spatial folds with the corrected training-only normalization (PR #15 merged). Measure spatial and fault-discovery CV scores to establish the proper baseline for all future comparisons. This is blocked only by competition data availability.
 
-2. **Automated propose-and-verify experiment loop** – ✅ IMPLEMENTED 2026-10-07
-   (`src/gems/verification.py`, `scripts/verify_candidate.py`, 15 tests in
-   `tests/test_verification.py`). Accept a candidate only if it beats the
-   incumbent on ≥2 of 3 CV views (spatial, fault-discovery, trace-completion)
-   by more than max(incumbent, candidate) fold-to-fold std, escalated by
-   (1 + 0.5·log2(1 + n)) as recorded trials n grow. Every attempt — ACCEPT,
-   REJECT, or INCONCLUSIVE — is appended to the committed ledger
-   `docs/candidate-trials.jsonl` (the honest failure log). This is our defense
-   against search pressure exploiting the gap between CV and the hidden test
-   distribution. Verdicts are one input to the upload decision, not an
-   automatic upload trigger.
+2. **Automated propose-and-verify experiment loop** – ✅ TWO IMPLEMENTATIONS 2026-10-07/08
+   
+   a) **Escalating-threshold gate** (`src/gems/verification.py`, `scripts/verify_candidate.py`, 
+      15 tests): Accepts if candidate beats incumbent on ≥2 of 3 CV views by more than 
+      max fold-to-fold std × (1 + 0.5·log2(1 + n)). Ledger: `docs/candidate-trials.jsonl`.
+   
+   b) **Statistical t-test gate** (2026-10-08: `src/gems/experiment_gate.py`, 
+      `scripts/evaluate_candidate.py`, 13 tests): Accepts if candidate wins ≥2 of 3 views 
+      via paired t-test at Bonferroni-corrected α = 0.05/(trials × views). Each view 
+      requires p < α' with mean improvement > 0. Ledger: trial-specific JSON paths.
+   
+   Both defend against CV overfitting. Choose based on preference: (a) uses fold std as 
+   noise floor with logarithmic escalation; (b) uses parametric statistics with strict 
+   family-wise error control. Verdicts inform upload decisions, don't trigger uploads.
 
 3. **Mumford-Shah edge-strength feature channel** – Run an Ambrosio-Tortorelli phase-field approximation of vector-valued Mumford-Shah on the normalized geophysical bands. The edge indicator field captures where gravity, magnetic, conductivity, and strain-rate fields jump — exactly the fault signature. The new OpenAI regularity result (Family 366) confirms the geometric prior: fault networks are smooth arcs, terminations, and Y-junctions. Ablate this channel like any Phase-2 feature through the propose-and-verify gate above.
 
@@ -98,6 +101,8 @@ The scored-submission allowance is three submissions in a rolling window, not a 
 
 ### Recent additions
 
-- **Threshold optimization (2026-10-07)**: Added `src/gems/optimization.py`, `scripts/optimize_threshold.py`, and comprehensive tests. Given beta=0.8 (recall) vs alpha=0.2 (precision), the optimal threshold is typically much lower than 0.5. The grid-search and golden-section tools directly maximize the Tversky metric on predictions, enabling principled post-processing. This is ready for use as soon as fold predictions are available.
+- **Threshold tooling consolidation (2026-10-08)**: `src/gems/optimization.py` and `scripts/optimize_threshold.py` deprecated in favor of `src/gems/calibration.py` (PR #17). The exact threshold method evaluates every distinct threshold state efficiently via event-based cumulative sums, making it both faster and more accurate than grid search. `optimization.py` now wraps `calibration.py` with deprecation warnings for backward compatibility. Use `scripts/calibrate_threshold.py` going forward.
+
+- **Threshold optimization (2026-10-07)**: Added exact threshold optimization via `src/gems/calibration.py`. Given beta=0.8 (recall) vs alpha=0.2 (precision), the optimal threshold is typically much lower than 0.5. The exact method finds the global optimum efficiently without search. Ready for use as soon as fold predictions are available.
 
 - **OpenAI math research integration (2026-10-07)**: Added `docs/OPENAI_MATH_LEADS.md`, which evaluates the 722-paper release for GEMS applicability. The top actionable lead is the *method* (massive generate-and-verify search with strict acceptance criteria), not the mathematics. Two geometry papers suggest concrete features and post-processing: Mumford-Shah regularity for edge-strength channels and endpoint extension, and Hilbert-transform stability for adaptive directional-filter design. See the document for full analysis and sources.

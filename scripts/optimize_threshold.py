@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Optimize probability threshold for the Tversky metric.
 
+DEPRECATION NOTICE: This script is deprecated. Use scripts/calibrate_threshold.py
+instead, which implements the exact threshold optimization method from
+gems.calibration. The exact method evaluates every distinct threshold state
+efficiently and is both faster and more accurate than this grid-search approach.
+
+Migration: replace optimize_threshold.py with calibrate_threshold.py, which
+uses --calibration-mask and --evaluation-mask for proper train/test separation.
+
 This script finds the optimal threshold that maximizes the distance-weighted
 Tversky index on held-out or full-raster predictions. With beta=0.8 and
 alpha=0.2, the optimal threshold is typically much lower than 0.5 to
