@@ -145,6 +145,9 @@ def main() -> int:
             file=sys.stderr,
         )
     
+    print("⚠️  DEPRECATED: Use scripts/verify_candidate.py (with gems.verification)")
+    print("   This script remains for backward compatibility only.")
+    print()
     print(f"Evaluating candidate: {args.candidate_id}")
     print(f"Against incumbent: {args.incumbent_id}")
     print(f"Views: {', '.join(view_scores.keys())}")
