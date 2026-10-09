@@ -143,7 +143,20 @@ The scored-submission allowance is three submissions in a rolling window, not a 
    pass the propose-and-verify gate on all three CV views once training data
    is available.
 
-6. **Ensemble and calibration framework** – Build infrastructure to blend predictions from multiple models/seeds/folds with proper calibration against held-out data. With beta=0.8, optimal ensemble weights will differ from accuracy-based weights. Candidates enter through the propose-and-verify gate.
+6. **Ensemble and calibration framework** – ✅ COMPLETED 2026-10-09
+   
+   Implemented infrastructure to combine fold-wise OOF probability rasters from multiple
+   candidate models (`src/gems/ensemble.py`, `scripts/build_ensemble.py`, 18 unit tests).
+   Supports three fusion strategies: arithmetic mean, metric-fit weighted mean with
+   leave-one-fold-out (LOFO) weight fitting, and rank-average (robust to scale differences).
+   LOFO weight fitting prevents leakage: weights for fold k are fitted on all other folds,
+   so fold k's score does not use weights fit on fold k's labels. Includes optional
+   threshold calibration using the canonical exact_threshold_curve from `calibration.py`.
+   Output GeoTIFFs pass `validate_submission.py` and are scored through `score_cv.py` and
+   `verify_candidate.py`, logged to `docs/candidate-trials.jsonl`. Example config:
+   `configs/ensemble_example.json`. Tests verify mean/weighted/rank-average combinations,
+   LOFO non-leakage guarantee, threshold calibration, and raster I/O. Ready for ablation
+   on candidate models once training data is available.
 
 7. **Trace-continuation validation and synthetic tests** – Expand the endpoint-holdout CV with synthetic gap-insertion tests to measure whether models can plausibly extend fault geometry from partial context, as the competition requires for newly mapped continuations.
 
