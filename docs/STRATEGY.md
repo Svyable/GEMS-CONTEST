@@ -68,11 +68,15 @@ The scored-submission allowance is three submissions in a rolling window, not a 
 
 ---
 
-## Next steps (2026-10-07)
+## Next steps (2026-10-09)
 
 ### Immediate priorities (ranked)
 
-1. **Complete fold-specific baseline training** – Train the ResNet-18 U-Net on all spatial folds with the corrected training-only normalization (PR #15 merged). Measure spatial and fault-discovery CV scores to establish the proper baseline for all future comparisons. This is blocked only by competition data availability.
+1. **Score full-config spatial baseline** – First real-data run used a reduced config (epochs 2, train_step 64) on an 8-vCPU CPU-only box. The model was barely trained (losses 0.945–0.950) but produced the first honest spatial CV baseline: raw 0.0591 ± 0.0082, LOFO-calibrated 0.0895 ± 0.0200. Train with full `configs/reference_unet.yaml` (epochs=5, train_step=32) to validate this baseline and confirm it was not a fluke of the reduced configuration. This establishes the proper baseline for all future comparisons.
+
+2. **Train fault and trace fold models** – Complete fault-discovery and trace-discovery CV views. The gate currently only has spatial CV scores; fault and trace views are required to evaluate candidates properly under the 3-view gate policy (candidate must beat incumbent on ≥2 of 3 views).
+
+3. **Re-gate candidates against full baseline** – Once the full-config spatial baseline is scored and fault/trace views are available, re-gate endpoint extension (ENDPOINT-EXT-01: currently INCONCLUSIVE) and other candidates against the honest full baseline.
 
 2. **Automated propose-and-verify experiment loop** – ✅ COMPLETED 2026-10-07/08
    
@@ -164,6 +168,6 @@ The scored-submission allowance is three submissions in a rolling window, not a 
 
 - **Threshold tooling consolidation (2026-10-08)**: `src/gems/optimization.py` and `scripts/optimize_threshold.py` deprecated in favor of `src/gems/calibration.py` (PR #17). The exact threshold method evaluates every distinct threshold state efficiently via event-based cumulative sums, making it both faster and more accurate than grid search. `optimization.py` now wraps `calibration.py` with deprecation warnings for backward compatibility. Use `scripts/calibrate_threshold.py` going forward.
 
-- **Threshold optimization (2026-10-07)**: Added exact threshold optimization via `src/gems/calibration.py`. Given beta=0.8 (recall) vs alpha=0.2 (precision), the optimal threshold is typically much lower than 0.5. The exact method finds the global optimum efficiently without search. Ready for use as soon as fold predictions are available.
+- **Threshold optimization (2026-10-07)**: Added exact threshold optimization via `src/gems/calibration.py`. Given beta=0.8 (recall) vs alpha=0.2 (precision), the hypothesis was that optimal thresholds would be much lower than 0.5. **Update 2026-10-09**: First real-data baseline (reduced epochs, barely trained) produced LOFO-calibrated thresholds near 0.70, not below 0.5. However, this model's outputs cluster near 0.55 (median fold-0 probability 0.548), so these thresholds reflect an under-trained model with compressed outputs. The "optimal threshold below 0.5" hypothesis should be confirmed on a properly trained model before treating it as a design principle. The exact method finds the global optimum efficiently without search. Ready for use as soon as fold predictions are available.
 
 - **OpenAI math research integration (2026-10-07)**: Added `docs/OPENAI_MATH_LEADS.md`, which evaluates the 722-paper release for GEMS applicability. The top actionable lead is the *method* (massive generate-and-verify search with strict acceptance criteria), not the mathematics. Two geometry papers suggest concrete features and post-processing: Mumford-Shah regularity for edge-strength channels and endpoint extension, and Hilbert-transform stability for adaptive directional-filter design. See the document for full analysis and sources.
