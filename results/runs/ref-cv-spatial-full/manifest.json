@@ -1,0 +1,62 @@
+{
+  "artifacts": [
+    {
+      "bytes": 3286,
+      "path": "runs/ref-cv-spatial-full/fold-0.json",
+      "sha256": "7b48a8f7fdf0cdac1d20fc70962084ebaac2f81031e83afcdb8371a466c273d6"
+    },
+    {
+      "bytes": 3273,
+      "path": "runs/ref-cv-spatial-full/fold-1.json",
+      "sha256": "db027ebf76344f91fe123c8a27ea8098c802c864f95b8b3f435810db8200a838"
+    },
+    {
+      "bytes": 3270,
+      "path": "runs/ref-cv-spatial-full/fold-2.json",
+      "sha256": "bbe4d4e19b921a0b6b8d96b458737ae85b6b2e141f31ba23c5656ee3060ff790"
+    },
+    {
+      "bytes": 3270,
+      "path": "runs/ref-cv-spatial-full/fold-3.json",
+      "sha256": "41613aacb698c29d310c7a1a98867e53cd82bc9b6756785cc6c54150223b99a1"
+    },
+    {
+      "bytes": 3269,
+      "path": "runs/ref-cv-spatial-full/fold-4.json",
+      "sha256": "afd71faed0fc6e69c4b62f2049a1534719702b1632e0be4532be6cafff7497e5"
+    },
+    {
+      "bytes": 1706,
+      "path": "runs/ref-cv-spatial-full/scores/lofo-spatial.json",
+      "sha256": "4a81399cf5d7d0bc313abc314bcbdf665cdcbe09b46d9f2dc452a11d1001ad91"
+    },
+    {
+      "bytes": 1159,
+      "path": "runs/ref-cv-spatial-full/scores/spatial.json",
+      "sha256": "a5f577b7cd904cc731ac966661ca0dfbee7e92c8f327bc2620620affa75be815"
+    }
+  ],
+  "code": {
+    "git_commit": "b82efe91eeefccfc722d80440ef2f36bae1ca518",
+    "git_dirty": true
+  },
+  "command": "queue: /workspace/gems/queue/tasks.json",
+  "config": {
+    "path": "configs/reference_unet.yaml",
+    "sha256": "7a5cd36b898933b4562b98db332b6b58f6ec8a21b294403d31911c2e00fbd232"
+  },
+  "created_utc": "2026-10-09T21:06:50.705078+00:00",
+  "data_manifest": {
+    "manifest_sha256": "ab3ec3ccac312dc2d05508ec6e063c1c1de261998f004423d2f54075e4bc4800",
+    "path": "data/manifests/official.json",
+    "sha256": "0d0388fd408bcce2f8a7ad31bb3842ac184239dfaf34dbfe7335c314b5e77ab1"
+  },
+  "environment": {
+    "platform": "Linux-6.12.94+-x86_64-with-glibc2.41",
+    "python": "3.12.14"
+  },
+  "hypothesis": "Organizer reference U-Net recipe (unreduced configs/reference_unet.yaml) under honest spatial CV; incumbent baseline.",
+  "notes": "train_full_map.py --cv-scheme spatial --buffer-pixels 16 --negative-ratio 1.0 --seed 20260922; fold-pure normalization; single seed. LOFO calibration: queue/lofo_calibrate_view.py. Local patches: endpoint_extension inplace, train_full_map lineament param pass-through (unused here).",
+  "run_id": "ref-cv-spatial-full",
+  "schema_version": 1
+}

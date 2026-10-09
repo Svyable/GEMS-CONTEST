@@ -72,3 +72,14 @@ Our comparison sequence is therefore:
 5. only then change architecture/features/losses.
 
 This isolates gains from better validation, better modeling, and better data rather than mixing them together.
+
+## Full-config spatial CV results (2026-10-09)
+
+**Status**: Complete. This is the incumbent baseline for spatial view.
+
+**Config**: `configs/reference_unet.yaml` (unreduced: 5 epochs, train_step 32)  
+**Training**: Honest spatial CV with 16-pixel buffer, fold-pure normalization, negative_ratio 1.0, seed 20260922  
+**Raw spatial scores**: 0.1031, 0.1015, 0.0854, 0.1078, 0.0836 (mean 0.0963 ± 0.0099)  
+**LOFO-calibrated**: 0.1308, 0.1334, 0.1014, 0.1442, 0.1050 (mean 0.1230 ± 0.0168)
+
+Results and provenance: `results/runs/ref-cv-spatial-full/`

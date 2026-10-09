@@ -150,6 +150,34 @@ First full pipeline run on real contest data (19-band 3292×3730 raster) surface
 3. **Re-gate candidates**: Once the full-config baseline is scored and fault/trace views are available, re-gate endpoint extension and other candidates against the honest baseline
 4. **Confirm threshold hypothesis**: Test whether "optimal threshold below 0.5" holds for a properly trained model (current calibrated thresholds ~0.70 are for an under-trained model with compressed outputs)
 
+## 2026-10-09 — Full reference U-Net baseline, honest spatial CV
+
+**Config**: `configs/reference_unet.yaml` (organizer reference, unreduced: 5 epochs, train_step 32)  
+**Training**: `scripts/train_full_map.py --cv-scheme spatial --buffer-pixels 16 --negative-ratio 1.0 --seed 20260922`  
+**Normalization**: fold-pure (`per_channel_minmax_over_training_region`)  
+**Host**: 8-core CPU-only box, single seed
+
+**Spatial CV scores** (5 folds):
+- **Raw** (unthresholded distance-weighted Tversky): 0.1031, 0.1015, 0.0854, 0.1078, 0.0836
+  - Macro mean: **0.0963 ± 0.0099** (population std)
+- **LOFO-calibrated**: 0.1308, 0.1334, 0.1014, 0.1442, 0.1050
+  - Thresholds: 0.944, 0.936, 0.940, 0.940, 0.959
+  - Calibrated mean: **0.1230 ± 0.0168** (population std)
+
+**Decision**: This is the **incumbent baseline for spatial view**. Fault and fault-tip (trace) views are training next, then the endpoint-extension gate and the four lineament-channel candidates (mumford_shah_log, structure_tensor_coherence, steerable_filter, ridge_valley_response; spatial view only because train_full_map.py rejects derived lineament features for fault/trace CV).
+
+**Results committed**: `results/runs/ref-cv-spatial-full/{manifest.json,spatial.json,lofo-spatial.json}`
+
+**Local fixes applied** (already in codebase):
+1. `src/gems/endpoint_extension.py`: `inplace=True` option for `extend_endpoint` (avoids O(H×W) copy per endpoint; identical output)
+2. `scripts/train_full_map.py`: Pass-through of kind-specific lineament params (structure_tensor_window, ridge_valley_scales, steerable_wavelength, steerable_orientations)
+
+**Queue tooling committed**: `scripts/queue/{runner.py,tasks.json,train_folds.sh,score_view.sh,lofo_calibrate_view.py,endpoint_view.sh,gate.sh,record.sh,README.md}` — resumable experiment runner with state tracking.
+
+**Candidate configs committed**: `configs/candidates/{reference_unet_cv_reduced.yaml,cand_mumford_shah_log.yaml,cand_structure_tensor_coherence.yaml,cand_ridge_valley_response.yaml,cand_steerable_filter.yaml}` — incumbent + four lineament-channel variants ready for ablation.
+
+---
+
 ### Box handoff 2026-10-09 — fault/trace CV fold training (INFRASTRUCTURE)
 
 This run is CPU-only (no torch on this VM), so the two blocked validation views
