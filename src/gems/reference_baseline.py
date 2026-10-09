@@ -190,3 +190,122 @@ def make_reference_split(
         test_indices=test_indices,
         padded_shape=y_pad.shape,
     )
+
+
+class LazyWindowStack:
+    """Read-only (N, C, H, W) float32 view of stride-sampled windows.
+
+    Indexing returns exactly ``np.nan_to_num(window).transpose(2, 0, 1)`` for the
+    window, so a DataLoader over it yields the same batches as one over the
+    materialized array, without holding every overlapping window in RAM.
+    """
+
+    def __init__(
+        self, padded_hwc: np.ndarray, origins: list[tuple[int, int]], patch_size: int
+    ):
+        self._image = padded_hwc  # NaNs already replaced in place
+        self._origins = origins
+        self._patch = patch_size
+        self.shape = (len(origins), padded_hwc.shape[-1], patch_size, patch_size)
+
+    def __len__(self) -> int:
+        return len(self._origins)
+
+    def __getitem__(self, index: int) -> np.ndarray:
+        r, c = self._origins[index]
+        p = self._patch
+        return np.ascontiguousarray(self._image[r : r + p, c : c + p].transpose(2, 0, 1))
+
+
+def make_reference_split_lazy(
+    features: np.ndarray,
+    labels: np.ndarray,
+    *,
+    patch_size: int = 128,
+    test_proportion: float = 0.5,
+    seed: int = 0,
+    train_step: int = 32,
+    elevation_channel: int = 4,
+) -> ReferenceSplit:
+    """Memory-lean split: lazy train windows, peak ~one padded feature copy.
+
+    Produces bit-identical outputs to :func:`make_reference_split` but keeps only
+    one padded copy of the feature stack (instead of padded + tiled + reassembled
+    copies) and replaces NaNs in place. ``x_train`` is a :class:`LazyWindowStack`;
+    ``y_train`` is materialized (labels are 19x smaller). Needed to run the organizer
+    recipe on hosts with < ~12 GB free RAM for the real 19-band 3292x3730 raster.
+    """
+    x = np.asarray(features)
+    y = np.asarray(labels)
+    if x.ndim != 3 or y.ndim != 2 or x.shape[:2] != y.shape:
+        raise ValueError("features must be HWC and labels must match HxW")
+    if not 0 <= test_proportion <= 1:
+        raise ValueError("test_proportion must lie in [0, 1]")
+    if not 0 <= elevation_channel < x.shape[-1]:
+        raise ValueError("elevation_channel is outside the feature stack")
+
+    pad_y, pad_x = reference_padding(y.shape, patch_size)
+    x_pad = np.pad(
+        x, ((0, pad_y), (0, pad_x), (0, 0)), mode="constant", constant_values=np.nan
+    )
+    y_pad = np.pad(y, ((0, pad_y), (0, pad_x)), mode="constant", constant_values=0)
+    n_features = x.shape[-1]
+    rows = y_pad.shape[0] // patch_size
+    cols = y_pad.shape[1] // patch_size
+
+    # Find fault-containing non-NaN tiles for test set
+    good_tiles: list[tuple[int, int]] = []
+    for row in range(rows):
+        for col in range(cols):
+            rs = slice(row * patch_size, (row + 1) * patch_size)
+            cs = slice(col * patch_size, (col + 1) * patch_size)
+            if bool(np.any(y_pad[rs, cs])) and not np.all(
+                np.isnan(x_pad[rs, cs, elevation_channel])
+            ):
+                good_tiles.append((row, col))
+
+    n_test = int(test_proportion * len(good_tiles))
+    rng = np.random.default_rng(seed)
+    chosen = rng.choice(len(good_tiles), n_test, replace=False)
+    test_indices = tuple(good_tiles[int(i)] for i in chosen)
+
+    # Materialize test patches and zero them out
+    x_test = np.zeros((n_test, patch_size, patch_size, n_features), dtype=np.float32)
+    y_test = np.zeros((n_test, patch_size, patch_size), dtype=np.float32)
+    for index, (row, col) in enumerate(test_indices):
+        rs = slice(row * patch_size, (row + 1) * patch_size)
+        cs = slice(col * patch_size, (col + 1) * patch_size)
+        x_test[index] = x_pad[rs, cs]
+        y_test[index] = y_pad[rs, cs]
+        x_pad[rs, cs] = 0
+        y_pad[rs, cs] = 0
+
+    # Find train origins (lazy; we'll read on-the-fly)
+    y_windows = patchify(y_pad, (patch_size, patch_size), train_step)
+    elev_windows = patchify(x_pad[..., elevation_channel], (patch_size, patch_size), train_step)
+    origins: list[tuple[int, int]] = []
+    for row in range(y_windows.shape[0]):
+        for col in range(y_windows.shape[1]):
+            if bool(np.any(y_windows[row, col])) and not np.all(
+                np.isnan(elev_windows[row, col])
+            ):
+                origins.append((row * train_step, col * train_step))
+
+    # Materialize y_train (smaller)
+    y_train = np.zeros((len(origins), patch_size, patch_size), dtype=np.float32)
+    for index, (r, c) in enumerate(origins):
+        y_train[index] = y_pad[r : r + patch_size, c : c + patch_size]
+
+    del y_windows, elev_windows
+
+    # Replace NaNs in place in the shared feature array
+    np.nan_to_num(x_pad, copy=False)
+
+    return ReferenceSplit(
+        x_train=LazyWindowStack(x_pad, origins, patch_size),
+        y_train=np.nan_to_num(y_train, copy=False),
+        x_test=np.nan_to_num(x_test, copy=False).transpose(0, 3, 1, 2),
+        y_test=np.nan_to_num(y_test, copy=False),
+        test_indices=test_indices,
+        padded_shape=y_pad.shape,
+    )

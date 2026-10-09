@@ -47,12 +47,17 @@ def raster_signature(path: str | Path) -> dict[str, Any]:
 
 
 def fingerprint_file(path: str | Path, *, root: str | Path | None = None) -> dict[str, Any]:
-    """Fingerprint a local competition/external-data file."""
+    """Fingerprint a local competition/external-data file.
+
+    When root is provided, relative paths are preserved without resolving symlinks.
+    This ensures manifest paths match the provided paths rather than symlink targets.
+    """
     path = Path(path)
     shown_path = path
     if root is not None:
         try:
-            shown_path = path.resolve().relative_to(Path(root).resolve())
+            # Use absolute paths but don't resolve symlinks to preserve relative structure
+            shown_path = path.absolute().relative_to(Path(root).absolute())
         except ValueError:
             shown_path = path
 

@@ -53,7 +53,11 @@ def fault_component_report(
 
     total_fault = int(truth.sum())
     valid_pixels = int(valid.sum())
-    order = np.argsort(-sizes) if sizes.size else np.array([], dtype=int)
+    # Sort by size descending, then by component ID ascending to break ties deterministically
+    if sizes.size:
+        order = np.lexsort((np.arange(len(sizes)), -sizes))
+    else:
+        order = np.array([], dtype=int)
     components = []
     for zero_based_id in order[:top_n]:
         component_id = int(zero_based_id) + 1

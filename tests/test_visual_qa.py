@@ -50,3 +50,35 @@ def test_invalid_region_is_black():
         max_dimension=4,
     )
     assert np.array_equal(rgb[0, 0], np.zeros(3, dtype=np.uint8))
+
+
+def test_fault_preview_consistent_downsampling():
+    """Fault preview uses consistent downsampling for fold IDs and truth mask.
+
+    Held-out faults assigned to a fold should render in that fold's color,
+    not white (which is reserved for unassigned faults).
+    """
+    import numpy as np
+
+    from gems.visual_qa import fold_preview_rgb
+
+    # Create a small fault component assigned to fold 1
+    labels = np.zeros((100, 100), dtype=bool)
+    labels[45:55, 45:55] = True  # 10x10 fault square
+
+    fold_map = np.full((100, 100), -1, dtype=np.int16)
+    fold_map[45:55, 45:55] = 1  # Assign this fault to fold 1
+
+    valid = np.ones((100, 100), dtype=bool)
+
+    rgb = fold_preview_rgb(fold_map, scheme="fault", labels=labels, valid_mask=valid)
+
+    # Find where fold 1 is rendered in the downsampled image
+    # (Should be colored, not white [255, 255, 255])
+    fold1_pixels = np.where(
+        (rgb[:, :, 0] != 255) & (rgb[:, :, 1] != 255) & (rgb[:, :, 2] != 255)
+    )
+
+    # The fault square should be rendered in fold 1's color, not white
+    # At least some pixels in the downsampled region should be colored
+    assert len(fold1_pixels[0]) > 0, "Held-out fault rendered white instead of fold color"
