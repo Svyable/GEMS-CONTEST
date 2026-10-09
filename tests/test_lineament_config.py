@@ -8,7 +8,6 @@ import yaml
 
 from gems.lineament import grouped_lineament_features, lineament_kwargs, required_lineament_buffer
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
