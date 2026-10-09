@@ -1,84 +1,42 @@
-# Structure tensor coherence and orientation features (STRATEGY.md priority #5)
-# 
-# Structure tensor analysis decomposes local gradients into eigenvalues and
-# eigenvectors, revealing directional structure strength (coherence) and
-# dominant orientation. High coherence + consistent orientation = lineament.
-#
-# Coherence: (λ1 - λ2) / (λ1 + λ2 + ε) ∈ [0,1]
-#   0 = isotropic (no preferred direction)
-#   1 = perfectly linear (strong directional structure)
-#
-# Orientation: angle of maximum gradient change (perpendicular to lineament)
-#   Returned in radians [-π/2, π/2]
-#
-# Motivated by OpenAI Family 083 (Hilbert transform / Lipschitz directions):
-# keep filter lengths below the orientation-change scale (~1/|∇v|). The
-# structure_tensor_window parameter controls the smoothing scale for gradient
-# products; values of 2-4 pixels are typical for fault-scale lineaments.
-#
-# This config demonstrates coherence; create a parallel config for orientation
-# or extend the training pipeline to accept multiple derived feature kinds.
-
-model:
-  arch: resnet18_unet
-  in_channels: 7  # 6 geophysical + 1 coherence channel
-  encoder_weights: null
-
+# Structure-tensor coherence ablation; uses the candidate trainer schema.
+# Normalization and derived-response scaling use training-fold pixels only.
+seed_sequence: [20260922]
 data:
-  features_path: data/processed/features.tif
-  labels_path: data/processed/labels.tif
-  valid_region_path: data/processed/valid_region.geojson
-  manifest_path: data/manifests/official.json
-  
-  # Derived lineament features
-  derived_features:
-    - method: grouped_lineament
-      kind: structure_tensor_coherence
-      categories:
-        - magnetic_data
-        - gravity_data
-        - conductivity
-        - strain_rate
-      sigma_pixels: 1.0              # pre-smoothing before gradient
-      structure_tensor_window: 3.0   # smoothing scale for gradient products
-  
-  # Normalization computed from training region only (fold-pure)
-  normalization:
-    method: percentile_clip
-    low: 2.0
-    high: 98.0
-
+  normalization: per_channel_minmax_over_training_region
+  negative_ratio: 1.0
+patches:
+  patch_size: 128
+  train_step: 32
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
 training:
-  spatial_cv_manifest: data/manifests/cv-spatial-v1.json
-  fold: 0
-  batch_size: 16
-  num_epochs: 20
-  optimizer:
-    name: adamw
-    lr: 0.001
-    weight_decay: 0.01
-  
-  loss:
-    name: bce_tversky
-    alpha: 0.2  # precision weight
-    beta: 0.8   # recall weight (matches competition metric)
-    smooth: 1.0
+  epochs: 20
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.8, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30
 
-  # Tiling and augmentation
-  tile_size: 256
-  stride_train: 128
-  stride_val: 256
-  
-  augmentation:
-    horizontal_flip: true
-    vertical_flip: true
-    rotate_90: true
-
-inference:
-  tile_size: 256
-  stride: 128
-  overlap_blend: gaussian
-
-output:
-  predictions_dir: predictions/structure_tensor_coherence
-  metrics_path: metrics/structure_tensor_coherence_fold0.json
+derived_features:
+  lineament:
+    enabled: true
+    categories:
+      - magnetic_data
+      - gravity_data
+      - geodetic_strain
+      - topographic
+    kind: structure_tensor_coherence
+    sigma_pixels: 1.0
+    structure_tensor_window: 3.0
