@@ -31,6 +31,7 @@ def compute_edge_strength(
     lambda_smooth: float = 0.1,
     max_iterations: int = 100,
     tolerance: float = 1e-4,
+    normalization_mask: np.ndarray | None = None,
 ) -> np.ndarray:
     """Compute edge-strength using Laplacian of Gaussian (LoG) edge detection.
     
@@ -44,6 +45,7 @@ def compute_edge_strength(
         lambda_smooth: Edge emphasis (larger = stronger edges, default: 0.1)
         max_iterations: Unused (for API compatibility)
         tolerance: Unused (for API compatibility)
+        normalization_mask: Optional boolean mask for fold-pure normalization
     
     Returns:
         Edge indicator in [0, 1], where 1 indicates strong edges
@@ -63,8 +65,15 @@ def compute_edge_strength(
     # Take absolute value and normalize
     edge_indicator = np.abs(laplacian_img)
     
-    if edge_indicator.max() > 0:
-        edge_indicator = edge_indicator / edge_indicator.max()
+    # Use normalization_mask for fold-pure scaling if provided
+    if normalization_mask is not None:
+        fit_values = edge_indicator[normalization_mask]
+        max_val = fit_values.max() if fit_values.size > 0 else 0.0
+    else:
+        max_val = edge_indicator.max()
+    
+    if max_val > 0:
+        edge_indicator = edge_indicator / max_val
     
     # Apply nonlinear transformation to emphasize strong edges
     # lambda_smooth controls the contrast

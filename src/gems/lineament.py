@@ -283,11 +283,12 @@ def grouped_lineament_features(
             if fit_max > 0:
                 grad_norm = grad_norm / fit_max
             
-            # Apply LoG edge detection
+            # Apply LoG edge detection with fold-pure normalization
             derived = compute_edge_strength(
                 grad_norm,
                 epsilon=phase_epsilon_pixels,
                 lambda_smooth=0.1,
+                normalization_mask=fit,
             )
         elif kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
             # Compute structure tensor from smoothed gradients
