@@ -486,3 +486,15 @@ Bug discovery via real-data integration required systematic debugging and memory
 - Linted with `ruff check` (clean)
 =======
 >>>>>>> origin/main
+
+## 2026-10-09 — lineament feature integrity repair
+
+OpenAI ChatGPT (GPT-6) reviewed the public repository code, candidate configs,
+and current experiment status. It repaired incompatibilities between three
+derived-feature YAML configs and the actual candidate trainer; passed
+tensor, multiscale Hessian, and steerable parameters through the trainer;
+separated training-only feature-scale fitting from full-region transforms;
+tightened spatial buffer checks for filter support; and added synthetic
+regression tests and documentation. No raw gated competition rasters were
+supplied to this assistant and no new model training, held-out score, or prize
+improvement is claimed from this code work.
