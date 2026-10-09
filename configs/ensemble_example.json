@@ -1,0 +1,17 @@
+{
+  "method": "weighted_mean",
+  "members": [
+    {
+      "name": "resnet18_baseline",
+      "pattern": "predictions/resnet18_baseline/fold-{fold}.tif"
+    },
+    {
+      "name": "resnet18_structure_tensor",
+      "pattern": "predictions/structure_tensor_coherence/fold-{fold}.tif"
+    },
+    {
+      "name": "resnet18_ridge_valley",
+      "pattern": "predictions/ridge_valley/fold-{fold}.tif"
+    }
+  ]
+}
