@@ -42,7 +42,6 @@ from pathlib import Path
 import numpy as np
 import rasterio
 
-from gems.data import load_raster_band
 from gems.optimization import (
     ThresholdResult,
     calibrate_predictions,
@@ -182,11 +181,13 @@ def main() -> None:
 
     # Load prediction
     print(f"Loading prediction from {args.prediction}")
-    prediction = load_raster_band(args.prediction, band=1)
+    with rasterio.open(args.prediction) as src:
+        prediction = src.read(1)
 
     # Load truth
     print(f"Loading truth from {args.truth}")
-    truth = load_raster_band(args.truth, band=1).astype(bool)
+    with rasterio.open(args.truth) as src:
+        truth = src.read(1).astype(bool)
 
     if prediction.shape != truth.shape:
         raise ValueError(
@@ -197,14 +198,16 @@ def main() -> None:
     valid_mask = None
     if args.valid_mask:
         print(f"Loading valid mask from {args.valid_mask}")
-        valid_mask = load_raster_band(args.valid_mask, band=1).astype(bool)
+        with rasterio.open(args.valid_mask) as src:
+            valid_mask = src.read(1).astype(bool)
         if valid_mask.shape != prediction.shape:
             raise ValueError("Valid mask shape does not match prediction")
 
     # Load optional fold map
     if args.fold_map:
         print(f"Loading fold map from {args.fold_map}")
-        fold_map = load_raster_band(args.fold_map, band=1)
+        with rasterio.open(args.fold_map) as src:
+            fold_map = src.read(1)
         if fold_map.shape != prediction.shape:
             raise ValueError("Fold map shape does not match prediction")
 

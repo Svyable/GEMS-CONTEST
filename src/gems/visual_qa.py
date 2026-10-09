@@ -88,7 +88,9 @@ def fold_preview_rgb(
     stride = preview_stride(shape, max_dimension)
     sampled_folds = _sample_centers(folds, stride)
     valid_small = _block_any(valid, stride)
-    truth_small = _block_any(truth & valid, stride)
+    # Use consistent downsampling for fold IDs and truth mask to avoid
+    # rendering assigned held-out faults white due to misalignment
+    truth_small = _block_any(truth, stride) & valid_small
 
     rgb = np.zeros((*sampled_folds.shape, 3), dtype=np.uint8)
     rgb[valid_small] = np.array([36, 36, 36], dtype=np.uint8)

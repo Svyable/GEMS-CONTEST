@@ -12,10 +12,12 @@ import yaml
 from gems.reference_baseline import (
     assemble_nonoverlap_patches,
     load_reference_arrays,
-    make_reference_split,
     normalize_reference_features,
     patchify,
     reference_padding,
+)
+from gems.reference_baseline import (
+    make_reference_split_lazy as make_reference_split,
 )
 
 
@@ -124,13 +126,26 @@ def main() -> int:
             f"test_patches={split.x_test.shape[0]}"
         )
 
-        x_train = torch.from_numpy(split.x_train).float()
         y_train = torch.from_numpy(split.y_train).float()
+
+        class _LazyTrain(torch.utils.data.Dataset):
+            # Same items/order as TensorDataset(x_train, y_train) over the
+            # materialized stack; avoids holding all overlapping windows in RAM.
+            def __init__(self, xs, ys):
+                self.xs, self.ys = xs, ys
+
+            def __len__(self):
+                return len(self.xs)
+
+            def __getitem__(self, i):
+                return torch.from_numpy(self.xs[i]), self.ys[i]
+
+        x_train = split.x_train
         x_test = torch.from_numpy(split.x_test).float()
         y_test = torch.from_numpy(split.y_test).float()
 
         train_loader = DataLoader(
-            TensorDataset(x_train, y_train),
+            _LazyTrain(x_train, y_train),
             batch_size=batch_size,
             shuffle=True,
         )
@@ -213,6 +228,10 @@ def main() -> int:
                 "epochs": epochs_log,
             }
         )
+        # Release this split's patch tensors before building the next split
+        # (keeps peak RSS to one split on memory-constrained CPU hosts).
+        del split, x_train, y_train, x_test, y_test, train_loader, test_loader
+        del model, optimizer, best_state, batches, test_predictions
 
     combined = assemble_nonoverlap_patches(prediction_tiles)
     prediction = combined[: labels.shape[0], : labels.shape[1]].astype(np.float32)

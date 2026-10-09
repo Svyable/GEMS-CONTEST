@@ -54,3 +54,35 @@ def test_spatial_block_report_measures_label_sparsity():
     assert report["valid_blocks"] == 4
     assert report["fault_positive_blocks"] == 2
     assert report["fault_positive_block_share"] == 0.5
+
+
+def test_component_report_deterministic_ties():
+    """Component report sorts equal-size components by ID for determinism."""
+    import numpy as np
+
+    from gems.topology import fault_component_report
+
+    # Create labels with multiple components of the same size
+    labels = np.zeros((100, 100), dtype=bool)
+    # Component 1: 10 pixels at top-left
+    labels[10:12, 10:15] = True
+    # Component 2: 10 pixels at top-right (same size)
+    labels[10:12, 80:85] = True
+    # Component 3: 10 pixels at bottom (same size)
+    labels[80:82, 40:45] = True
+
+    valid = np.ones((100, 100), dtype=bool)
+
+    report = fault_component_report(
+        labels, valid_mask=valid, connectivity=4, pixel_size_x_m=1.0, pixel_size_y_m=1.0, top_n=20
+    )
+
+    # All three components have 10 pixels; order should be deterministic
+    assert report["component_count"] == 3
+    assert len(report["top_components"]) == 3
+
+    # Extract component IDs in reported order
+    ids = [c["component_id"] for c in report["top_components"]]
+
+    # Since all have equal size, they should be sorted by component ID
+    assert ids == sorted(ids), f"Equal-size components not sorted by ID: {ids}"

@@ -61,3 +61,23 @@ The first DrivenData upload, when it happens, has one question: does `submission
 **Artifact path + SHA256:**  
 **Leaderboard score:**  
 **Decision:**  
+
+### 2026-10-09 — Real-data integration: bug fixes and validation
+
+First full pipeline run on real contest data (19-band 3292×3730 raster) surfaced 5 production bugs, all fixed in PR #32:
+
+**Real-data characteristics** (external machine, data not shared):
+- Raster: 19 bands, 3292×3730 pixels
+- Fault pixels: 60,894 (1.18% of 5,164,312 valid pixels)
+- 8-connected components: 3,198 (median 12 px, largest 360 px)
+- 4-connected components: 25,058
+- CV manifests: rebuilt from real data, matched committed synthetic-derived manifests exactly
+
+**Bugs fixed**:
+1. **Memory OOM**: `scripts/train_reference_oof.py` exceeded 7.6 GB peak RAM building training patches. Implemented `make_reference_split_lazy` with on-the-fly window construction, reducing peak to ~3.6 GB. Added test verifying lazy == eager patches for fixed seeds.
+2. **Import error**: `scripts/optimize_threshold.py` failed with `ImportError: cannot import name 'load_raster_band'`. Fixed by replacing with direct `rasterio.open` calls. Added CLI smoke tests (`test_script_smoke.py`) to catch import regressions.
+3. **Visual QA bug**: `src/gems/visual_qa.py` fault-scheme preview rendered assigned held-out faults white (unassigned color) due to mismatched downsampling between fold IDs and fault mask. Fixed with consistent downsampling. Added test.
+4. **Nondeterministic ordering**: `scripts/profile_labels.py` ordered equal-size components nondeterministically in top-20 list. Fixed by sorting ties by component ID (`src/gems/topology.py`). Added test.
+5. **Symlink path resolution**: `fingerprint_data.py`/verify flow resolved symlinks to targets, breaking manifest relative paths. Fixed by using `.absolute()` instead of `.resolve()` in `src/gems/data.py`.
+
+**Outcome**: All tests green. Memory-constrained hosts can now run the reference baseline. CV manifests validated on real data. Ready for model training and ablation on real contest data.
