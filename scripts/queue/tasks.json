@@ -1,0 +1,152 @@
+[
+ {
+  "id": "s1-wait-existing-spatial-loop",
+  "step": 1,
+  "cmd": "while kill -0 1769192 2>/dev/null; do sleep 30; done; echo existing loop finished"
+ },
+ {
+  "id": "s1-train-ref-spatial",
+  "step": 1,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-spatial-full configs/reference_unet.yaml spatial data/processed/cv-spatial-v1.tif 16"
+ },
+ {
+  "id": "s1-score-ref-spatial",
+  "step": 1,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-spatial-full spatial data/processed/cv-spatial-v1.tif runs/gate/ref-full"
+ },
+ {
+  "id": "s1-record-ref-spatial",
+  "step": 1,
+  "cmd": "/workspace/gems/queue/record.sh ref-cv-spatial-full runs/ref-cv-spatial-full configs/reference_unet.yaml \"Organizer reference U-Net recipe (unreduced configs/reference_unet.yaml) under honest spatial CV; incumbent baseline.\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 16 --negative-ratio 1.0 --seed 20260922; fold-pure normalization; single seed. LOFO calibration: queue/lofo_calibrate_view.py. Local patches: endpoint_extension inplace, train_full_map lineament param pass-through (unused here).\""
+ },
+ {
+  "id": "s2-train-ref-fault",
+  "step": 2,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-fault-full configs/reference_unet.yaml fault data/processed/cv-fault-v1.tif 16"
+ },
+ {
+  "id": "s2-score-ref-fault",
+  "step": 2,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-fault-full fault data/processed/cv-fault-v1.tif runs/gate/ref-full"
+ },
+ {
+  "id": "s2-record-ref-fault",
+  "step": 2,
+  "cmd": "/workspace/gems/queue/record.sh ref-cv-fault-full runs/ref-cv-fault-full configs/reference_unet.yaml \"Organizer reference U-Net recipe (unreduced configs/reference_unet.yaml) under honest fault CV; incumbent baseline.\" \"train_full_map.py --cv-scheme fault --buffer-pixels 16 --negative-ratio 1.0 --seed 20260922; fold-pure normalization; single seed. LOFO calibration: queue/lofo_calibrate_view.py. Local patches: endpoint_extension inplace, train_full_map lineament param pass-through (unused here).\""
+ },
+ {
+  "id": "s2-train-ref-trace",
+  "step": 2,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-trace-full configs/reference_unet.yaml trace data/processed/cv-trace-v1.tif 3"
+ },
+ {
+  "id": "s2-score-ref-trace",
+  "step": 2,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-trace-full trace data/processed/cv-trace-v1.tif runs/gate/ref-full"
+ },
+ {
+  "id": "s2-record-ref-trace",
+  "step": 2,
+  "cmd": "/workspace/gems/queue/record.sh ref-cv-trace-full runs/ref-cv-trace-full configs/reference_unet.yaml \"Organizer reference U-Net recipe (unreduced configs/reference_unet.yaml) under honest trace CV; incumbent baseline.\" \"train_full_map.py --cv-scheme trace --buffer-pixels 3 --negative-ratio 1.0 --seed 20260922; fold-pure normalization; single seed. LOFO calibration: queue/lofo_calibrate_view.py. Local patches: endpoint_extension inplace, train_full_map lineament param pass-through (unused here).\""
+ },
+ {
+  "id": "s3-endpoint-spatial",
+  "step": 3,
+  "cmd": "/workspace/gems/queue/endpoint_view.sh runs/ref-cv-spatial-full runs/endpoint-cv-spatial-full spatial && /workspace/gems/queue/score_view.sh runs/endpoint-cv-spatial-full spatial data/processed/cv-spatial-v1.tif runs/gate/endpoint-full"
+ },
+ {
+  "id": "s3-endpoint-fault",
+  "step": 3,
+  "cmd": "/workspace/gems/queue/endpoint_view.sh runs/ref-cv-fault-full runs/endpoint-cv-fault-full fault && /workspace/gems/queue/score_view.sh runs/endpoint-cv-fault-full fault data/processed/cv-fault-v1.tif runs/gate/endpoint-full"
+ },
+ {
+  "id": "s3-endpoint-trace",
+  "step": 3,
+  "cmd": "/workspace/gems/queue/endpoint_view.sh runs/ref-cv-trace-full runs/endpoint-cv-trace-full trace && /workspace/gems/queue/score_view.sh runs/endpoint-cv-trace-full trace data/processed/cv-trace-v1.tif runs/gate/endpoint-full"
+ },
+ {
+  "id": "s3-gate-endpoint",
+  "step": 3,
+  "cmd": "/workspace/gems/queue/gate.sh ENDPOINT-EXT-02 runs/gate/ref-full runs/gate/endpoint-full configs/resnet18_with_endpoint_extension.yaml \"Endpoint extension (300 m, decay 0.15, skeleton threshold = fold LOFO threshold) on full-config reference OOF maps improves distance-weighted Tversky on >=2 of 3 views.\""
+ },
+ {
+  "id": "s4-train-mumford_shah_log-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-mumford_shah_log-spatial configs/local/cand_mumford_shah_log.yaml spatial data/processed/cv-spatial-v1.tif 16"
+ },
+ {
+  "id": "s4-score-mumford_shah_log-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-mumford_shah_log-spatial spatial data/processed/cv-spatial-v1.tif runs/gate/cand-mumford_shah_log"
+ },
+ {
+  "id": "s4-record-mumford_shah_log",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/record.sh cand-mumford_shah_log-spatial runs/cand-mumford_shah_log-spatial configs/local/cand_mumford_shah_log.yaml \"Adding the mumford_shah_log derived lineament channel family to the incumbent recipe improves spatial-CV distance-weighted Tversky.\" \"Spatial view only: train_full_map.py rejects derived lineament features for fault/trace CV (no masked-input transform protocol), so promotion is blocked.\""
+ },
+ {
+  "id": "s4-gate-mumford_shah_log",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-MUMFORD_SHAH_LOG runs/gate/ref-full runs/gate/cand-mumford_shah_log configs/local/cand_mumford_shah_log.yaml \"Incumbent + mumford_shah_log lineament channels beats incumbent.\""
+ },
+ {
+  "id": "s4-train-structure_tensor_coherence-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-spatial configs/local/cand_structure_tensor_coherence.yaml spatial data/processed/cv-spatial-v1.tif 16"
+ },
+ {
+  "id": "s4-score-structure_tensor_coherence-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-structure_tensor_coherence-spatial spatial data/processed/cv-spatial-v1.tif runs/gate/cand-structure_tensor_coherence"
+ },
+ {
+  "id": "s4-record-structure_tensor_coherence",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/record.sh cand-structure_tensor_coherence-spatial runs/cand-structure_tensor_coherence-spatial configs/local/cand_structure_tensor_coherence.yaml \"Adding the structure_tensor_coherence derived lineament channel family to the incumbent recipe improves spatial-CV distance-weighted Tversky.\" \"Spatial view only: train_full_map.py rejects derived lineament features for fault/trace CV (no masked-input transform protocol), so promotion is blocked.\""
+ },
+ {
+  "id": "s4-gate-structure_tensor_coherence",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-STRUCTURE_TENSOR_COHERENCE runs/gate/ref-full runs/gate/cand-structure_tensor_coherence configs/local/cand_structure_tensor_coherence.yaml \"Incumbent + structure_tensor_coherence lineament channels beats incumbent.\""
+ },
+ {
+  "id": "s4-train-steerable_filter-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-steerable_filter-spatial configs/local/cand_steerable_filter.yaml spatial data/processed/cv-spatial-v1.tif 16"
+ },
+ {
+  "id": "s4-score-steerable_filter-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-steerable_filter-spatial spatial data/processed/cv-spatial-v1.tif runs/gate/cand-steerable_filter"
+ },
+ {
+  "id": "s4-record-steerable_filter",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/record.sh cand-steerable_filter-spatial runs/cand-steerable_filter-spatial configs/local/cand_steerable_filter.yaml \"Adding the steerable_filter derived lineament channel family to the incumbent recipe improves spatial-CV distance-weighted Tversky.\" \"Spatial view only: train_full_map.py rejects derived lineament features for fault/trace CV (no masked-input transform protocol), so promotion is blocked.\""
+ },
+ {
+  "id": "s4-gate-steerable_filter",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-STEERABLE_FILTER runs/gate/ref-full runs/gate/cand-steerable_filter configs/local/cand_steerable_filter.yaml \"Incumbent + steerable_filter lineament channels beats incumbent.\""
+ },
+ {
+  "id": "s4-train-ridge_valley_response-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-ridge_valley_response-spatial configs/local/cand_ridge_valley_response.yaml spatial data/processed/cv-spatial-v1.tif 16"
+ },
+ {
+  "id": "s4-score-ridge_valley_response-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-ridge_valley_response-spatial spatial data/processed/cv-spatial-v1.tif runs/gate/cand-ridge_valley_response"
+ },
+ {
+  "id": "s4-record-ridge_valley_response",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/record.sh cand-ridge_valley_response-spatial runs/cand-ridge_valley_response-spatial configs/local/cand_ridge_valley_response.yaml \"Adding the ridge_valley_response derived lineament channel family to the incumbent recipe improves spatial-CV distance-weighted Tversky.\" \"Spatial view only: train_full_map.py rejects derived lineament features for fault/trace CV (no masked-input transform protocol), so promotion is blocked.\""
+ },
+ {
+  "id": "s4-gate-ridge_valley_response",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-RIDGE_VALLEY_RESPONSE runs/gate/ref-full runs/gate/cand-ridge_valley_response configs/local/cand_ridge_valley_response.yaml \"Incumbent + ridge_valley_response lineament channels beats incumbent.\""
+ }
+]

@@ -1,0 +1,57 @@
+{
+  "scheme": "spatial",
+  "method": "LOFO exact threshold: maximize mean exact_threshold_curve fit over other folds; evaluate once on held-out fold",
+  "fold_map": "data/processed/cv-spatial-v1.tif",
+  "folds": [
+    {
+      "fold": 0,
+      "threshold": 0.944,
+      "fit_mean_other_folds": 0.12254852758283409,
+      "raw_score": 0.10312983758453433,
+      "calibrated_score": 0.13080511844983414,
+      "eval_pixels": 1027386,
+      "truth_pixels": 14445
+    },
+    {
+      "fold": 1,
+      "threshold": 0.9363560080528259,
+      "fit_mean_other_folds": 0.12186425870588606,
+      "raw_score": 0.10150016917779618,
+      "calibrated_score": 0.13339076790565357,
+      "eval_pixels": 1033305,
+      "truth_pixels": 13041
+    },
+    {
+      "fold": 2,
+      "threshold": 0.94,
+      "fit_mean_other_folds": 0.12992931325904666,
+      "raw_score": 0.08538576115281346,
+      "calibrated_score": 0.10143914660112562,
+      "eval_pixels": 965083,
+      "truth_pixels": 10058
+    },
+    {
+      "fold": 3,
+      "threshold": 0.94,
+      "fit_mean_other_folds": 0.1192430032263116,
+      "raw_score": 0.10778952844112907,
+      "calibrated_score": 0.1441843867320645,
+      "eval_pixels": 899130,
+      "truth_pixels": 11061
+    },
+    {
+      "fold": 4,
+      "threshold": 0.959,
+      "fit_mean_other_folds": 0.127884555860424,
+      "raw_score": 0.08358147437680807,
+      "calibrated_score": 0.10500234725517368,
+      "eval_pixels": 1239408,
+      "truth_pixels": 12289
+    }
+  ],
+  "raw_mean": 0.09627735414661623,
+  "raw_std": 0.00986485320900601,
+  "calibrated_mean": 0.12296435338877029,
+  "calibrated_std": 0.016771676857758846,
+  "std_note": "population std (ddof=0), same as score_cv macro_std"
+}

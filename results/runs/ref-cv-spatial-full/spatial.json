@@ -1,0 +1,48 @@
+{
+  "aggregate_score": 0.09667532843859997,
+  "evaluation_protocol": {
+    "alpha": 0.2,
+    "beta": 0.8,
+    "fold_map_sha256": "4d690ed4c69e4c86daf6df2e526cc92691d1074efc51d52ad09a98693ee519bb",
+    "known_fault_exclusion_pixels": 0,
+    "metric": "distance_weighted_tversky",
+    "radius_pixels": 3.0,
+    "schema_version": 1,
+    "truth_sha256": "7ba308ccdc4418b31a178f4f1ef21aaa6e152e4028f2f6f64b01f7eb25ae4093"
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "score": 0.10312983758453433,
+      "truth_pixels": 14445,
+      "valid_pixels": 1027386
+    },
+    {
+      "fold": 1,
+      "score": 0.10150016917779618,
+      "truth_pixels": 13041,
+      "valid_pixels": 1033305
+    },
+    {
+      "fold": 2,
+      "score": 0.08538576115281346,
+      "truth_pixels": 10058,
+      "valid_pixels": 965083
+    },
+    {
+      "fold": 3,
+      "score": 0.10778952844112907,
+      "truth_pixels": 11061,
+      "valid_pixels": 899130
+    },
+    {
+      "fold": 4,
+      "score": 0.08358147437680807,
+      "truth_pixels": 12289,
+      "valid_pixels": 1239408
+    }
+  ],
+  "macro_mean": 0.09627735414661623,
+  "macro_std": 0.00986485320900601,
+  "scheme": "spatial"
+}
