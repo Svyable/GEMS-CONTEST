@@ -29,6 +29,7 @@ def compute_edge_strength(
     *,
     epsilon: float = 1.0,
     lambda_smooth: float = 0.1,
+    normalization_mask: np.ndarray | None = None,
     max_iterations: int = 100,
     tolerance: float = 1e-4,
 ) -> np.ndarray:
@@ -42,6 +43,7 @@ def compute_edge_strength(
         image: 2D array of normalized values (e.g., [0, 1])
         epsilon: Smoothing scale (larger = smoother, default: 1.0)
         lambda_smooth: Edge emphasis (larger = stronger edges, default: 0.1)
+        normalization_mask: Optional training-pixel mask for fitting the LoG scale
         max_iterations: Unused (for API compatibility)
         tolerance: Unused (for API compatibility)
     
@@ -51,6 +53,13 @@ def compute_edge_strength(
     g = np.asarray(image, dtype=np.float64)
     if g.ndim != 2:
         raise ValueError("image must be 2D")
+    fit = (
+        np.ones(g.shape, dtype=bool)
+        if normalization_mask is None
+        else np.asarray(normalization_mask, dtype=bool)
+    )
+    if fit.shape != g.shape or not fit.any():
+        raise ValueError("normalization_mask must match image and include training pixels")
     
     # Smooth the image to reduce noise
     sigma = max(0.5, epsilon)
@@ -63,8 +72,9 @@ def compute_edge_strength(
     # Take absolute value and normalize
     edge_indicator = np.abs(laplacian_img)
     
-    if edge_indicator.max() > 0:
-        edge_indicator = edge_indicator / edge_indicator.max()
+    fit_max = float(edge_indicator[fit].max())
+    if fit_max > 0:
+        edge_indicator = edge_indicator / fit_max
     
     # Apply nonlinear transformation to emphasize strong edges
     # lambda_smooth controls the contrast
