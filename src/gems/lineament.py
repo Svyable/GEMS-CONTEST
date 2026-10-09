@@ -88,11 +88,52 @@ def _symmetric_eigenvalues(
     return lambda_max, lambda_min
 
 
+
+def lineament_kwargs(config: Mapping[str, object]) -> dict:
+    """Map the runnable trainer's YAML settings to derived-feature arguments."""
+    return {
+        "kind": str(config.get("kind", "phase_edge")),
+        "sigma_pixels": float(config.get("sigma_pixels", 1.0)),
+        "phase_epsilon_pixels": float(config.get("phase_epsilon_pixels", 1.0)),
+        "structure_tensor_window": float(config.get("structure_tensor_window", 3.0)),
+        "ridge_valley_scales": config.get("ridge_valley_scales"),
+        "steerable_wavelength": float(config.get("steerable_wavelength", 8.0)),
+        "steerable_orientations": int(config.get("steerable_orientations", 8)),
+    }
+
+
+def required_lineament_buffer(kwargs: Mapping[str, object]) -> int:
+    """Conservative filter support in pixels for leakage-safe spatial CV."""
+    kind = str(kwargs["kind"])
+    sigma = float(kwargs["sigma_pixels"])
+    smoothing = int(np.ceil(4 * sigma))
+    if kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
+        return smoothing + 1 + int(np.ceil(4 * float(kwargs["structure_tensor_window"])))
+    if kind == "ridge_valley_response":
+        scales = kwargs["ridge_valley_scales"]
+        max_scale = max(float(scale) for scale in (
+            scales if scales is not None else (sigma,)
+        ))
+        return (
+            int(np.ceil(4 * max_scale))
+            + 2
+            + int(np.ceil(4 * float(kwargs["structure_tensor_window"])))
+        )
+    if kind == "steerable_filter":
+        gabor_sigma = float(kwargs["steerable_wavelength"]) / (2 * np.pi * 0.56)
+        kernel_size = int(np.ceil(3 * gabor_sigma))
+        if kernel_size % 2 == 0:
+            kernel_size += 1
+        return smoothing + kernel_size // 2
+    return smoothing + 1
+
+
 def grouped_lineament_features(
     features: np.ndarray,
     groups: Mapping[str, Sequence[int]],
     *,
     valid_mask: np.ndarray,
+    normalization_mask: np.ndarray | None = None,
     kind: str = "phase_edge",
     sigma_pixels: float = 1.0,
     phase_epsilon_pixels: float = 1.0,
@@ -164,6 +205,9 @@ def grouped_lineament_features(
     valid = np.asarray(valid_mask, dtype=bool)
     if x.ndim != 3 or valid.shape != x.shape[:2]:
         raise ValueError("features must be HWC and valid_mask must match HW")
+    fit = valid if normalization_mask is None else np.asarray(normalization_mask, dtype=bool)
+    if fit.shape != valid.shape or np.any(fit & ~valid) or not fit.any():
+        raise ValueError("normalization_mask must be a nonempty subset of valid_mask")
     allowed_kinds = {
         "gradient_energy", "phase_edge", "mumford_shah_log",
         "structure_tensor_coherence", "structure_tensor_orientation",
@@ -209,7 +253,7 @@ def grouped_lineament_features(
             normalized_stack = []
             for index in indices:
                 band = x[..., index]
-                valid_values = band[valid & np.isfinite(band)]
+                valid_values = band[fit & np.isfinite(band)]
                 if len(valid_values) > 0:
                     p_low = np.percentile(valid_values, 2.0)
                     p_high = np.percentile(valid_values, 98.0)
@@ -235,8 +279,9 @@ def grouped_lineament_features(
             grad_norm = np.sqrt(energy / len(indices))
             
             # Normalize gradient norm to [0, 1]
-            if grad_norm.max() > 0:
-                grad_norm = grad_norm / grad_norm.max()
+            fit_max = float(grad_norm[fit].max())
+            if fit_max > 0:
+                grad_norm = grad_norm / fit_max
             
             # Apply LoG edge detection
             derived = compute_edge_strength(
@@ -331,8 +376,8 @@ def grouped_lineament_features(
                 max_ridge = np.maximum(max_ridge, ridge)
 
             signed = max_valley - max_ridge
-            # Fold-pure robust scale: 99th percentile over the valid region only.
-            valid_signed = np.abs(signed[valid]) if valid.any() else np.array([])
+            # Estimate the response scale from training pixels, never held-out pixels.
+            valid_signed = np.abs(signed[fit])
             denom = float(np.percentile(valid_signed, 99.0)) if valid_signed.size else 0.0
             if denom > 0:
                 derived = np.clip(signed / denom, -1.0, 1.0).astype(np.float32, copy=False)
@@ -394,8 +439,8 @@ def grouped_lineament_features(
                 # Max across orientations for orientation-invariant response
                 max_response = np.maximum(max_response, response)
             
-            # Normalize by 99th percentile over valid region (fold-pure)
-            valid_responses = max_response[valid] if valid.any() else np.array([])
+            # Use training pixels for scale fitting; transform the full image.
+            valid_responses = max_response[fit]
             denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
             if denom > 1e-6:
                 derived = np.clip(max_response / denom, 0.0, 1.0).astype(np.float32, copy=False)
@@ -451,6 +496,7 @@ def grouped_lineament_features(
         "groups_zero_based": normalized_groups,
         "output_channels": output_names,
         "phase_interpretation": interpretation,
+        "normalization_pixels": int(fit.sum()),
     }
     
     if kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
