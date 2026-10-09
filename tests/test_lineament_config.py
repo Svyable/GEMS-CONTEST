@@ -36,7 +36,7 @@ def test_ablation_configs_are_runnable_and_options_reach_features(filename, kind
     assert options["kind"] == kind
     assert required_lineament_buffer(options) == buffer
 
-    yy, xx = np.indices((48, 48))
+    _, xx = np.indices((48, 48))
     features = np.exp(-((xx - 24) / 3.0) ** 2).astype(np.float32)[..., None]
     derived, metadata = grouped_lineament_features(
         features,
