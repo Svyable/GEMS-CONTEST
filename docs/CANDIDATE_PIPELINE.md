@@ -356,3 +356,45 @@ is not enough to promote the feature.
 
 The runner is deliberately dry-run by default and does not launch compute merely
 because the repository was checked out.
+
+## Runnable lineament configs and fold-pure derived scaling (2026-10-09)
+
+The structure-tensor, ridge/valley, and steerable-filter configs now follow the
+same `patches`, `model`, `training`, and top-level `derived_features.lineament`
+contract as `scripts/train_full_map.py`. Their tuning parameters are passed
+through to `grouped_lineament_features`; the former example-only
+`data.derived_features` list shape was not consumed by this trainer.
+
+For spatial CV, base-band normalization and secondary derived-channel scaling
+(min/max, percentiles and maxima) use **only training-region pixels**. The
+transform still produces predictions on the whole valid raster, but no withheld
+response values can set the training-derived scale. Effective filter support
+includes tensor smoothing, multiscale Hessian filters, and Gabor kernels when
+checking the train/holdout buffer. Use the following lower bounds for the
+shipped configs:
+
+| Config | Minimum `--buffer-pixels` |
+|---|---:|
+| `resnet18_structure_tensor.yaml` | 17 |
+| `resnet18_ridge_valley.yaml` | 30 |
+| `resnet18_steerable_filter.yaml` | 7 |
+
+Example (ridge/valley spatial fold 0):
+
+```bash
+uv run python scripts/train_full_map.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --fold-map data/processed/cv-spatial-v1.tif --cv-scheme spatial \
+  --fold 0 --buffer-pixels 30 \
+  --config configs/resnet18_ridge_valley.yaml \
+  --output runs/ridge-valley/fold-0.tif \
+  --metrics-json runs/ridge-valley/fold-0.json
+```
+
+The changes are **correctness/infrastructure only**. Previously published
+feature configs are not comparable training runs. Rerun the baseline with the
+same fold, buffer, inputs, and normalization protocol before asserting any
+derived-feature uplift. Fault/trace CV still rejects derived features until
+its masked-input transform protocol is specified and tested.
