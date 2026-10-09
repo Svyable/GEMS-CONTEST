@@ -288,6 +288,7 @@ def grouped_lineament_features(
                 grad_norm,
                 epsilon=phase_epsilon_pixels,
                 lambda_smooth=0.1,
+                normalization_mask=fit,
             )
         elif kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
             # Compute structure tensor from smoothed gradients
