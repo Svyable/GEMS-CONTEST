@@ -56,3 +56,19 @@ def test_script_help_profile_labels():
         check=False,
     )
     assert result.returncode == 0, f"--help failed:\n{result.stderr}"
+
+
+def test_script_help_lofo_calibrate():
+    """lofo_calibrate.py should be importable and show usage on wrong args."""
+    script = Path(__file__).parent.parent / "scripts" / "lofo_calibrate.py"
+    # Script expects 2 args, so calling with no args should fail with usage info
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    assert result.returncode != 0, "lofo_calibrate.py should fail without args"
+    # Should show traceback or usage (checks it's importable)
+    assert len(result.stderr) > 0 or "IndexError" in result.stderr

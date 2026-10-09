@@ -126,6 +126,7 @@ def extend_endpoint(
     decay_rate: float = 0.1,
     edge_strength: np.ndarray | None = None,
     edge_threshold: float = 0.3,
+    inplace: bool = False,
 ) -> np.ndarray:
     """Extend probability from an endpoint along a direction with decay.
     
@@ -138,11 +139,13 @@ def extend_endpoint(
         decay_rate: Exponential decay rate (higher = faster decay)
         edge_strength: Optional edge indicator to gate extension
         edge_threshold: Minimum edge strength to allow extension
+        inplace: If True, modify probabilities in-place (avoids O(H*W) copy per endpoint)
     
     Returns:
         Extended probability map (same shape as input)
     """
-    extended = probabilities.copy()
+    # inplace=True avoids an O(H*W) copy per endpoint (identical result).
+    extended = probabilities if inplace else probabilities.copy()
     row, col = endpoint
     dy, dx = direction
     h, w = probabilities.shape
@@ -257,6 +260,7 @@ def extend_fault_endpoints(
             max_distance_pixels,
             decay_rate=decay_rate,
             edge_strength=edge_strength,
+            inplace=True,
             edge_threshold=edge_threshold,
         )
     

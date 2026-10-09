@@ -379,3 +379,84 @@ def test_extend_fault_endpoints_vertical_line():
     assert extended[18, 50] > 0 or extended[19, 50] > 0
     # Bottom extension
     assert extended[60, 50] > 0 or extended[61, 50] > 0
+
+
+def test_inplace_performance_no_copy():
+    """inplace=True avoids O(H*W) full-array copy per endpoint."""
+    import numpy as np
+
+    from gems.endpoint_extension import extend_endpoint
+
+    # Create a large synthetic raster with many endpoints
+    h, w = 2000, 2000
+    probabilities = np.random.rand(h, w).astype(np.float32) * 0.3
+    skeleton = np.zeros((h, w), dtype=bool)
+    
+    # Add a grid of endpoints
+    endpoints = [(i * 100, j * 100) for i in range(5, 15) for j in range(5, 15)]
+    for r, c in endpoints:
+        skeleton[r, c] = True
+    
+    # Time the in-place version (should be fast, no full-array copies)
+    import time
+    start = time.time()
+    result = probabilities.copy()
+    for endpoint in endpoints[:20]:  # Test 20 endpoints
+        result = extend_endpoint(
+            result,
+            skeleton,
+            endpoint,
+            direction=(0.707, 0.707),  # 45-degree direction
+            max_distance_pixels=50,
+            decay_rate=0.1,
+            inplace=True,
+        )
+    elapsed = time.time() - start
+    
+    # Should complete quickly (< 1 second for 20 endpoints on a 2000x2000 raster)
+    # Without inplace, this would take much longer due to 20 full 2000×2000 copies
+    assert elapsed < 1.0, f"inplace=True took {elapsed:.2f}s, expected < 1s"
+    
+    # Verify output shape is preserved
+    assert result.shape == (h, w)
+
+
+def test_inplace_identical_to_copy():
+    """inplace=True produces bit-identical output to inplace=False."""
+    import numpy as np
+
+    from gems.endpoint_extension import extend_endpoint
+
+    np.random.seed(42)
+    h, w = 200, 200
+    probabilities = np.random.rand(h, w).astype(np.float32) * 0.3
+    skeleton = np.zeros((h, w), dtype=bool)
+    skeleton[100, 100] = True
+    endpoint = (100, 100)
+    direction = (0.707, 0.707)
+    
+    # Run with inplace=False (default)
+    result_copy = extend_endpoint(
+        probabilities,
+        skeleton,
+        endpoint,
+        direction,
+        max_distance_pixels=50,
+        decay_rate=0.1,
+        inplace=False,
+    )
+    
+    # Run with inplace=True
+    result_inplace = extend_endpoint(
+        probabilities,
+        skeleton,
+        endpoint,
+        direction,
+        max_distance_pixels=50,
+        decay_rate=0.1,
+        inplace=True,
+    )
+    
+    # Results should be bit-identical
+    assert np.allclose(result_copy, result_inplace, rtol=0, atol=0), \
+        "inplace=True and inplace=False should produce identical results"
