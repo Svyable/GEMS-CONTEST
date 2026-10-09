@@ -495,3 +495,13 @@ tightened spatial buffer checks for filter support; and added synthetic
 regression tests and documentation. No raw gated competition rasters were
 supplied to this assistant and no new model training, held-out score, or prize
 improvement is claimed from this code work.
+
+## 2026-10-09 — fault/trace CV training handoff config
+
+This worker (scheduled cron, Muse) added `configs/resnet18_cv_reduced.yaml`
+(scheme-agnostic reduced ResNet-18 CV config for fault-discovery and
+trace-completion fold training), `tests/test_cv_config.py` (5 schema tests),
+and the box handoff commands in `docs/EXPERIMENT_LOG.md`. No raw gated
+competition data was read or committed; no model training ran on this CPU-only
+VM and no new held-out score is claimed. The handoff targets the
+torch+data box for the fault/trace CV views blocked here.

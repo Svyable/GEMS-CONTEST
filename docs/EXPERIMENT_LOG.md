@@ -149,3 +149,67 @@ First full pipeline run on real contest data (19-band 3292×3730 raster) surface
 2. **Train fault and trace fold models**: Complete fault-discovery and trace-discovery CV views so the gate can evaluate all 3 views for candidates
 3. **Re-gate candidates**: Once the full-config baseline is scored and fault/trace views are available, re-gate endpoint extension and other candidates against the honest baseline
 4. **Confirm threshold hypothesis**: Test whether "optimal threshold below 0.5" holds for a properly trained model (current calibrated thresholds ~0.70 are for an under-trained model with compressed outputs)
+
+### Box handoff 2026-10-09 — fault/trace CV fold training (INFRASTRUCTURE)
+
+This run is CPU-only (no torch on this VM), so the two blocked validation views
+are prepared, not executed. New config `configs/resnet18_cv_reduced.yaml`:
+scheme-agnostic ResNet-18 U-Net recipe identical to `configs/resnet18_fold0.yaml`
+except the box reduction (epochs 20 -> 2, train_step 32 -> 64); fold-pure
+`per_channel_minmax_over_training_region` normalization; Tversky alpha=0.2 /
+beta=0.8. Pinned by `tests/test_cv_config.py` (5 tests: trainer-key contract,
+metric weights, fold-pure normalization, scheme-from-CLI, recipe-vs-control).
+
+Run on the torch+data box (all commands in the repo root, using `uv`):
+
+```bash
+# 0. clean tree, pinned data fingerprint
+git status -sb && git log -1 --format=%H
+uv run python scripts/verify_inputs.py
+
+# 1. build fold maps (params reproduce the committed manifests exactly)
+uv run python scripts/build_cv_manifest.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --scheme fault --output-prefix data/processed/cv-fault-v1
+uv run python scripts/build_cv_manifest.py \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --scheme trace --buffer-pixels 3 --min-pixels 24 --endpoint-fraction 0.3 \
+  --output-prefix data/processed/cv-trace-v1
+
+# 2. train reduced folds (~3 min/fold at the reduced recipe)
+for k in 0 1 2 3 4; do
+  uv run python scripts/train_full_map.py \
+    --config configs/resnet18_cv_reduced.yaml \
+    --features data/raw/gems-geodawn-numerical-features.tif \
+    --labels data/raw/existing_faults.tif \
+    --template data/raw/example_submission.tif \
+    --fold-map data/processed/cv-fault-v1.tif --cv-scheme fault --fold $k \
+    --seed 20260922 \
+    --output runs/resnet18-fault-cv-reduced/fold-$k.tif \
+    --metrics-json runs/resnet18-fault-cv-reduced/metrics-fold-$k.json
+done
+# same loop for trace: --fold-map data/processed/cv-trace-v1.tif
+# --cv-scheme trace, outputs under runs/resnet18-trace-cv-reduced/
+
+# 3. score all folds per view
+uv run python scripts/score_cv.py \
+  --truth data/raw/existing_faults.tif \
+  --fold-map data/processed/cv-fault-v1.tif --scheme fault \
+  --prediction-pattern runs/resnet18-fault-cv-reduced/fold-{fold}.tif \
+  --output-json runs/resnet18-fault-cv-reduced/fault.json
+# trace analog -> runs/resnet18-trace-cv-reduced/trace.json
+# (spatial view already scored: ref-cv-spatial-reduced, 0.0591 +/- 0.0082 raw)
+
+# 4. re-gate endpoint extension once all three views exist
+# extend_endpoints.py over the new OOF maps -> score all three views ->
+# verify_candidate.py --candidate ENDPOINT-EXT-02 --incumbent-dir <scores>
+# --candidate-dir <scores> --config configs/resnet18_with_endpoint_extension.yaml
+```
+
+Expected outcome: fault.json and trace.json scores for the reduced ResNet-18
+baseline, which unblock the ENDPOINT-EXT gate (currently INCONCLUSIVE on
+spatial-only evidence) and give every lineament candidate its first honest
+three-view trial. The reduced recipe is a speed control; promote surviving
+candidates to the full recipe (epochs=20, train_step=32) on the same folds.

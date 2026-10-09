@@ -1,0 +1,64 @@
+# Scheme-agnostic reduced ResNet-18 CV config for fault-discovery and
+# trace-completion fold training on the torch+data box.
+#
+# Same recipe as configs/resnet18_fold0.yaml (ResNet-18 U-Net, imagenet
+# weights, Tversky alpha=0.2/beta=0.8 matching the competition metric,
+# fold-pure per_channel_minmax_over_training_region normalization), with
+# the box reduction applied: training.epochs 20 -> 2, patches.train_step
+# 32 -> 64. Mirrors the reference_unet_cv_reduced.yaml reduction so the
+# reduced fault/trace baselines stay comparable to ref-cv-spatial-reduced.
+#
+# The CV scheme and fold come from CLI flags, not this file:
+#   --fold-map data/processed/cv-fault-v1.tif --cv-scheme fault --fold K
+#   --fold-map data/processed/cv-trace-v1.tif --cv-scheme trace --fold K
+# Fold maps are built with:
+#   scripts/build_cv_manifest.py --scheme fault|trace
+#       --output-prefix data/processed/cv-fault-v1  (or cv-trace-v1)
+#
+# Base-feature control: no derived lineament channels. Candidates that
+# add derived features (configs/resnet18_structure_tensor.yaml,
+# configs/resnet18_ridge_valley.yaml, configs/resnet18_steerable_filter.yaml,
+# configs/resnet18_mumford_shah_log.yaml) compare against folds trained
+# with this config through the verify_candidate.py gate.
+seed: 20260922
+data:
+  normalization: per_channel_minmax_over_training_region
+  negative_ratio: 1.0
+patches:
+  patch_size: 128
+  train_step: 64
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
+training:
+  epochs: 2
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.8, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30
+notes:
+  - >
+    The candidate trainer reads CLI args directly: --fold-map, --cv-scheme,
+    --fold, --buffer-pixels, --min-training-fraction (fault/trace default 0.5),
+    --seed, --metrics-json. Those args are pinned per run in the experiment
+    manifest; they are intentionally not baked into this file.
+  - >
+    Fault/trace training is masked supervision: only the held-out
+    structure's training region contributes labels. Score with
+    scripts/score_cv.py --scheme fault|trace.
+  - >
+    The reduced recipe is a speed control. Real model-selection evidence
+    comes from the full recipe (configs/resnet18_fold0.yaml style,
+    epochs=20, train_step=32) scored on the same folds.
