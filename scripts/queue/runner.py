@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: SIM115, DTZ005
 """Resumable GEMS experiment queue.
 
 - Tasks live in tasks.json (re-read before every task, so tasks can be appended live).
@@ -8,7 +9,12 @@
 Start/resume:  nohup python3 ${QUEUE_DIR:-/workspace/gems/queue}/runner.py >> ${QUEUE_DIR:-/workspace/gems/queue}/queue.log 2>&1 &
 Single instance enforced with flock on runner.lock.
 """
-import fcntl, json, os, subprocess, sys, time
+import fcntl
+import json
+import os
+import subprocess
+import sys
+import time
 from datetime import datetime
 from pathlib import Path
 

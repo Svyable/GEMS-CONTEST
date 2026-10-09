@@ -12,9 +12,13 @@ gems.calibration.exact_threshold_curve (exact step function), so scores at the
 candidates are exact. Evaluation on fold k uses binary_threshold (>=) + the
 published metric on fold k's region.
 """
-import json, sys
+import json
+import sys
 from pathlib import Path
-import numpy as np, rasterio
+
+import numpy as np
+import rasterio
+
 from gems.calibration import binary_threshold, exact_threshold_curve
 from gems.cv import fault_discovery_fold, trace_completion_fold
 from gems.metric import distance_weighted_tversky
