@@ -98,6 +98,8 @@ def grouped_lineament_features(
     phase_epsilon_pixels: float = 1.0,
     structure_tensor_window: float = 3.0,
     ridge_valley_scales: Sequence[float] | None = None,
+    steerable_wavelength: float = 8.0,
+    steerable_orientations: int = 8,
 ) -> tuple[np.ndarray, dict]:
     """Create one derived lineament channel per physical feature family.
 
@@ -147,6 +149,16 @@ def grouped_lineament_features(
     its magnitude over the valid region (fold-pure: statistics from valid
     only) and clipped to [-1, 1]; 0 means no directional second-order
     structure.
+
+    steerable_filter applies Gabor-style directional filters at multiple
+    orientations to detect linear structures at any angle. At each of
+    steerable_orientations equally-spaced angles from 0 to π, a complex Gabor
+    kernel (Gaussian envelope × sinusoidal carrier at steerable_wavelength)
+    convolves with smoothed bands. The maximum magnitude across orientations
+    gives the lineament strength independent of fault strike direction,
+    normalized to [0,1] by the 99th percentile over the valid region
+    (fold-pure). This completes roadmap priority #5 (multi-scale gradient
+    and structure-tensor features).
     """
     x = np.asarray(features, dtype=np.float32)
     valid = np.asarray(valid_mask, dtype=bool)
@@ -155,7 +167,7 @@ def grouped_lineament_features(
     allowed_kinds = {
         "gradient_energy", "phase_edge", "mumford_shah_log",
         "structure_tensor_coherence", "structure_tensor_orientation",
-        "ridge_valley_response",
+        "ridge_valley_response", "steerable_filter",
     }
     if kind not in allowed_kinds:
         raise ValueError(f"kind must be one of {allowed_kinds}")
@@ -171,6 +183,10 @@ def grouped_lineament_features(
             raise ValueError("ridge_valley_scales must be non-empty when given")
         if any(s < 0 or not np.isfinite(s) for s in ridge_valley_scales):
             raise ValueError("ridge_valley_scales must be finite and nonnegative")
+    if steerable_wavelength <= 0 or not np.isfinite(steerable_wavelength):
+        raise ValueError("steerable_wavelength must be finite and positive")
+    if steerable_orientations < 2 or steerable_orientations > 32:
+        raise ValueError("steerable_orientations must be between 2 and 32")
     if not groups:
         raise ValueError("at least one feature group is required")
 
@@ -322,6 +338,70 @@ def grouped_lineament_features(
                 derived = np.clip(signed / denom, -1.0, 1.0).astype(np.float32, copy=False)
             else:
                 derived = np.zeros(x.shape[:2], dtype=np.float32)
+        elif kind == "steerable_filter":
+            # Gabor-style directional filters at multiple orientations
+            # Detects linear structures at any angle via max response
+            wavelength = float(steerable_wavelength)
+            n_orient = int(steerable_orientations)
+            angles = np.linspace(0, np.pi, n_orient, endpoint=False)
+            
+            # Gabor kernel parameters
+            gamma = 0.5  # spatial aspect ratio
+            sigma = wavelength / (2 * np.pi * 0.56)  # standard Gabor bandwidth
+            kernel_size = int(np.ceil(3 * sigma))
+            if kernel_size % 2 == 0:
+                kernel_size += 1
+            kernel_half = kernel_size // 2
+            
+            # Generate coordinate grids for kernel
+            y_k, x_k = np.meshgrid(
+                np.arange(-kernel_half, kernel_half + 1, dtype=np.float32),
+                np.arange(-kernel_half, kernel_half + 1, dtype=np.float32),
+                indexing='ij'
+            )
+            
+            # Accumulate max response across all orientations
+            max_response = np.zeros(x.shape[:2], dtype=np.float32)
+            
+            for angle in angles:
+                # Rotate coordinates
+                x_rot = x_k * np.cos(angle) + y_k * np.sin(angle)
+                y_rot = -x_k * np.sin(angle) + y_k * np.cos(angle)
+                
+                # Real Gabor kernel: Gaussian envelope × cosine carrier
+                gaussian_envelope = np.exp(
+                    -(x_rot**2 + (gamma * y_rot)**2) / (2 * sigma**2)
+                )
+                carrier = np.cos(2 * np.pi * x_rot / wavelength)
+                gabor_kernel = (gaussian_envelope * carrier).astype(np.float32)
+                # Zero-mean normalization
+                gabor_kernel -= gabor_kernel.mean()
+                
+                # Convolve with each channel and accumulate
+                response = np.zeros(x.shape[:2], dtype=np.float32)
+                for index in indices:
+                    smoothed = _masked_gaussian(x[..., index], valid, sigma_pixels)
+                    # scipy.ndimage.convolve for consistency with other filters
+                    from scipy.ndimage import convolve
+                    band_response = convolve(
+                        smoothed,
+                        gabor_kernel,
+                        mode='nearest',
+                    )
+                    response += np.abs(band_response)
+                response /= float(len(indices))
+                
+                # Max across orientations for orientation-invariant response
+                max_response = np.maximum(max_response, response)
+            
+            # Normalize by 99th percentile over valid region (fold-pure)
+            valid_responses = max_response[valid] if valid.any() else np.array([])
+            denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+            if denom > 1e-6:
+                derived = np.clip(max_response / denom, 0.0, 1.0).astype(np.float32, copy=False)
+            else:
+                # Constant or near-zero field: all responses below threshold, output zeros
+                derived = np.zeros(x.shape[:2], dtype=np.float32)
         else:
             # Original gradient_energy and phase_edge implementations
             energy = np.zeros(x.shape[:2], dtype=np.float32)
@@ -358,6 +438,8 @@ def grouped_lineament_features(
         interpretation = "dominant_orientation_angle_from_structure_tensor_eigenvector"
     elif kind == "ridge_valley_response":
         interpretation = "signed_multiscale_hessian_eigenvalue_ridge_valley_response"
+    elif kind == "steerable_filter":
+        interpretation = "gabor_style_directional_filter_max_response_across_orientations"
     else:
         interpretation = None
     
@@ -381,5 +463,9 @@ def grouped_lineament_features(
             if ridge_valley_scales is not None
             else [float(sigma_pixels)]
         )
+
+    if kind == "steerable_filter":
+        metadata["steerable_wavelength"] = float(steerable_wavelength)
+        metadata["steerable_orientations"] = int(steerable_orientations)
 
     return stacked, metadata
