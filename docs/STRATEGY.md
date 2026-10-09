@@ -112,7 +112,7 @@ The scored-submission allowance is three submissions in a rolling window, not a 
    "newly mapped continuations" class. Motivated by Mumford-Shah arc-termination geometry (Family 366). 
    Ready for OOF ablation via canonical gate once training data is available.
 
-5. **Multi-scale gradient and structure-tensor features** – ⚡ MOSTLY COMPLETED 2026-10-08
+5. **Multi-scale gradient and structure-tensor features** – ✅ COMPLETED 2026-10-09
    
    **Implemented:** Structure tensor coherence and orientation channels (`src/gems/lineament.py`, 
    7 tests). Coherence (λ1-λ2)/(λ1+λ2+ε) measures directional structure strength [0,1]; orientation 
@@ -131,8 +131,17 @@ The scored-submission allowance is three submissions in a rolling window, not a 
    Distinguishes fault-parallel troughs/crests from isotropic blobs and step
    edges (already covered by gradient/structure-tensor channels).
    
-   **Still needed:** Directional/steerable filters. Each new channel must pass the 
-   propose-and-verify gate on all three CV views once training data is available.
+   **Implemented 2026-10-09:** Gabor-style steerable/directional filters
+   (`src/gems/lineament.py` `kind: steerable_filter`, 12 new tests;
+   config `configs/resnet18_steerable_filter.yaml`). Applies oriented edge
+   detectors at `steerable_orientations` equally-spaced angles (0 to π), using
+   Gaussian-envelope × sinusoidal-carrier kernels at `steerable_wavelength`.
+   Returns max magnitude across orientations for orientation-invariant lineament
+   detection, normalized to [0,1] by fold-pure 99th percentile. Completes the
+   full suite: gradient energy, phase edge, LoG, structure tensor coherence/
+   orientation, ridge/valley response, and steerable filters. Each channel must
+   pass the propose-and-verify gate on all three CV views once training data
+   is available.
 
 6. **Ensemble and calibration framework** – ✅ COMPLETED 2026-10-09
    

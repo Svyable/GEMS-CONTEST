@@ -420,3 +420,182 @@ def test_invalid_ridge_valley_scales_are_rejected(scales):
             kind="ridge_valley_response",
             ridge_valley_scales=scales,
         )
+
+
+def test_steerable_filter_detects_horizontal_line():
+    """A horizontal linear feature should give strong response regardless of angle."""
+    size = 64
+    features = np.zeros((size, size, 1), dtype=np.float32)
+    # Create a horizontal line (bright on dark background)
+    features[size // 2 - 1:size // 2 + 2, :, 0] = 1.0
+    valid = np.ones((size, size), dtype=bool)
+    
+    result, metadata = grouped_lineament_features(
+        features,
+        {"line": (0,)},
+        valid_mask=valid,
+        kind="steerable_filter",
+        sigma_pixels=0.5,
+        steerable_wavelength=8.0,
+        steerable_orientations=8,
+    )
+    
+    assert result.shape == (size, size, 1)
+    assert np.all((0 <= result) & (result <= 1))
+    # Line center should have strong response
+    center_response = result[size // 2, size // 2, 0]
+    assert center_response > 0.4, f"expected strong line response, got {center_response}"
+    # Far from the line should be near zero
+    background = result[5, 5, 0]
+    assert background < 0.3, f"expected weak background, got {background}"
+    assert metadata["kind"] == "steerable_filter"
+    assert metadata["steerable_wavelength"] == 8.0
+    assert metadata["steerable_orientations"] == 8
+    assert metadata["phase_interpretation"] == (
+        "gabor_style_directional_filter_max_response_across_orientations"
+    )
+
+
+def test_steerable_filter_detects_vertical_line():
+    """A vertical linear feature should also give strong response."""
+    size = 64
+    features = np.zeros((size, size, 1), dtype=np.float32)
+    # Create a vertical line
+    features[:, size // 2 - 1:size // 2 + 2, 0] = 1.0
+    valid = np.ones((size, size), dtype=bool)
+    
+    result, _ = grouped_lineament_features(
+        features,
+        {"line": (0,)},
+        valid_mask=valid,
+        kind="steerable_filter",
+        sigma_pixels=0.5,
+        steerable_wavelength=8.0,
+        steerable_orientations=8,
+    )
+    
+    center_response = result[size // 2, size // 2, 0]
+    assert center_response > 0.4, f"expected strong vertical line response, got {center_response}"
+
+
+def test_steerable_filter_detects_diagonal_line():
+    """A diagonal linear feature should give strong response at 45 degrees."""
+    size = 64
+    features = np.zeros((size, size, 1), dtype=np.float32)
+    # Create a diagonal line
+    for i in range(size):
+        if 0 <= i - 1 < size and 0 <= i < size:
+            features[i - 1:i + 2, i, 0] = 1.0
+    valid = np.ones((size, size), dtype=bool)
+    
+    result, _ = grouped_lineament_features(
+        features,
+        {"line": (0,)},
+        valid_mask=valid,
+        kind="steerable_filter",
+        sigma_pixels=0.5,
+        steerable_wavelength=8.0,
+        steerable_orientations=8,
+    )
+    
+    # Diagonal line center should respond
+    center_response = result[size // 2, size // 2, 0]
+    assert center_response > 0.3, f"expected diagonal line response, got {center_response}"
+
+
+def test_steerable_filter_constant_field_is_quiet():
+    """A constant field has no structure and should give near-zero response."""
+    features = np.ones((50, 50, 1), dtype=np.float32) * 0.5
+    valid = np.ones((50, 50), dtype=bool)
+    
+    result, _ = grouped_lineament_features(
+        features,
+        {"constant": (0,)},
+        valid_mask=valid,
+        kind="steerable_filter",
+        sigma_pixels=0.5,
+        steerable_wavelength=8.0,
+        steerable_orientations=4,
+    )
+    
+    assert result.shape == (50, 50, 1)
+    # Small residual response is OK due to numerical effects at edges
+    assert np.percentile(result, 95) < 0.15
+
+
+def test_steerable_filter_handles_invalid_regions():
+    """Invalid pixels should be zero and not poison valid regions."""
+    size = 60
+    features = np.zeros((size, size, 1), dtype=np.float32)
+    features[size // 2 - 1:size // 2 + 2, :, 0] = 1.0
+    features[0, 0, 0] = np.nan
+    
+    valid = np.ones((size, size), dtype=bool)
+    valid[:5, :5] = False
+    
+    result, _ = grouped_lineament_features(
+        features,
+        {"line": (0,)},
+        valid_mask=valid,
+        kind="steerable_filter",
+        sigma_pixels=0.5,
+        steerable_wavelength=8.0,
+        steerable_orientations=6,
+    )
+    
+    assert np.isfinite(result).all()
+    assert not result[:5, :5].any()
+    # Valid line region should still respond
+    assert result[size // 2, size // 2, 0] > 0.3
+
+
+def test_steerable_filter_multi_channel_aggregation():
+    """Steerable filter should aggregate across multiple channels."""
+    size = 60
+    # Two channels with orthogonal lines
+    horiz = np.zeros((size, size), dtype=np.float32)
+    horiz[size // 2 - 1:size // 2 + 2, :] = 1.0
+    
+    vert = np.zeros((size, size), dtype=np.float32)
+    vert[:, size // 2 - 1:size // 2 + 2] = 1.0
+    
+    features = np.stack([horiz, vert], axis=-1)
+    valid = np.ones((size, size), dtype=bool)
+    
+    result, _ = grouped_lineament_features(
+        features,
+        {"both": (0, 1)},
+        valid_mask=valid,
+        kind="steerable_filter",
+        sigma_pixels=0.5,
+        steerable_wavelength=8.0,
+        steerable_orientations=8,
+    )
+    
+    # Intersection should have strong response from both channels
+    center = result[size // 2, size // 2, 0]
+    assert center > 0.4, f"expected strong center response, got {center}"
+    assert result.shape == (size, size, 1)
+    assert np.all((0 <= result) & (result <= 1))
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"steerable_wavelength": 0},
+        {"steerable_wavelength": -1},
+        {"steerable_wavelength": float("inf")},
+        {"steerable_orientations": 1},
+        {"steerable_orientations": 33},
+        {"steerable_orientations": 0},
+    ],
+)
+def test_invalid_steerable_filter_parameters_are_rejected(kwargs):
+    with pytest.raises(ValueError):
+        grouped_lineament_features(
+            np.ones((10, 10, 1), dtype=np.float32),
+            {"group": (0,)},
+            valid_mask=np.ones((10, 10), bool),
+            kind="steerable_filter",
+            **kwargs,
+        )
