@@ -81,3 +81,71 @@ First full pipeline run on real contest data (19-band 3292×3730 raster) surface
 5. **Symlink path resolution**: `fingerprint_data.py`/verify flow resolved symlinks to targets, breaking manifest relative paths. Fixed by using `.absolute()` instead of `.resolve()` in `src/gems/data.py`.
 
 **Outcome**: All tests green. Memory-constrained hosts can now run the reference baseline. CV manifests validated on real data. Ready for model training and ablation on real contest data.
+
+---
+
+## Phase 1: First Real-Data Results (2026-10-09)
+
+**Host:** 8 vCPU, 15.6 GiB RAM, no swap, no GPU (CPU-only torch 2.14.0+cpu), about 92 GB free disk. Another job on the shared box (ffmpeg) used about 3 to 6 cores during training.
+
+### Real-Data Characteristics
+
+- **Raster**: 19 bands, 3292×3730 pixels, EPSG:32611, 100 m resolution
+- **Data fingerprint**: `data/manifests/official.json` (manifest_sha256 ab3ec3cc…, matches committed manifest byte-for-byte)
+- **Fault pixels**: 60,894 over 5,164,312 valid pixels (prevalence 1.18%)
+- **8-connected components**: 3,198 (median 12 px, p99 128 px, largest 360 px = 0.59% share)
+- **4-connected components**: 25,058 (median 2 px, largest 62 px = 0.10% share)
+- **Spatial blocks** (256×256): 99 of 105 valid blocks contain faults (94.3%), median 559 fault px per positive block
+
+**Topology notes**: Traces are thin and fragmented. Fault holdouts should use 8-connected components, since 4-connectivity breaks diagonal traces into pieces. Every spatial block holds faults, so spatial folds never run out of positives.
+
+**CV manifest validation**: Rebuilt `cv-spatial-v1.json`, `cv-fault-v1.json`, and `cv-trace-v1.json` from real data; all matched committed manifests exactly.
+
+### Baseline: Reduced Reference U-Net (ref-cv-spatial-reduced)
+
+**Config**: `configs/reference_unet_cv_reduced.yaml` (organizer recipe with training.epochs 5→2 and patches.train_step 32→64 for 8-vCPU box; 452 to 603 windows per fold)
+
+**Training**: `scripts/train_full_map.py`, fold-pure normalization, buffer 16, seed 20260922. Training losses ended at 0.945 to 0.950, so the model is **barely trained**. Median fold-0 probability is 0.548. Total training time ~16.5 min.
+
+**Spatial CV scores** (5 folds):
+- **Raw** (threshold=0.5): mean **0.0591 ± 0.0082**, stitched 0.0583
+  - Per fold: 0.0713 / 0.0618 / 0.0520 / 0.0620 / 0.0482
+- **LOFO-calibrated**: mean **0.0895 ± 0.0200**
+  - Per fold: 0.1250 / 0.0903 / 0.0678 / 0.0910 / 0.0733
+  - Thresholds: 0.724 / 0.741 / 0.698 / 0.698 / 0.698
+
+**Leave-one-fold-out (LOFO) calibration protocol**: Stitch the spatial OOF raster. For each fold k, fit the exact threshold with `scripts/calibrate_threshold.py` on the other four folds' validation regions, then evaluate once on fold k. Fold k's labels never influence its threshold. Per-fold raw scores from the calibration CLI match `score_cv.py` exactly.
+
+**Note on calibrated thresholds**: Thresholds landed near 0.7, not below 0.5 as hypothesized in `docs/STRATEGY.md`. This baseline's outputs are compressed around 0.55 (median fold-0 probability 0.548), so these thresholds say nothing about a well-trained model. The "optimal threshold below 0.5" claim should be confirmed on a properly trained model before treating it as a design principle.
+
+### Endpoint Extension Gate (ENDPOINT-EXT-01)
+
+**Config**: `configs/resnet18_with_endpoint_extension.yaml` (300 m extension, decay 0.15, skeleton threshold = LOFO threshold per fold)
+
+**Applied to**: ref-cv-spatial-reduced OOF maps
+
+**Spatial CV scores**:
+- Raw: 0.0591 (Δ +2.4e-6)
+- Calibrated: 0.0895 (Δ −4e-7)
+
+**Gate verdict**: **INCONCLUSIVE**. The spatial delta of 2.4e-6 is far below the required margin of 0.0082, and the fault and trace views are missing. Not adopted.
+
+### Additional Bugs Found
+
+**Endpoint extension performance**: `src/gems/endpoint_extension.extend_endpoint` copied the whole H×W map for every endpoint. A full-map fold ran for more than 10 min before being stopped. The `inplace=True` fix (PR #33) gives bit-identical output and finishes in about 8 s per fold; 19/19 tests pass. At the default threshold of 0.5, a weak model's map is mostly above threshold (67% of fold 0), so the skeleton is meaningless for under-trained models.
+
+### Experiment Catalog
+
+| ID | Date | Commit | Config | Spatial CV | Fault CV | Trace CV | Public LB | Notes |
+|---|---|---|---|---:|---:|---:|---:|---|
+| intake-box-v1 | 2026-10-09 | 4ccbf0e + local patches | n/a | artifacts only | artifacts only | artifacts only | — | `verify_inputs.py` OK. Fingerprint matches 2026-09-23 manifest. CV manifests match exactly. |
+| reference-oof-box | 2026-10-09 | 4ccbf0e + local patches | configs/reference_unet.yaml | — | — | — | — | **Abandoned, not scored.** Split 1, epoch 0: 29.5 min, train_loss 0.9504, test_loss 0.9295. Full 25 epochs projected at ~12 h. Stopped because random-patch Monte Carlo OOF cannot be scored per CV view. |
+| ref-cv-spatial-reduced | 2026-10-09 | 4ccbf0e + local patches | configs/reference_unet_cv_reduced.yaml | raw 0.0591 ± 0.0082; LOFO-cal 0.0895 ± 0.0200 | — | — | — | Reduced config (epochs 2, train_step 64). Training ~16.5 min. Model barely trained (losses 0.945–0.950). **BASELINE** for Phase 1. |
+| ENDPOINT-EXT-01 | 2026-10-09 | 4ccbf0e + local patches | configs/resnet18_with_endpoint_extension.yaml | raw Δ +2.4e-6; cal Δ −4e-7 | — | — | — | Endpoint extension on ref-cv-spatial-reduced OOF. Gate verdict: **INCONCLUSIVE** (delta << margin, fault/trace views missing). |
+
+### Next Steps
+
+1. **Score full-config spatial run**: Train with full `configs/reference_unet.yaml` (epochs=5, train_step=32) to validate the barely-trained baseline was not a fluke
+2. **Train fault and trace fold models**: Complete fault-discovery and trace-discovery CV views so the gate can evaluate all 3 views for candidates
+3. **Re-gate candidates**: Once the full-config baseline is scored and fault/trace views are available, re-gate endpoint extension and other candidates against the honest baseline
+4. **Confirm threshold hypothesis**: Test whether "optimal threshold below 0.5" holds for a properly trained model (current calibrated thresholds ~0.70 are for an under-trained model with compressed outputs)
