@@ -9,7 +9,12 @@ import rasterio
 import yaml
 
 from gems.data import raster_alignment_errors, sha256_file
-from gems.lineament import grouped_lineament_features, raster_category_groups
+from gems.lineament import (
+    grouped_lineament_features,
+    lineament_kwargs,
+    raster_category_groups,
+    required_lineament_buffer,
+)
 from gems.metric import distance_weighted_tversky
 from gems.prediction import write_prediction_like_template
 from gems.preprocessing import normalize_training_features
@@ -113,27 +118,24 @@ def main() -> int:
                 "fault/trace CV needs a masked-input transform protocol before comparison"
             )
         categories = tuple(lineament_config.get("categories", ()))
-        sigma_pixels = float(lineament_config.get("sigma_pixels", 1.0))
-        if split is not None:
-            required_buffer = int(np.ceil(4 * sigma_pixels)) + 1
-            if args.buffer_pixels < required_buffer:
-                raise SystemExit(
-                    "lineament filtering requires --buffer-pixels >= "
-                    f"{required_buffer} for sigma_pixels={sigma_pixels}"
-                )
         try:
+            options = lineament_kwargs(lineament_config)
+            if split is not None:
+                required_buffer = required_lineament_buffer(options)
+                if args.buffer_pixels < required_buffer:
+                    raise ValueError(
+                        "lineament filtering requires --buffer-pixels >= "
+                        f"{required_buffer} for kind={options['kind']}"
+                    )
             groups = raster_category_groups(args.features, categories)
             derived, lineament_metadata = grouped_lineament_features(
                 features,
                 groups,
                 valid_mask=valid,
-                kind=str(lineament_config.get("kind", "phase_edge")),
-                sigma_pixels=sigma_pixels,
-                phase_epsilon_pixels=float(
-                    lineament_config.get("phase_epsilon_pixels", 1.0)
-                ),
+                normalization_mask=allowed if allowed is not None else valid,
+                **options,
             )
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             raise SystemExit(f"lineament features: {exc}") from exc
         base_channels = features.shape[-1]
         features = np.concatenate([features, derived], axis=-1)

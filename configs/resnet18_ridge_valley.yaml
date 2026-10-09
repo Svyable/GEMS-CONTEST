@@ -1,90 +1,43 @@
-# Ridge/valley response features (STRATEGY.md priority #5)
-#
-# Hessian eigenvalue analysis of each smoothed geophysical band reveals
-# thin curvilinear structures: a fault-parallel trough or crest produces
-# strongly asymmetric second derivatives — large curvature across the
-# lineament, near-zero curvature along it.
-#
-# signed = relu(λmax - λmin) · relu(λmax)   (valley: concave-up trough)
-#        − relu(λmax - λmin) · relu(−λmin)   (ridge:  concave-down crest)
-#
-# The eigenvalue-gap factor suppresses isotropic blobs and step edges
-# (already covered by the gradient/structure-tensor channels); the sign
-# distinguishes valleys (topographic fault troughs, conductivity lows)
-# from ridges.
-#
-# Multi-scale pyramid: response is computed at each sigma in
-# ridge_valley_scales and the valley/ridge terms are maxed independently
-# (Frangi-style), so narrow scarps and broad swales are both detected.
-# Normalized by the 99th percentile of |signed| over the valid (training)
-# region — fold-pure, no validation leakage.
-#
-# This config demonstrates the multi-scale variant; the single-scale form
-# is obtained by omitting ridge_valley_scales (falls back to sigma_pixels).
-# Like every derived channel, this one only stays if it beats the incumbent
-# on ≥2 of 3 CV views through scripts/verify_candidate.py.
-
-model:
-  arch: resnet18_unet
-  in_channels: 7  # 6 geophysical + 1 ridge/valley channel
-  encoder_weights: null
-
+# Multiscale Hessian ridge/valley ablation; use --buffer-pixels 30 or more.
+# Normalization and derived-response scaling use training-fold pixels only.
+seed_sequence: [20260922]
 data:
-  features_path: data/processed/features.tif
-  labels_path: data/processed/labels.tif
-  valid_region_path: data/processed/valid_region.geojson
-  manifest_path: data/manifests/official.json
-
-  # Derived lineament features
-  derived_features:
-    - method: grouped_lineament
-      kind: ridge_valley_response
-      categories:
-        - magnetic_data
-        - gravity_data
-        - conductivity
-        - strain_rate
-      sigma_pixels: 1.0              # fallback single scale (pixels)
-      ridge_valley_scales: [1.0, 2.0, 4.0]  # multi-scale pyramid
-      structure_tensor_window: 3.0   # Hessian-component smoothing scale
-
-  # Normalization computed from training region only (fold-pure)
-  normalization:
-    method: percentile_clip
-    low: 2.0
-    high: 98.0
-
+  normalization: per_channel_minmax_over_training_region
+  negative_ratio: 1.0
+patches:
+  patch_size: 128
+  train_step: 32
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
 training:
-  spatial_cv_manifest: data/manifests/cv-spatial-v1.json
-  fold: 0
-  batch_size: 16
-  num_epochs: 20
-  optimizer:
-    name: adamw
-    lr: 0.001
-    weight_decay: 0.01
+  epochs: 20
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.8, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30
 
-  loss:
-    name: bce_tversky
-    alpha: 0.2  # precision weight
-    beta: 0.8   # recall weight (matches competition metric)
-    smooth: 1.0
-
-  # Tiling and augmentation
-  tile_size: 256
-  stride_train: 128
-  stride_val: 256
-
-  augmentation:
-    horizontal_flip: true
-    vertical_flip: true
-    rotate_90: true
-
-inference:
-  tile_size: 256
-  stride: 128
-  overlap_blend: gaussian
-
-output:
-  predictions_dir: predictions/ridge_valley_response
-  metrics_path: metrics/ridge_valley_response_fold0.json
+derived_features:
+  lineament:
+    enabled: true
+    categories:
+      - magnetic_data
+      - gravity_data
+      - geodetic_strain
+      - topographic
+    kind: ridge_valley_response
+    sigma_pixels: 1.0
+    ridge_valley_scales: [1.0, 2.0, 4.0]
+    structure_tensor_window: 3.0

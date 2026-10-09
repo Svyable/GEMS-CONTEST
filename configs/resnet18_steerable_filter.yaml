@@ -1,88 +1,43 @@
-# Steerable/directional filters (STRATEGY.md priority #5, complete)
-# 
-# Gabor-style directional filters detect linear features at any angle by
-# applying oriented edge detectors at multiple angles and taking the maximum
-# response. This provides orientation-invariant lineament detection that
-# complements structure tensor (which gives both magnitude and angle) and
-# ridge/valley response (which detects valleys/crests).
-#
-# steerable_wavelength: the characteristic wavelength (in pixels) of the
-#   sinusoidal carrier. Typical values 6-12 pixels for fault-scale lineaments.
-#
-# steerable_orientations: number of equally-spaced angles from 0 to π.
-#   More orientations = finer angular resolution but higher compute cost.
-#   8 orientations (22.5° spacing) is a good default.
-#
-# The filter uses a Gaussian envelope × cosine carrier (real Gabor kernel)
-# at each orientation, convolves with smoothed bands, and returns the max
-# magnitude across all angles. Output is normalized to [0,1] by the 99th
-# percentile over the valid region (fold-pure statistics).
-#
-# This completes roadmap priority #5: multi-scale gradient and structure-
-# tensor features (gradient energy, phase edge, LoG, structure tensor
-# coherence/orientation, ridge/valley response, and now steerable filters).
-
-model:
-  arch: resnet18_unet
-  in_channels: 7  # 6 geophysical + 1 steerable filter channel
-  encoder_weights: null
-
+# Gabor directional-filter ablation; uses the candidate trainer schema.
+# Normalization and derived-response scaling use training-fold pixels only.
+seed_sequence: [20260922]
 data:
-  features_path: data/processed/features.tif
-  labels_path: data/processed/labels.tif
-  valid_region_path: data/processed/valid_region.geojson
-  manifest_path: data/manifests/official.json
-  
-  # Derived lineament features
-  derived_features:
-    - method: grouped_lineament
-      kind: steerable_filter
-      categories:
-        - magnetic_data
-        - gravity_data
-        - conductivity
-        - strain_rate
-      sigma_pixels: 1.0               # pre-smoothing before filtering
-      steerable_wavelength: 8.0       # characteristic wavelength in pixels
-      steerable_orientations: 8       # number of angles (0 to π)
-  
-  # Normalization computed from training region only (fold-pure)
-  normalization:
-    method: percentile_clip
-    low: 2.0
-    high: 98.0
-
+  normalization: per_channel_minmax_over_training_region
+  negative_ratio: 1.0
+patches:
+  patch_size: 128
+  train_step: 32
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
 training:
-  spatial_cv_manifest: data/manifests/cv-spatial-v1.json
-  fold: 0
-  batch_size: 16
-  num_epochs: 20
-  optimizer:
-    name: adamw
-    lr: 0.001
-    weight_decay: 0.01
-  
-  loss:
-    name: bce_tversky
-    alpha: 0.2  # precision weight
-    beta: 0.8   # recall weight (matches competition metric)
-    smooth: 1.0
+  epochs: 20
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.8, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30
 
-  # Tiling and augmentation
-  tile_size: 256
-  stride_train: 128
-  stride_val: 256
-  
-  augmentation:
-    horizontal_flip: true
-    vertical_flip: true
-    rotate_90: true
-
-inference:
-  tile_size: 256
-  stride: 128
-  overlap_blend: gaussian
-
-output:
-  predictions_dir: predictions/steerable_filter
-  metrics_path: metrics/steerable_filter_fold0.json
+derived_features:
+  lineament:
+    enabled: true
+    categories:
+      - magnetic_data
+      - gravity_data
+      - geodetic_strain
+      - topographic
+    kind: steerable_filter
+    sigma_pixels: 1.0
+    steerable_wavelength: 8.0
+    steerable_orientations: 8
