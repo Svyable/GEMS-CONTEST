@@ -161,8 +161,7 @@ def test_spatial_cv_still_uses_full_valid_mask():
     leakage concern — the full valid mask is correct.
     """
     features, labels = _synthetic_features_and_faults(seed=7)
-    H, W = labels.shape
-    valid = np.ones_like(labels, dtype=bool)
+    _, W = labels.shape
     
     # Spatial split: left half train, right half validation, buffer in between
     train_mask = np.zeros_like(labels, dtype=bool)
@@ -217,7 +216,6 @@ def test_buffer_prevents_edge_artifact_leakage():
     features[held_out] = 10.0
     
     train_mask = ~held_out
-    valid = np.ones((40, 40), dtype=bool)
     
     # Compute with masking (protocol)
     result, _ = grouped_lineament_features(

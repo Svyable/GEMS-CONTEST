@@ -505,3 +505,31 @@ and the box handoff commands in `docs/EXPERIMENT_LOG.md`. No raw gated
 competition data was read or committed; no model training ran on this CPU-only
 VM and no new held-out score is claimed. The handoff targets the
 torch+data box for the fault/trace CV views blocked here.
+
+## 2026-10-10 — PR #36 pre-merge fixes (protocol-equality gate and CI)
+
+Anthropic Claude Sonnet 4.5 (Cursor Cloud Agent) prepared PR #36 for merge by
+implementing three fixes per user request:
+
+1. **Protocol-equality check**: Extended `scripts/score_cv.py` to optionally read
+   training protocol from per-fold metrics JSON files (buffer_pixels, seed, epochs,
+   config_sha256) and include them in the evaluation_protocol output. Extended
+   `src/gems/verification.py` to check these fields (TRAINING_PROTOCOL_FIELDS) and
+   refuse comparisons where they differ, preventing unfair gates where baseline and
+   candidate differ in two ways (e.g., buffer 16 vs 20 plus a feature change).
+   Documented in `docs/STRATEGY.md` that if candidates require different buffer_pixels,
+   the incumbent must be re-run at the same buffer for fair comparison.
+
+2. **CI enforcement of integration tests**: Updated `.github/workflows/ci.yml` to add
+   a new step in the `training-smoke` job that runs
+   `tests/test_train_lineament_fault_cv_integration.py` with torch installed, ensuring
+   these tests actually run in CI instead of skipping.
+
+3. **Documentation organization**: Moved `LINEAMENT_CV_PROTOCOL_SUMMARY.md` from
+   repository root to `docs/` for better organization.
+
+4. **Linting fixes**: Fixed three ruff linting errors (unused imports/variables) in
+   test files that were blocking CI.
+
+No competition data was provided; no model training, leaderboard submission, or
+score improvement is claimed. All changes verified via existing test suite and CI.

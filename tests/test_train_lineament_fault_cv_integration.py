@@ -1,6 +1,5 @@
 """Integration test: train_full_map.py accepts lineament features under fault/trace CV."""
 
-import tempfile
 from pathlib import Path
 
 import numpy as np

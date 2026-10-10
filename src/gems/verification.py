@@ -65,6 +65,14 @@ PROTOCOL_FIELDS = (
     "known_fault_exclusion_pixels",
 )
 
+TRAINING_PROTOCOL_FIELDS = (
+    "buffer_pixels",
+    "seed",
+    "epochs",
+    "train_step",
+    "config_sha256",
+)
+
 
 def escalation_multiplier(trials_before: int) -> float:
     """Return the search-pressure multiplier after ``trials_before`` recorded trials."""
@@ -204,6 +212,19 @@ def compare_view(
             view=view,
             comparable=False,
             reason="evaluation protocol differs: " + ", ".join(differing),
+        )
+    
+    training_differing = []
+    for key in TRAINING_PROTOCOL_FIELDS:
+        inc_val = inc_protocol.get(key)
+        cand_val = cand_protocol.get(key)
+        if inc_val is not None and cand_val is not None and inc_val != cand_val:
+            training_differing.append(key)
+    if training_differing:
+        return ViewComparison(
+            view=view,
+            comparable=False,
+            reason="training protocol differs: " + ", ".join(training_differing),
         )
     for fold in sorted(inc_folds):
         if inc_folds[fold][1:] != cand_folds[fold][1:]:

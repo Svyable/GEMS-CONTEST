@@ -18,6 +18,18 @@ Random pixel CV will materially overstate performance because fault traces are s
 
 Do not implement trace segmentation from synthetic assumptions. Inspect the official raster/vector labels first; use source-vector feature IDs when meaningful, or define reproducible graph/segment rules from the observed topology.
 
+### Fair comparison protocol
+
+The three-view gate (`scripts/verify_candidate.py`) enforces protocol equality: incumbent and candidate must use identical training parameters except for the declared change. Specifically, runs must match in:
+
+- `buffer_pixels` (spatial buffer around held-out regions)
+- `seed` (random seed for reproducibility)
+- `epochs` (training duration)
+- `train_step` (patch sampling stride)
+- `fold_map_sha256` (CV fold assignment)
+
+If a candidate feature (e.g. `steerable_filter`) requires `--buffer-pixels 20` but the incumbent used 16, **the incumbent must be re-run at buffer 20 for all three views** before comparison. Otherwise the gate cannot attribute a difference to the feature change vs. the buffer change. Alternatively, if the candidate's filter support permits buffer 16, use that; `scripts/train_full_map.py` reports the minimum required buffer per lineament kind.
+
 ## Phase 1 — strong segmentation baseline
 
 Reproduce the official U-Net, then standardize the pipeline around patch inference and full-raster overlap blending. Track per-band normalization computed only from training portions of each fold.
