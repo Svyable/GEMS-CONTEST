@@ -26,6 +26,29 @@ export GEMS_WORKSPACE=/workspace
 export QUEUE_DIR=/workspace/scripts/queue
 ```
 
+## Fair-comparison buffer protocol
+
+Lineament filter support differs per feature kind. `scripts/train_full_map.py`
+refuses `--buffer-pixels` below `required_lineament_buffer(kind)` (verified
+against `src/gems/lineament.py` on 2026-10-10):
+
+| kind | required buffer (px) | queue buffer | incumbent |
+|---|---|---|---|
+| `mumford_shah_log` | 5 | 16 | `ref-full` (spatial/fault @16) |
+| `steerable_filter` | 7 | 16 | `ref-full` (spatial/fault @16) |
+| `structure_tensor_coherence` | 17 | 32 | `ref-b32` re-run @32 |
+| `ridge_valley_response` | 30 | 32 | `ref-b32` re-run @32 |
+
+A candidate must share its incumbent's buffer (and seed/epochs/train_step/fold
+map) or the propose-and-verify gate refuses the comparison as protocol-unequal
+(see `docs/STRATEGY.md` "Fair comparison protocol"). Larger buffers exclude more
+training pixels near held-out regions, so a buffer-32 candidate is only ever
+compared to the buffer-32 incumbent — never to the buffer-16 run.
+
+`score_view.sh` passes `--metrics-pattern` so every score JSON carries the
+training protocol (`buffer_pixels`, `seed`, `epochs`, `train_step`,
+`config_sha256`) the gate compares.
+
 ## Usage
 
 ### Start the queue

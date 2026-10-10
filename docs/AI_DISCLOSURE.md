@@ -533,3 +533,30 @@ implementing three fixes per user request:
 
 No competition data was provided; no model training, leaderboard submission, or
 score improvement is claimed. All changes verified via existing test suite and CI.
+
+## 2026-10-10 — protocol-chain fixes and lineament fault/trace queue (gems-daily-advance)
+
+This worker (scheduled cron, Muse) made two groups of changes:
+
+1. **Metrics → gate protocol chain (correctness)**: `scripts/train_full_map.py` now
+   writes `train_step` into the per-fold metrics JSON; `scripts/score_cv.py`
+   extracts it from `--metrics-pattern` instead of hardcoding `None`; and
+   `scripts/queue/score_view.sh` passes `--metrics-pattern` so every queue-produced
+   score JSON carries the full training protocol (buffer_pixels, seed, epochs,
+   train_step, config_sha256) that `src/gems/verification.py` compares. Added 2
+   tests in `tests/test_score_cv_protocol.py` and 1 assertion in
+   `tests/test_training_ml.py`.
+
+2. **Experiment queue (validation gaps)**: Fixed the s4 lineament tasks to reference
+   the committed `configs/candidates/*.yaml` (`configs/local/` does not exist in
+   the repo) and to use protocol-equal buffers per kind — buffer 16 for
+   mumford_shah_log / steerable_filter (required 5/7 px), buffer 32 for
+   structure_tensor_coherence / ridge_valley_response (required 17/30 px) with a
+   matching buffer-32 incumbent re-run. Added s5 (fault view) and s6 (trace view)
+   lineament tasks for all four candidates, enabled by PR #36, with gates placed
+   only after all compared views are scored. Documented the buffer table in
+   `scripts/queue/README.md`. (Correction to the 2026-10-10 log entry: the
+   verified required buffers are 5/7/17/30 px, not "4-17".)
+
+No competition data was read; no model training ran on this CPU-only VM and no
+new held-out score is claimed. The queue targets the torch+data box.

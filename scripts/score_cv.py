@@ -61,7 +61,7 @@ def main() -> int:
                         "buffer_pixels": metrics.get("buffer_pixels"),
                         "seed": metrics.get("seed"),
                         "epochs": len(metrics.get("epochs", [])) if isinstance(metrics.get("epochs"), list) else metrics.get("epochs"),
-                        "train_step": None,
+                        "train_step": metrics.get("train_step"),
                     }
                     if metrics.get("config_sha256"):
                         protocol["config_sha256"] = metrics["config_sha256"]

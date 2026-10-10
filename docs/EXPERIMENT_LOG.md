@@ -419,3 +419,48 @@ views by more than max(fold-std) × (1 + 0.5·log2(1+n_trials)).
 
 **Next steps**: Mark PR #36 ready for review (not draft), merge after review,
 then proceed with lineament candidate training on fault/trace CV views.
+
+---
+
+## 2026-10-10 — Protocol-chain fixes + lineament fault/trace queue (INFRASTRUCTURE)
+
+**Context**: PR #36 merged the leakage-safe lineament protocol for fault/trace CV
+and a protocol-equality check in the gate, but two links in the chain were dead
+and the s4 queue tasks were broken as committed.
+
+**Fixes to the metrics → gate protocol chain**:
+1. `scripts/train_full_map.py` never wrote `train_step` into the per-fold metrics
+   JSON, so `scripts/score_cv.py --metrics-pattern` hardcoded it to `None` and the
+   gate could never compare it. Now written (`"train_step": step`) and extracted.
+2. `scripts/queue/score_view.sh` never passed `--metrics-pattern`, so every
+   queue-produced score JSON carried no training protocol at all and the
+   protocol-equality check silently skipped. Now passed for all three views.
+3. Tests: 2 new in `tests/test_score_cv_protocol.py` (metrics-pattern carries all
+   five training fields; omission leaves them absent), 1 assertion in
+   `tests/test_training_ml.py` (`train_step == 64` in metrics payload).
+
+**Queue rework** (`scripts/queue/tasks.json`, 62 tasks): s4 referenced
+`configs/local/cand_*.yaml`, which does not exist in the repo — every s4 task
+would have failed. Fixed to `configs/candidates/*.yaml`. Buffer choices verified
+against committed `required_lineament_buffer` code + committed configs (CORRECTION
+to the earlier 2026-10-10 entry's "4-17 px" claim): mumford_shah_log 5,
+steerable_filter 7, structure_tensor_coherence 17, ridge_valley_response 30.
+- b16 group (mumford, steerable @16): protocol-equal with s1/s2 incumbents
+  (`runs/gate/ref-full` @16/16).
+- b32 group (structure_tensor, ridge_valley @32): with buffer-32 incumbent
+  re-runs (`runs/gate/ref-b32`) for spatial, fault, and trace views.
+- s5 adds all four candidates on the **fault** view (PR #36 enables this).
+- s6 adds all four candidates on the **trace** view; the s2 trace incumbent used
+  buffer 3, below every kind's minimum, so one ref-trace@32 re-run covers all.
+- Gates placed only after every compared view is scored: b16 kinds get a 2-view
+  (spatial+fault) gate vs ref-full; b32 kinds get a full 3-view gate vs ref-b32;
+  b16 kinds additionally get a trace-only informational gate (single view cannot
+  ACCEPT by itself). Gate ordering machine-checked.
+- `scripts/queue/README.md` documents the per-kind buffer table and the
+  fair-comparison rule.
+
+**Verification**: 284 passed, 4 skipped (torch/skimage-dependent), ruff clean.
+No competition data read; no training on this CPU-only VM; no score claimed.
+
+**Next**: torch+data box runs the queue (s1→s6); first honest three-view gates
+for the four lineament candidates land once s6 completes.

@@ -484,6 +484,7 @@ def main() -> int:
             "epochs": history,
             "overlap": args.overlap,
             "seed": args.seed,
+            "train_step": step,
             "negative_ratio": args.negative_ratio,
             "fold": args.fold if args.fold_map else None,
             "holdout_distance_weighted_tversky": holdout_score,

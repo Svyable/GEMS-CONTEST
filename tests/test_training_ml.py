@@ -95,6 +95,7 @@ def test_actual_unet_train_infer_validate_and_discovery_score(tmp_path, monkeypa
     assert report["validation"]["scheme"] == scheme
     assert report["training_loss_mask"] == "supervised_pixels_only"
     assert report["epochs"][0]["optimizer_steps"] > 0
+    assert report["train_step"] == 64  # protocol-equality gate reads this field
     with rasterio.open(output) as src:
         predicted = src.read(1)
     evaluator = (evaluate_fault_discovery_predictions if scheme == "fault" else
