@@ -1,35 +1,15 @@
-"""Propose-and-verify acceptance gate for GEMS experiment candidates.
+"""Select candidates by stitched, pooled spatial OOF distance-weighted Tversky.
 
-Strategy priority #2 (docs/STRATEGY.md): accept a candidate (feature channel,
-loss, architecture, post-processing) only if it beats the incumbent on at
-least two of the three CV views (spatial-block, fault-discovery,
-trace-completion) by more than the fold-to-fold standard deviation.
+A pooled spatial gain is mandatory. Geographic folds and overlapping-background
+fault/trace views are separate non-regression safeguards, never pooled together.
+All three views must be comparable before acceptance. Reports come from the
+schema-2 score_cv.py scorer; legacy evidence must be re-scored.
 
-The verifier is `scripts/score_cv.py` output: JSON dicts with ``scheme``,
-``macro_mean``, ``macro_std`` and per-fold ``folds`` entries. Both runs must
-use the same metric and fold map so per-fold scores are comparable.
-
-Search-pressure escalation: the required margin grows with the number of
-already-recorded trials, because each new comparison is another chance for CV
-noise to look like a real gain. With n trials already on record:
-
-    required_margin(view) = max(incumbent_std, candidate_std)
-                           * (1 + 0.5 * log2(1 + n))
-
-Using the max of the two fold-to-fold standard deviations is a deliberate,
-documented, conservative choice: a candidate that only wins by squeezing the
-incumbent's noise, or by lowering its own fold variance without moving the
-mean, does not pass. This escalation schedule is a judgment call, not a
-theorem; its exact parameters live in the trial ledger so the bar is auditable.
-
-Verdicts:
-
-- ACCEPT: >= 2 comparable views won.
-- REJECT: >= 2 comparable losses, so two wins are no longer possible.
-- INCONCLUSIVE: neither acceptance nor rejection is logically decided.
-
-Every call is appended to a JSONL trial ledger (both winners and losers),
-which is the honest failure log required by docs/OPENAI_MATH_LEADS.md.
+The improvement hurdle remains max(fold stds) * (1 + 0.5 * log2(1 + trials)).
+This is a conservative search-pressure heuristic, not a statistical confidence
+bound for the pooled ratio. Non-regression tolerance is the un-escalated maximum
+fold std: repeated trials must not make material regressions easier to tolerate.
+Every verdict remains recorded in the JSONL failure ledger.
 """
 
 from __future__ import annotations
@@ -41,6 +21,9 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean, pstdev
+
+from gems.evaluation import AGGREGATION_METHODS
+from gems.metric import TverskyComponents
 
 VIEWS = ("spatial", "fault", "trace")
 
@@ -56,6 +39,7 @@ INCONCLUSIVE = "INCONCLUSIVE"
 
 PROTOCOL_FIELDS = (
     "schema_version",
+    "aggregation",
     "metric",
     "alpha",
     "beta",
@@ -70,8 +54,9 @@ TRAINING_PROTOCOL_FIELDS = (
     "seed",
     "epochs",
     "train_step",
-    "config_sha256",
 )
+
+SELECTION_PROTOCOL = "pooled_spatial_with_nonregression_v2"
 
 
 def escalation_multiplier(trials_before: int) -> float:
@@ -103,15 +88,21 @@ class ViewComparison:
     incumbent_std: float | None = None
     candidate_mean: float | None = None
     candidate_std: float | None = None
+    score_basis: str = ""
+    incumbent_score: float | None = None
+    candidate_score: float | None = None
     fold_ids: tuple[int, ...] = ()
     delta: float | None = None
     required_margin: float | None = None
+    regression_tolerance: float | None = None
+    fold_deltas: tuple[tuple[int, float], ...] = ()
+    safeguard_passed: bool = False
     won: bool = False
 
 
 def _parse_view_result(
     view: str, result: object
-) -> tuple[dict[int, tuple[float, int, int]], float, float, dict]:
+) -> tuple[dict[int, tuple[float, int, int]], float, float, dict, float]:
     """Validate one scorer report, including its immutable evaluation protocol."""
     if not isinstance(result, dict):
         raise TypeError(f"{view}: expected a JSON object, got {type(result).__name__}")
@@ -126,7 +117,8 @@ def _parse_view_result(
         raise ValueError(f"{view}: evaluation_protocol missing {', '.join(missing)}")
     protocol = {key: raw_protocol[key] for key in PROTOCOL_FIELDS}
     expected = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "aggregation": AGGREGATION_METHODS[view],
         "metric": "distance_weighted_tversky",
         "alpha": 0.2,
         "beta": 0.8,
@@ -134,7 +126,7 @@ def _parse_view_result(
     }
     for key, value in expected.items():
         if type(protocol[key]) is not type(value) or protocol[key] != value:
-            raise ValueError(f"{view}: unsupported evaluation_protocol {key}")
+            raise ValueError(f"{view}: unsupported evaluation_protocol {key}; re-score")
     for key in ("truth_sha256", "fold_map_sha256"):
         digest = protocol[key]
         if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
@@ -180,7 +172,43 @@ def _parse_view_result(
     if (not math.isclose(macro_mean, mean(scores), abs_tol=1e-9, rel_tol=1e-9)
             or not math.isclose(macro_std, pstdev(scores), abs_tol=1e-9, rel_tol=1e-9)):
         raise ValueError(f"{view}: macro statistics disagree with per-fold scores")
-    return folds, macro_mean, macro_std, protocol
+    primary_score = macro_mean
+    if view == "spatial":
+        primary_score = _validate_spatial_aggregate(result, folds)
+    # Preserve budget/split metadata rather than silently discarding it. Config
+    # hashes are provenance, not equality keys: candidate configs may differ.
+    for key in TRAINING_PROTOCOL_FIELDS:
+        if key in raw_protocol:
+            protocol[key] = raw_protocol[key]
+    return folds, macro_mean, macro_std, protocol, primary_score
+
+
+def _validate_spatial_aggregate(result: dict, folds: dict) -> float:
+    score = result.get("aggregate_score")
+    if type(score) not in (int, float) or not math.isfinite(score) or not 0 <= score <= 1:
+        raise ValueError("spatial: missing or invalid aggregate_score; re-score")
+    components = result.get("aggregate_components")
+    if not isinstance(components, dict):
+        raise TypeError("spatial: missing aggregate_components; re-score")
+    for key, index in (("valid_pixels", 1), ("truth_pixels", 2)):
+        count = components.get(key)
+        if type(count) is not int or count != sum(f[index] for f in folds.values()):
+            raise ValueError(f"spatial: aggregate {key} disagrees with fold coverage")
+    for key in ("tp_w", "fp_w", "fn_w"):
+        value = components.get(key)
+        if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+            raise ValueError(f"spatial: invalid aggregate component {key}")
+    if not math.isclose(
+        components["tp_w"] + components["fn_w"], components["truth_pixels"],
+        abs_tol=1e-9, rel_tol=1e-9,
+    ):
+        raise ValueError("spatial: aggregate TP + FN disagrees with truth coverage")
+    if components["fp_w"] > components["valid_pixels"]:
+        raise ValueError("spatial: aggregate FP exceeds valid coverage")
+    measured = TverskyComponents(*(components[k] for k in ("tp_w", "fp_w", "fn_w")))
+    if not math.isclose(score, measured.score(), abs_tol=1e-9, rel_tol=1e-9):
+        raise ValueError("spatial: aggregate_score disagrees with weighted components")
+    return float(score)
 
 
 def compare_view(
@@ -193,8 +221,12 @@ def compare_view(
     """Compare one CV view. Returns a non-comparable comparison with a reason
     instead of raising when the two runs cannot be fairly compared."""
     try:
-        inc_folds, inc_mean, inc_std, inc_protocol = _parse_view_result(view, incumbent_result)
-        cand_folds, cand_mean, cand_std, cand_protocol = _parse_view_result(view, candidate_result)
+        inc_folds, inc_mean, inc_std, inc_protocol, inc_score = _parse_view_result(
+            view, incumbent_result
+        )
+        cand_folds, cand_mean, cand_std, cand_protocol, cand_score = _parse_view_result(
+            view, candidate_result
+        )
     except (ValueError, KeyError, TypeError) as exc:
         return ViewComparison(view=view, comparable=False, reason=str(exc))
     if set(inc_folds) != set(cand_folds):
@@ -218,7 +250,7 @@ def compare_view(
     for key in TRAINING_PROTOCOL_FIELDS:
         inc_val = inc_protocol.get(key)
         cand_val = cand_protocol.get(key)
-        if inc_val is not None and cand_val is not None and inc_val != cand_val:
+        if inc_val != cand_val:
             training_differing.append(key)
     if training_differing:
         return ViewComparison(
@@ -234,7 +266,19 @@ def compare_view(
                 reason=f"fold {fold} validation pixel coverage differs",
             )
     margin = required_margin(inc_std, cand_std, trials_before)
-    delta = cand_mean - inc_mean
+    delta = cand_score - inc_score
+    fold_deltas = tuple(
+        (fold, cand_folds[fold][0] - inc_folds[fold][0]) for fold in sorted(inc_folds)
+    )
+    tolerance = max(inc_std, cand_std)
+    safeguard_passed = delta >= -tolerance or math.isclose(
+        delta, -tolerance, abs_tol=1e-12, rel_tol=1e-12
+    )
+    if view == "spatial":
+        safeguard_passed = safeguard_passed and all(
+            d >= -tolerance or math.isclose(d, -tolerance, abs_tol=1e-12, rel_tol=1e-12)
+            for _, d in fold_deltas
+        )
     # Floating-point rounding at an exact boundary is not a real win.
     won = delta > margin and not math.isclose(delta, margin, abs_tol=1e-12, rel_tol=1e-12)
     return ViewComparison(
@@ -244,23 +288,29 @@ def compare_view(
         incumbent_std=inc_std,
         candidate_mean=cand_mean,
         candidate_std=cand_std,
+        score_basis="aggregate_score" if view == "spatial" else "macro_mean",
+        incumbent_score=inc_score,
+        candidate_score=cand_score,
         fold_ids=tuple(sorted(inc_folds)),
         delta=delta,
         required_margin=margin,
+        regression_tolerance=tolerance,
+        fold_deltas=fold_deltas,
+        safeguard_passed=safeguard_passed,
         won=won,
     )
 
 
 def verdict(comparisons: list[ViewComparison]) -> str:
-    """Return ACCEPT / REJECT / INCONCLUSIVE for a set of view comparisons."""
-    decided = [c for c in comparisons if c.comparable]
-    wins = sum(c.won for c in decided)
-    losses = len(decided) - wins
-    if wins >= 2:
-        return ACCEPT
-    if losses >= 2:
+    """Require a pooled spatial win plus all three comparable safeguards."""
+    by_view = {c.view: c for c in comparisons}
+    spatial = by_view.get("spatial")
+    if spatial is not None and spatial.comparable and not spatial.won:
         return REJECT
-    # One win + one loss leaves the third view decisive; missing is not rejection.
+    if any(c.comparable and not c.safeguard_passed for c in comparisons):
+        return REJECT
+    if all(v in by_view and by_view[v].comparable for v in VIEWS):
+        return ACCEPT
     return INCONCLUSIVE
 
 
@@ -310,6 +360,7 @@ def verify_candidate(
     ]
     decision = verdict(comparisons)
     return {
+        "selection_protocol": SELECTION_PROTOCOL,
         "candidate": candidate_name,
         "hypothesis": hypothesis,
         "commit": commit,

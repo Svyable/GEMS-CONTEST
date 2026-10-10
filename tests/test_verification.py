@@ -30,10 +30,12 @@ def _result(mean: float, std: float, scores: list[float], scheme: str = "spatial
     spread = pstdev(scores)
     if spread:
         scores = [mean + (score - mean) * std / spread for score in scores]
-    return {
+    result = {
         "scheme": scheme,
         "evaluation_protocol": {
-            "schema_version": 1,
+            "schema_version": 2,
+            "aggregation": ("stitched_spatial_oof" if scheme == "spatial"
+                            else "overlapping_background_macro"),
             "metric": "distance_weighted_tversky",
             "alpha": 0.2,
             "beta": 0.8,
@@ -48,6 +50,21 @@ def _result(mean: float, std: float, scores: list[float], scheme: str = "spatial
             {"fold": i, "score": s, "valid_pixels": 100, "truth_pixels": 10}
             for i, s in enumerate(scores)
         ],
+    }
+    if scheme == "spatial":
+        _set_aggregate(result, mean)
+    return result
+
+
+def _set_aggregate(result: dict, score: float) -> None:
+    """Construct internally consistent pooled evidence, independently of macro."""
+    count = sum(f["truth_pixels"] for f in result["folds"])
+    tp = score * (0.8 * count + 1e-12) / (1 - 0.2 * score)
+    result["aggregate_score"] = score
+    result["aggregate_components"] = {
+        "tp_w": tp, "fn_w": count - tp, "fp_w": 0.0,
+        "valid_pixels": sum(f["valid_pixels"] for f in result["folds"]),
+        "truth_pixels": count,
     }
 
 
@@ -125,19 +142,20 @@ def test_compare_view_rejects_bad_inputs_without_raising():
 
 
 def test_verdict_thresholds():
-    def comp(won, comparable=True):
-        from gems.verification import ViewComparison
+    from gems.verification import ViewComparison
 
-        return ViewComparison(view="x", comparable=comparable, won=won)
+    def comp(view, won=True, comparable=True, safe=True):
+        return ViewComparison(view=view, comparable=comparable, won=won,
+                              safeguard_passed=safe)
 
-    assert verdict([comp(True), comp(True), comp(False)]) == ACCEPT
-    assert verdict([comp(True), comp(True), comp(True)]) == ACCEPT
-    assert verdict([comp(True), comp(False), comp(False)]) == REJECT
-    assert verdict([comp(False), comp(False), comp(False)]) == REJECT
-    assert verdict([comp(True)]) == INCONCLUSIVE  # fewer than 2 comparable views
-    assert verdict([comp(True), comp(True, comparable=False)]) == INCONCLUSIVE
-    assert verdict([comp(True), comp(False), comp(False, comparable=False)]) == INCONCLUSIVE
-    assert verdict([comp(False), comp(False), comp(True, comparable=False)]) == REJECT
+    assert verdict([comp("spatial"), comp("fault", False), comp("trace", False)]) == ACCEPT
+    assert verdict([comp("spatial", False), comp("fault"), comp("trace")]) == REJECT
+    assert verdict([comp("spatial"), comp("fault"), comp("trace", safe=False)]) == REJECT
+    assert verdict([comp("spatial")]) == INCONCLUSIVE
+    assert verdict([comp("fault"), comp("trace")]) == INCONCLUSIVE
+    assert verdict([comp("spatial"), comp("fault"),
+                    comp("trace", comparable=False)]) == INCONCLUSIVE
+    assert verdict([comp("spatial", False)]) == REJECT
 
 
 def test_verify_candidate_end_to_end():
@@ -376,3 +394,111 @@ def test_protocol_mismatch_for_two_views_blocks_acceptance():
     report = verify_candidate("blocked", inc, cand, trials_before=0)
     assert report["verdict"] == INCONCLUSIVE
     assert sum(v["comparable"] for v in report["views"]) == 1
+
+
+def test_macro_win_cannot_hide_pooled_spatial_loss():
+    inc = _result(0.10, 0.01, [0.09, 0.11, 0.10])
+    cand = _result(0.30, 0.01, [0.29, 0.31, 0.30])
+    _set_aggregate(inc, 0.4)
+    _set_aggregate(cand, 0.3)
+    comparison = compare_view("spatial", inc, cand, trials_before=0)
+    assert comparison.comparable
+    assert comparison.candidate_mean > comparison.incumbent_mean
+    assert comparison.score_basis == "aggregate_score"
+    assert comparison.delta == pytest.approx(-0.1)
+    assert not comparison.won
+    assert verdict([comparison]) == REJECT
+
+
+def test_pooled_win_can_promote_with_unchanged_discovery_safeguards():
+    inc = {v: _result(0.1, 0.01, [0.09, 0.11, 0.1], v)
+           for v in ("spatial", "fault", "trace")}
+    cand = {v: _result(0.1, 0.01, [0.09, 0.11, 0.1], v)
+            for v in ("spatial", "fault", "trace")}
+    _set_aggregate(cand["spatial"], 0.3)
+    report = verify_candidate("pooled-win", inc, cand, trials_before=0)
+    assert report["verdict"] == ACCEPT
+    assert report["selection_protocol"] == "pooled_spatial_with_nonregression_v2"
+    assert sum(v["won"] for v in report["views"]) == 1
+
+
+@pytest.mark.parametrize("view", ["fault", "trace"])
+def test_material_discovery_regression_vetoes_spatial_win(view):
+    inc = {v: _result(0.2, 0.01, [0.19, 0.21, 0.2], v)
+           for v in ("spatial", "fault", "trace")}
+    cand = {v: _result(0.3, 0.01, [0.29, 0.31, 0.3], v)
+            for v in ("spatial", "fault", "trace")}
+    cand[view] = _result(0.1, 0.01, [0.09, 0.11, 0.1], view)
+    assert verify_candidate("regression", inc, cand, trials_before=0)["verdict"] == REJECT
+
+
+@pytest.mark.parametrize("field,value", [
+    ("aggregate_score", None), ("aggregate_score", float("nan")),
+    ("aggregate_score", True), ("aggregate_score", 2.0),
+    ("aggregate_score", 0.9), ("aggregate_components", None),
+])
+def test_missing_or_forged_aggregate_is_incomparable(field, value):
+    inc = _result(0.1, 0.01, [0.09, 0.11, 0.1])
+    cand = _result(0.3, 0.01, [0.29, 0.31, 0.3])
+    cand[field] = value
+    assert not compare_view("spatial", inc, cand, trials_before=0).comparable
+
+
+@pytest.mark.parametrize("field,value", [
+    ("tp_w", -1), ("fn_w", float("inf")), ("fp_w", 301),
+    ("truth_pixels", 31), ("valid_pixels", 301), ("tp_w", 40),
+])
+def test_inconsistent_aggregate_components_are_incomparable(field, value):
+    inc = _result(0.1, 0.01, [0.09, 0.11, 0.1])
+    cand = _result(0.3, 0.01, [0.29, 0.31, 0.3])
+    cand["aggregate_components"][field] = value
+    assert not compare_view("spatial", inc, cand, trials_before=0).comparable
+
+
+def test_legacy_protocol_requires_rescoring():
+    inc = _result(0.1, 0.01, [0.09, 0.11, 0.1])
+    inc["evaluation_protocol"]["schema_version"] = 1
+    comp = compare_view("spatial", inc, inc, trials_before=0)
+    assert not comp.comparable
+    assert "re-score" in comp.reason
+
+
+@pytest.mark.parametrize("field", ["buffer_pixels", "seed", "epochs", "train_step"])
+def test_training_protocol_is_preserved_and_compared(field):
+    inc = _result(0.1, 0.01, [0.09, 0.11, 0.1])
+    cand = _result(0.3, 0.01, [0.29, 0.31, 0.3])
+    inc["evaluation_protocol"][field] = 4
+    cand["evaluation_protocol"][field] = 5
+    comp = compare_view("spatial", inc, cand, trials_before=0)
+    assert not comp.comparable
+    assert field in comp.reason
+    cand["evaluation_protocol"].pop(field)
+    assert not compare_view("spatial", inc, cand, trials_before=0).comparable
+
+
+def test_candidate_config_hashes_may_differ():
+    inc = _result(0.1, 0.01, [0.09, 0.11, 0.1])
+    cand = _result(0.3, 0.01, [0.29, 0.31, 0.3])
+    inc["evaluation_protocol"]["config_sha256"] = "c" * 64
+    cand["evaluation_protocol"]["config_sha256"] = "d" * 64
+    assert compare_view("spatial", inc, cand, trials_before=0).won
+
+
+def test_search_pressure_does_not_relax_regression_tolerance():
+    inc = _result(0.2, 0.01, [0.19, 0.21, 0.2], "fault")
+    cand = _result(0.18, 0.01, [0.17, 0.19, 0.18], "fault")
+    for trials in (0, 100):
+        comp = compare_view("fault", inc, cand, trials_before=trials)
+        assert comp.regression_tolerance == pytest.approx(0.01)
+        assert not comp.safeguard_passed
+
+
+def test_local_spatial_regression_vetoes_pooled_win():
+    inc = _result(0.5, 0.0, [0.5, 0.5, 0.5])
+    cand = _result(0.55, pstdev([0.3, 0.65, 0.7]), [0.3, 0.65, 0.7])
+    _set_aggregate(cand, 0.9)
+    comp = compare_view("spatial", inc, cand, trials_before=0)
+    assert comp.won
+    assert not comp.safeguard_passed
+    assert comp.fold_deltas[0] == pytest.approx((0, -0.2))
+    assert verdict([comp]) == REJECT

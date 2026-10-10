@@ -20,7 +20,10 @@ Do not implement trace segmentation from synthetic assumptions. Inspect the offi
 
 ### Fair comparison protocol
 
-The three-view gate (`scripts/verify_candidate.py`) enforces protocol equality: incumbent and candidate must use identical training parameters except for the declared change. Specifically, runs must match in:
+The three-view gate (`scripts/verify_candidate.py`) compares immutable evaluation
+protocols. Supply `score_cv.py --metrics-pattern` for training metadata; when
+supplied, its presence and values must agree between runs. Config hashes can
+differ for the declared experiment. The checked training/evaluation fields are:
 
 - `buffer_pixels` (spatial buffer around held-out regions)
 - `seed` (random seed for reproducibility)
@@ -48,7 +51,8 @@ Add derived features where physically justified:
 - Hough/line-segment response maps;
 - multi-scale hillshade/slope/curvature from the permitted high-resolution DEM.
 
-Treat each derived channel as an ablation. A channel only stays if it improves multiple validation views rather than one convenient split.
+Treat each derived channel as an ablation. A channel only stays if it clears the pooled spatial improvement gate and the
+geographic, complete-fault and trace-completion non-regression safeguards.
 
 ## Phase 3 — geologic priors and external data
 
@@ -86,21 +90,25 @@ The scored-submission allowance is three submissions in a rolling window, not a 
 
 1. **Score full-config spatial baseline** – First real-data run used a reduced config (epochs 2, train_step 64) on an 8-vCPU CPU-only box. The model was barely trained (losses 0.945–0.950) but produced the first honest spatial CV baseline: raw 0.0591 ± 0.0082, LOFO-calibrated 0.0895 ± 0.0200. Train with full `configs/reference_unet.yaml` (epochs=5, train_step=32) to validate this baseline and confirm it was not a fluke of the reduced configuration. This establishes the proper baseline for all future comparisons.
 
-2. **Train fault and trace fold models** – Complete fault-discovery and trace-discovery CV views. The gate currently only has spatial CV scores; fault and trace views are required to evaluate candidates properly under the 3-view gate policy (candidate must beat incumbent on ≥2 of 3 views).
+2. **Train fault and trace fold models** – Complete fault-discovery and trace-discovery CV views. The gate currently only has spatial CV scores; fault and trace views are required to evaluate candidates properly under the pooled-spatial-primary gate policy (a spatial win plus all three comparable non-regression safeguards).
 
 3. **Re-gate candidates against full baseline** – Once the full-config spatial baseline is scored and fault/trace views are available, re-gate endpoint extension (ENDPOINT-EXT-01: currently INCONCLUSIVE) and other candidates against the honest full baseline.
 
 2. **Automated propose-and-verify experiment loop** – ✅ COMPLETED 2026-10-07/08
    
-   **Canonical implementation:** `src/gems/verification.py`, `scripts/verify_candidate.py` (15 tests).
-   Accepts if candidate beats incumbent on ≥2 of 3 CV views by more than max fold-to-fold std 
-   × (1 + 0.5·log2(1 + n)). Uses committable JSONL ledger at `docs/candidate-trials.jsonl`, 
-   with protocol validation (truth/fold SHA256, metric params).
+   **Canonical implementation:** `src/gems/verification.py`, `scripts/verify_candidate.py`.
+   Updated 2026-10-10: accepts only a stitched pooled spatial gain above the
+   heuristic max fold-std × (1 + 0.5·log2(1 + n)), with all three comparable
+   non-regression safeguards. Spatial per-fold results remain geographic
+   safeguards; fault/trace macro means remain separate because background overlaps.
+   Schema-2 reports validate weighted aggregate evidence and pixel coverage.
+   Uses the JSONL ledger at `docs/candidate-trials.jsonl`; old reports need re-scoring.
+   Full policy: [CANDIDATE_PIPELINE.md](CANDIDATE_PIPELINE.md#propose-and-verify-acceptance-gate-2026-10-07).
    
    *Note:* An alternate statistical gate (`experiment_gate.py`, paired t-tests with Bonferroni) 
    was implemented 2026-10-08 but deprecated in favor of the simpler, more transparent 
-   verification.py approach. Both defend against CV overfitting through multiple-comparisons 
-   correction. Verdicts inform upload decisions, don't trigger uploads.
+   verification.py approach. The canonical escalation is a search-pressure heuristic, not a statistical
+   multiple-comparisons guarantee. Verdicts inform upload decisions, don't trigger uploads.
 
 3. **LoG edge-strength feature channel (inspired by Mumford-Shah geometry)** – ✅ COMPLETED 2026-10-08
    
@@ -183,3 +191,18 @@ The scored-submission allowance is three submissions in a rolling window, not a 
 - **Threshold optimization (2026-10-07)**: Added exact threshold optimization via `src/gems/calibration.py`. Given beta=0.8 (recall) vs alpha=0.2 (precision), the hypothesis was that optimal thresholds would be much lower than 0.5. **Update 2026-10-09**: First real-data baseline (reduced epochs, barely trained) produced LOFO-calibrated thresholds near 0.70, not below 0.5. However, this model's outputs cluster near 0.55 (median fold-0 probability 0.548), so these thresholds reflect an under-trained model with compressed outputs. The "optimal threshold below 0.5" hypothesis should be confirmed on a properly trained model before treating it as a design principle. The exact method finds the global optimum efficiently without search. Ready for use as soon as fold predictions are available.
 
 - **OpenAI math research integration (2026-10-07)**: Added `docs/OPENAI_MATH_LEADS.md`, which evaluates the 722-paper release for GEMS applicability. The top actionable lead is the *method* (massive generate-and-verify search with strict acceptance criteria), not the mathematics. Two geometry papers suggest concrete features and post-processing: Mumford-Shah regularity for edge-strength channels and endpoint extension, and Hilbert-transform stability for adaptive directional-filter design. See the document for full analysis and sources.
+
+
+## Metric-aware research queue (2026-10-10)
+
+P0 pooled-score selection is implemented and tested. Before P1 distance-aware
+training, re-score retained predictions with schema 2, finish the adequately
+trained baseline, and obtain complete fault/trace holdouts. Then run a matched
+ResNet-18 conventional-loss versus conventional-plus-distance-aware-loss ablation.
+P2 is wavelet energy entropy on physically appropriate potential-field bands;
+P3 is a small background-penalty ablation for incomplete labels. Geodesic
+continuation and skeleton loss remain later controlled experiments.
+
+Source checks, equations and acceptance conditions are recorded in
+[METRIC_AWARE_RESEARCH_2026-10-10.md](research/METRIC_AWARE_RESEARCH_2026-10-10.md).
+No new candidate improvement is established by this queue or the P0 correction.

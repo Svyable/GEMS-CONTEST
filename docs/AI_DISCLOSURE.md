@@ -560,3 +560,19 @@ This worker (scheduled cron, Muse) made two groups of changes:
 
 No competition data was read; no model training ran on this CPU-only VM and no
 new held-out score is claimed. The queue targets the torch+data box.
+
+
+## 2026-10-10 — Pooled spatial candidate selection and research queue
+
+Codex checked the supplied research against official metric/organizer pages and
+primary literature, implemented schema-2 stitched weighted-evidence reporting,
+and changed candidate selection to a mandatory pooled spatial improvement plus
+comparable geographic/fault/trace non-regression safeguards. It also repaired
+training-protocol metadata preservation (config hashes remain provenance rather
+than equality keys), added synthetic ranking/seam/protocol regression tests, and
+updated strategy/research docs. Existing ledger entries were preserved.
+
+Validation covers scoring and selection behavior, not improved official-data
+predictions. Distance-aware loss, wavelet entropy and incomplete-label training
+remain proposed ablations. No external dataset, checkpoint, paid compute, model
+API call or competition submission was introduced.

@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from statistics import mean, pstdev
 
 import numpy as np
 
 from gems.cv import fault_discovery_fold, trace_completion_fold
-from gems.metric import distance_weighted_tversky
+from gems.metric import distance_weighted_tversky, distance_weighted_tversky_components
+
+AGGREGATION_METHODS = {
+    "spatial": "stitched_spatial_oof",
+    "fault": "overlapping_background_macro",
+    "trace": "overlapping_background_macro",
+}
 
 
 @dataclass(frozen=True)
@@ -82,17 +88,20 @@ def evaluate_spatial_predictions(
         )
 
     oof_valid = valid & (folds >= 0)
-    aggregate = distance_weighted_tversky(
+    components = distance_weighted_tversky_components(
         oof,
         gt,
-        alpha=alpha,
-        beta=beta,
         radius_pixels=radius_pixels,
         valid_mask=oof_valid,
     )
     return {
         "scheme": "spatial",
-        "aggregate_score": aggregate,
+        "aggregate_score": components.score(alpha, beta),
+        "aggregate_components": {
+            **asdict(components),
+            "valid_pixels": int(oof_valid.sum()),
+            "truth_pixels": int((gt & oof_valid).sum()),
+        },
         "macro_mean": mean(item.score for item in per_fold),
         "macro_std": pstdev(item.score for item in per_fold),
         "folds": [item.__dict__ for item in per_fold],
