@@ -46,7 +46,7 @@ Priority means *next experiment value*, not evidence of improved holdout scores.
 | P1 / research | [Kiryo et al. (2017), non-negative positive-unlabeled learning](https://arxiv.org/abs/1703.00593); [pulearn implementation/docs](https://github.com/pulearn/pulearn) | Formal tools for cases where mapped-fault positives are incomplete and unlabelled pixels are not guaranteed negatives | Only after auditing label-selection mechanism and estimating/sweeping class-prior sensitivity; run matched controls without treating all unlabeled pixels as true negatives | Classical PU identification assumptions (e.g., selected-completely-at-random positives) may fail badly for geologists' mapped traces; do not assume applicability from the name |
 | P2 | [fractopo — fracture/lineament network analysis](https://github.com/nialov/fractopo) ([JOSS 2023](https://doi.org/10.21105/joss.05300)) | Branch, endpoint, orientation and trace-connectivity diagnostics after vectorization | Compare candidate-geometry QA on known withheld segments and false-bridge rates; only later consider postprocessing | Network descriptors are not geological truth, and vectorization/snap thresholds can invent junctions |
 | P2 | [scikit-image probabilistic Hough transform](https://scikit-image.org/docs/stable/api/skimage.transform.html) | Fast, reproducible line-segment proposal baseline for directional structure | Compare oriented line-response postprocessing to unmodified probability maps on held-out traces | Straight-line prior may miss curved or en-echelon faults; record line length/gap thresholds and false connectors |
-| Validation anchor | [Roberts et al. (2017), cross-validation with spatial structure](https://doi.org/10.1111/ecog.02881) | Literature basis for buffered geographic holdouts instead of random pixel/patch splits | Keep fixed independent spatial, complete-fault and trace-completion evaluation views; aggregate fold scores before declaring a win | Spatial CV is necessary but not proof of generalization to truly unknown geology |
+| Validation anchor | [Roberts et al. (2017), cross-validation with spatial structure](https://doi.org/10.1111/ecog.02881) | Literature basis for buffered geographic holdouts instead of random pixel/patch splits | Keep fixed independent spatial, complete-fault and trace-completion evaluation views; use stitched pooled spatial evidence and separate overlapping-background discovery safeguards before declaring a win | Spatial CV is necessary but not proof of generalization to truly unknown geology |
 
 ### Experiment order and gates
 
@@ -63,3 +63,13 @@ code have been imported. Review each code license, maintenance status, transitiv
 and any external data rights before adoption. Log any data product in
 [EXTERNAL_DATA_LEDGER.md](EXTERNAL_DATA_LEDGER.md). Verify eligibility against official rules
 and organizer clarification; use the published metric and existing submission-format checks.
+
+
+## Metric-aware research source update (2026-10-10)
+
+- Organizer pooled-scoring clarification (2026-10-01): https://community.drivendata.org/t/leaderboard-aggregation-pooled-over-public-test-pixels-or-mean-of-per-chunk-scores/11550
+- Organizer final-label/exclusion/weight clarification (2026-10-07): https://community.drivendata.org/t/questions-about-the-final-round-rules/11556
+- Checked wavelet, PU, topology and spatial-block literature with experiment boundaries:
+  [research/METRIC_AWARE_RESEARCH_2026-10-10.md](research/METRIC_AWARE_RESEARCH_2026-10-10.md).
+
+These references add no external training data, code or weights.

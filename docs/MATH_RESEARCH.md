@@ -110,11 +110,28 @@ verifier and a significance filter (see `docs/OPENAI_MATH_LEADS.md` #1). Status:
 **IMPLEMENTED**. `src/gems/verification.py` + `scripts/verify_candidate.py`
 realize it for GEMS: generator = agent-proposed candidates; verifier =
 `scripts/score_cv.py` on all three CV views with the published metric;
-significance filter = win ≥2 of 3 views by more than fold-to-fold std,
-escalated by (1 + 0.5·log2(1 + n_trials)); honest failure log =
+selection filter (updated 2026-10-10) = mandatory stitched pooled spatial gain
+above the heuristic max fold-std × (1 + 0.5·log2(1 + n_trials)), plus all three
+comparable non-regression safeguards; honest failure log =
 `docs/candidate-trials.jsonl` (every verdict recorded, not only ACCEPTs).
 The blunt caveat from the scan still holds: our CV is a noisy proxy for the
 hidden label distribution, not a Lean proof, so the escalation schedule is a
 documented judgment call, not a guarantee. The next evidence gate is an actual
 candidate comparison — e.g. MS-EDGE-01 vs the resnet18 control — once official
 fold scores are measured on Sven's Mac.
+
+
+## Metric-aware selection and next experiments (2026-10-10)
+
+**IMPLEMENTED / synthetic verification only:** schema-2 scoring exposes stitched
+spatial TP/FP/FN evidence. The canonical verifier now uses that pooled score,
+checks aggregate arithmetic/coverage, requires all three safeguards, and preserves
+supplied training metadata when checking comparability. Tests demonstrate both
+macro/pooled ranking reversal and cross-fold kernel matches. Historical ledger
+entries remain historical; re-score their raster artifacts before a new verdict.
+
+**PROPOSED / not measured:** distance-aware differentiable Tversky plus a stable
+conventional loss, multiscale wavelet energy entropy, incomplete-label-aware
+background weighting, then geometry continuation/topology ablations. The checked
+source ledger and marginal-gain derivation are in
+[the research note](research/METRIC_AWARE_RESEARCH_2026-10-10.md).

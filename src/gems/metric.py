@@ -1,9 +1,22 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.ndimage import distance_transform_edt
+
+
+@dataclass(frozen=True)
+class TverskyComponents:
+    """Distance-weighted evidence measured on one evaluated raster region."""
+
+    tp_w: float
+    fp_w: float
+    fn_w: float
+
+    def score(self, alpha: float = 0.2, beta: float = 0.8, eps: float = 1e-12) -> float:
+        return self.tp_w / (self.tp_w + alpha * self.fp_w + beta * self.fn_w + eps)
 
 
 def _shift_with_fill(array: np.ndarray, dy: int, dx: int, fill: float = 0.0) -> np.ndarray:
@@ -45,13 +58,33 @@ def distance_weighted_tversky(
     Non-finite prediction values are permitted only outside the valid mask.
     This matches submission rasters that use NaN outside the valid study area.
     """
+    if alpha < 0 or beta < 0:
+        raise ValueError("alpha/beta must be non-negative")
+    components = distance_weighted_tversky_components(
+        prediction, truth, radius_pixels=radius_pixels, valid_mask=valid_mask
+    )
+    return components.score(alpha, beta, eps)
+
+
+def distance_weighted_tversky_components(
+    prediction: np.ndarray,
+    truth: np.ndarray,
+    *,
+    radius_pixels: float = 3.0,
+    valid_mask: np.ndarray | None = None,
+) -> TverskyComponents:
+    """Measure TP/FP/FN before forming the ratio.
+
+    For spatial OOF, call this on the stitched raster. Summing independently
+    masked fold evidence loses distance-kernel matches across fold boundaries.
+    """
     pred = np.asarray(prediction, dtype=np.float64)
     gt = np.asarray(truth).astype(bool)
 
     if pred.ndim != 2 or gt.ndim != 2 or pred.shape != gt.shape:
         raise ValueError("prediction and truth must be same-shape 2D arrays")
-    if alpha < 0 or beta < 0 or radius_pixels <= 0:
-        raise ValueError("alpha/beta must be non-negative and radius_pixels must be positive")
+    if radius_pixels <= 0:
+        raise ValueError("radius_pixels must be positive")
 
     if valid_mask is None:
         valid = np.ones_like(gt, dtype=bool)
@@ -93,5 +126,4 @@ def distance_weighted_tversky(
         truth_kernel = np.zeros_like(pred)
 
     fp_w = float((pred * (1.0 - truth_kernel) * valid).sum())
-    denominator = tp_w + alpha * fp_w + beta * fn_w + eps
-    return tp_w / denominator
+    return TverskyComponents(tp_w=tp_w, fp_w=fp_w, fn_w=fn_w)

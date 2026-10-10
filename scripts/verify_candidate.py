@@ -6,9 +6,10 @@ views (spatial-block, fault-discovery, trace-completion) using the published
 distance-weighted Tversky metric. Both directories must contain the
 score_cv.py JSON outputs: spatial.json, fault.json, trace.json.
 
-The required margin grows with the number of already-recorded trials in the
-ledger (search-pressure escalation). Every run -- ACCEPT, REJECT, or
-INCONCLUSIVE -- is appended to the ledger, which is the honest failure log.
+Acceptance requires a pooled spatial OOF gain above the heuristic margin and
+comparable spatial, fault and trace non-regression safeguards. Fault/trace
+backgrounds overlap and are never pooled. Re-score old outputs with the current
+schema-2 score_cv.py. Every verdict is appended to the honest failure ledger.
 """
 
 from __future__ import annotations

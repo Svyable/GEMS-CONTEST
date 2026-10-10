@@ -9,6 +9,7 @@ import rasterio
 
 from gems.data import sha256_file
 from gems.evaluation import (
+    AGGREGATION_METHODS,
     evaluate_fault_discovery_predictions,
     evaluate_spatial_predictions,
     evaluate_trace_completion_predictions,
@@ -26,6 +27,37 @@ def _read_aligned(path: str, reference) -> np.ndarray:
         if src.crs != reference.crs or src.transform != reference.transform:
             raise SystemExit(f"georeferencing mismatch for {path}")
         return src.read(1)
+
+
+def _read_training_protocol(pattern: str | None, fold_ids: list[int]) -> dict:
+    """An explicitly requested metadata chain must cover every scored fold."""
+    if pattern is None:
+        return {}
+    training_protocol = None
+    for fold in fold_ids:
+        path = Path(pattern.format(fold=fold))
+        try:
+            metrics = json.loads(path.read_text())
+            epochs = metrics.get("epochs")
+            protocol = {
+                "buffer_pixels": metrics["buffer_pixels"],
+                "seed": metrics["seed"],
+                "epochs": len(epochs) if isinstance(epochs, list) else epochs,
+                "train_step": metrics["train_step"],
+                "config_sha256": metrics.get("config_sha256"),
+            }
+        except (OSError, ValueError, KeyError, AttributeError) as exc:
+            raise SystemExit(f"cannot read training protocol for fold {fold}: {path}: {exc}")
+        for key in ("buffer_pixels", "seed", "epochs", "train_step"):
+            value = protocol[key]
+            minimum = 1 if key in ("epochs", "train_step") else 0
+            if type(value) is not int or value < minimum:
+                raise SystemExit(f"invalid training protocol {key} for fold {fold}: {path}")
+        if training_protocol is None:
+            training_protocol = protocol
+        elif training_protocol != protocol:
+            raise SystemExit(f"training protocol differs for fold {fold}: {path}")
+    return {k: v for k, v in (training_protocol or {}).items() if v is not None}
 
 
 def main() -> int:
@@ -50,28 +82,6 @@ def main() -> int:
     if args.known_fault_exclusion_pixels < 0:
         parser.error("--known-fault-exclusion-pixels must be non-negative")
 
-    training_protocol = {}
-    if args.metrics_pattern:
-        for fold in range(10):
-            metrics_path = Path(args.metrics_pattern.format(fold=fold))
-            if metrics_path.exists():
-                try:
-                    metrics = json.loads(metrics_path.read_text())
-                    protocol = {
-                        "buffer_pixels": metrics.get("buffer_pixels"),
-                        "seed": metrics.get("seed"),
-                        "epochs": len(metrics.get("epochs", [])) if isinstance(metrics.get("epochs"), list) else metrics.get("epochs"),
-                        "train_step": metrics.get("train_step"),
-                    }
-                    if metrics.get("config_sha256"):
-                        protocol["config_sha256"] = metrics["config_sha256"]
-                    if not training_protocol:
-                        training_protocol = protocol
-                    elif training_protocol != protocol:
-                        print(f"warning: fold {fold} protocol differs from fold 0", file=__import__('sys').stderr)
-                except (json.JSONDecodeError, KeyError) as exc:
-                    print(f"warning: could not parse {metrics_path}: {exc}", file=__import__('sys').stderr)
-
     with rasterio.open(args.truth) as truth_src:
         truth = truth_src.read(1) > 0
         valid = truth_src.dataset_mask() > 0
@@ -84,6 +94,8 @@ def main() -> int:
             fold: _read_aligned(args.prediction_pattern.format(fold=fold), truth_src)
             for fold in fold_ids
         }
+
+    training_protocol = _read_training_protocol(args.metrics_pattern, fold_ids)
 
     if args.scheme == "spatial":
         result = evaluate_spatial_predictions(
@@ -112,7 +124,8 @@ def main() -> int:
     # Bind comparisons to the exact labels, holdout assignment, and metric
     # semantics. Candidate prediction hashes deliberately differ by design.
     result["evaluation_protocol"] = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "aggregation": AGGREGATION_METHODS[args.scheme],
         "metric": "distance_weighted_tversky",
         "alpha": ALPHA,
         "beta": BETA,

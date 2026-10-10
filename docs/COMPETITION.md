@@ -1,6 +1,6 @@
 # GEMS working brief
 
-_Last checked: 2026-09-23._
+_Metric and final-round clarifications checked: 2026-10-10._
 
 ## Objective
 
@@ -19,6 +19,10 @@ The metric is a distance-weighted Tversky index with:
 False negatives therefore matter substantially more than false positives, but diffuse low-confidence probability everywhere is still penalized. The key modeling problem is calibrated **recall of plausible fault geometry** without flooding large areas with probability mass.
 
 Organizer forum clarification (2026-09-16): known USGS/INGENIOUS fault pixels are masked/excluded from evaluation in both the initial and final rounds. The scoring mask means predicting known pixels does not hurt, but proximity to a known trace is not itself excluded: newly mapped continuations/branches can still be new-fault labels.
+
+Organizer clarification on [2026-10-01](https://community.drivendata.org/t/leaderboard-aggregation-pooled-over-public-test-pixels-or-mean-of-per-chunk-scores/11550): public and private scores pool pixel contributions before forming one ratio; final re-evaluation covers the whole GeoDAWN area. Local model selection therefore uses the stitched pooled spatial OOF score, with separate geographic and discovery safeguards.
+
+Organizer clarification on [2026-10-07](https://community.drivendata.org/t/questions-about-the-final-round-rules/11556): final labels may be added, removed or changed; the excluded USGS/INGENIOUS dataset stays the same; there is no extra fault-specific weighting beyond the published distance weighting.
 
 ## Provided features
 
@@ -52,7 +56,7 @@ Run `scripts/validate_submission.py` against the official sample submission befo
 - Deadline: **2026-12-03 23:59 UTC**.
 - Prize pool: $300,000.
 - Initial round: top five private-test submissions receive $10,000 each.
-- Final round: same selected final submission is rescored after expert review expands the new-fault label set; prizes are $100k / $70k / $40k / $25k / $15k.
+- Final round: same selected final submission is rescored after expert review revises the new-fault label set; prizes are $100k / $70k / $40k / $25k / $15k.
 - Up to three scored submissions are allowed in a **rolling** window; the organizer clarified there is no fixed weekly reset date/time.
 - Only one final submission is selected per participating entity/team for both prize rounds.
 - Finalists must provide complete code assets and documentation sufficient to reproduce results and run predictions on new data.

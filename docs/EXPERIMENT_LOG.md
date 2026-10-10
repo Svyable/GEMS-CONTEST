@@ -464,3 +464,20 @@ No competition data read; no training on this CPU-only VM; no score claimed.
 
 **Next**: torch+data box runs the queue (s1→s6); first honest three-view gates
 for the four lineament candidates land once s6 completes.
+
+
+## 2026-10-10 — P0 pooled spatial selection correction
+
+Infrastructure correction, not a model gain. `score_cv.py` schema 2 now records
+stitched spatial weighted TP/FP/FN and pixel coverage. The verifier uses the
+pooled ratio as primary, requires geographic/fault/trace safeguards, validates
+aggregate arithmetic and preserves supplied training-budget fields. Historical
+JSONL verdicts were not rewritten; their prediction rasters need re-scoring.
+Synthetic tests reproduce macro/pooled ranking reversal and seam-crossing
+spatial matches. Full local validation: 337 passed, 4 optional training tests
+skipped; Ruff and diff checks passed.
+
+Next measured experiment: adequately trained baseline with all three views,
+then a budget/seed/fold-matched ResNet-18 distance-aware-loss ablation. Source
+links and the P1-P5 queue live in
+[the research note](research/METRIC_AWARE_RESEARCH_2026-10-10.md).

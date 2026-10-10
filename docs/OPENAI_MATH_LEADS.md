@@ -48,7 +48,7 @@ Ranked by realistic expected impact on the hidden-set distance-weighted Tversky 
 - **Mapping:** OpenAI's leverage came from scale (about 4,000 problems) times a strict, automatic verifier times a significance filter. Our analogue:
   - **Generator:** agent-proposed candidates for derived feature channels, losses, architectures, scales, ensembling weights, and post-processing.
   - **Verifier:** `scripts/score_cv.py` with the published metric on *all three* CV views (spatial-block, fault-component, trace-completion), plus `validate_submission.py`.
-  - **Significance filter:** accept a change only if it beats the incumbent on ≥2 of 3 views by more than fold-to-fold standard deviation. Otherwise discard it.
+  - **Selection filter (updated 2026-10-10):** require a stitched pooled spatial gain above the escalating fold-std heuristic and all three comparable non-regression safeguards. Fault/trace macro wins cannot override a spatial loss. This is a documented heuristic, not a confidence guarantee.
   - **Honest failure log:** record every attempt, not only the winners, in `docs/EXPERIMENT_LOG.md`, mirroring the IAS "report attempts and failures" norm. This is also our main defense against overfitting CV through many comparisons. The more candidates we try, the larger the improvement margin we should demand.
 - **Blunt caveat:** a Lean proof is a *perfect* verifier. Our CV is a *noisy proxy* for a hidden label set of newly mapped faults with a different distribution. Search pressure will exploit CV noise unless the acceptance bar rises with the number of trials. Spend the three-per-rolling-window leaderboard submissions only on pre-registered hypotheses.
 

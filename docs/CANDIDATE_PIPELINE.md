@@ -272,20 +272,32 @@ through `src/gems/verification.py` before it can displace the incumbent. The
 gate compares `scripts/score_cv.py` JSON outputs for the three validation
 views: `spatial.json`, `fault.json`, `trace.json`.
 
-Rules, in one place:
+Rules (selection protocol `pooled_spatial_with_nonregression_v2`, 2026-10-10):
 
-- A view is won only if `candidate_macro_mean - incumbent_macro_mean` strictly
-  exceeds `max(incumbent_std, candidate_std) * escalation(n)`, where
-  `escalation(n) = 1 + 0.5 * log2(1 + n)` and `n` is the number of trials
-  already in the ledger. The bar rises with search pressure by design; the
-  schedule is a judgment call, recorded in the ledger with every verdict.
-- Verdicts: **ACCEPT** if ≥2 comparable views won; **REJECT** if ≥2
-  comparable views lost; **INCONCLUSIVE** otherwise (including one win,
-  one loss, and a missing third view). Missing or invalid view evidence
-  never counts as a win, but cannot prematurely rule out a candidate either.
-- A verdict is evidence for the upload decision, not an upload trigger. The
-  three-per-rolling-window DrivenData allowance is still spent only on
-  pre-registered hypotheses per the leaderboard policy.
+- Primary score: spatial `aggregate_score` measured on the stitched OOF raster.
+  A win requires `candidate_aggregate - incumbent_aggregate` strictly above
+  `max(incumbent_std, candidate_std) * (1 + 0.5 * log2(1 + n_trials))`.
+  Fold standard deviations remain a conservative heuristic hurdle, **not** a
+  confidence interval for the pooled ratio.
+- Safeguards: no spatial fold may regress by more than that view's maximum
+  fold standard deviation; fault and trace **macro means** must each stay within
+  the same un-escalated tolerance. Repeated trials increase the improvement bar
+  without increasing regression tolerance. Fault/trace background overlaps, so
+  these views are never pooled as disjoint leaderboard pixels.
+- **ACCEPT** requires the spatial win and all three comparable safeguards.
+  **REJECT** follows a comparable spatial failure or material safeguard regression.
+  Otherwise the verdict is **INCONCLUSIVE**. A fault/trace win cannot substitute
+  for missing spatial evidence, and missing holdouts cannot permit acceptance.
+- Schema-2 scorer reports record the aggregation method and stitched weighted
+  TP/FP/FN totals with truth/valid pixel coverage. The gate checks their ratio
+  and coverage for consistency. Re-score old prediction rasters; do not fill
+  `aggregate_score` from a fold average or sum independently masked fold TP.
+- Supplied seed, epoch, training-stride and buffer metadata must match across
+  runs (including presence). Pass `score_cv.py --metrics-pattern` to supply it;
+  scoring without training metadata does not certify equal training budgets.
+  Config hashes remain provenance and may differ for a declared candidate change.
+- A verdict is evidence for an upload decision, not an upload trigger. The
+  three-per-rolling-window allowance still serves pre-registered hypotheses.
 
 ```bash
 # after scoring both recipes on all three views into <dir>/{spatial,fault,trace}.json
