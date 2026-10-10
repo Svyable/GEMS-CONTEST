@@ -176,6 +176,28 @@ First full pipeline run on real contest data (19-band 3292×3730 raster) surface
 
 **Candidate configs committed**: `configs/candidates/{reference_unet_cv_reduced.yaml,cand_mumford_shah_log.yaml,cand_structure_tensor_coherence.yaml,cand_ridge_valley_response.yaml,cand_steerable_filter.yaml}` — incumbent + four lineament-channel variants ready for ablation.
 
+## 2026-10-10 — Full reference U-Net baseline, honest fault CV
+
+**Config**: `configs/reference_unet.yaml` (organizer reference, unreduced: 5 epochs, train_step 32)  
+**Training**: `scripts/train_full_map.py --cv-scheme fault --buffer-pixels 16 --negative-ratio 1.0 --seed 20260922`  
+**Normalization**: fold-pure (`per_channel_minmax_over_training_region`)  
+**Host**: 8-core CPU-only box, single seed, ~17.8 h
+
+**Fault CV scores** (5 folds):
+- **Raw** (unthresholded distance-weighted Tversky): 0.0374, 0.0449, 0.0505, 0.0464, 0.0484
+  - Macro mean: **0.0455 ± 0.0045** (population std)
+- **LOFO-calibrated**: 0.0452, 0.0583, 0.0642, 0.0579, 0.0478
+  - Thresholds: 0.935, 0.882, 0.952, 0.952, 0.997
+  - Calibrated mean: **0.0547 ± 0.0071** (population std)
+
+**Comparison to spatial**: Fault CV raw mean is 0.0455 (vs. spatial 0.0963); LOFO-calibrated 0.0547 (vs. spatial 0.1230). The large drop indicates that generalizing to held-out complete faults is substantially harder than spatial block holdout.
+
+**Decision**: This is the **incumbent baseline for fault view**. Trace CV baseline is now training. Endpoint-extension gate (3 views) and the four lineament-channel candidates follow trace completion.
+
+**Results committed**: `results/runs/ref-cv-fault-full/{manifest.json,fault.json,lofo-fault.json}`
+
+**Note**: Manifest records `git_dirty=true` at commit b82efe9 because of local patches (endpoint_extension inplace, train_full_map lineament param pass-through) that have since been superseded on main.
+
 ---
 
 ### Box handoff 2026-10-09 — fault/trace CV fold training (INFRASTRUCTURE)

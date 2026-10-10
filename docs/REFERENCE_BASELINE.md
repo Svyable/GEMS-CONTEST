@@ -83,3 +83,21 @@ This isolates gains from better validation, better modeling, and better data rat
 **LOFO-calibrated**: 0.1308, 0.1334, 0.1014, 0.1442, 0.1050 (mean 0.1230 ± 0.0168)
 
 Results and provenance: `results/runs/ref-cv-spatial-full/`
+
+## Full-config fault CV results (2026-10-10)
+
+**Status**: Complete. This is the incumbent baseline for fault view.
+
+**Config**: `configs/reference_unet.yaml` (unreduced: 5 epochs, train_step 32)  
+**Training**: `train_full_map.py --cv-scheme fault --buffer-pixels 16`, fold-pure normalization, negative_ratio 1.0, seed 20260922. CPU training ~17.8 h.  
+**Raw fault scores**: 0.0374, 0.0449, 0.0505, 0.0464, 0.0484 (mean 0.0455 ± 0.0045)  
+**LOFO-calibrated**: 0.0452, 0.0583, 0.0642, 0.0579, 0.0478 (mean 0.0547 ± 0.0071)  
+**Thresholds**: 0.935, 0.882, 0.952, 0.952, 0.997
+
+**Comparison to spatial**: Fault CV raw mean is 0.0455 (vs. spatial 0.0963); LOFO-calibrated 0.0547 (vs. spatial 0.1230). The large drop indicates that generalizing to held-out complete faults is substantially harder than spatial block holdout.
+
+**Note**: Manifest records `git_dirty=true` at commit b82efe9 because of local patches (endpoint_extension inplace, train_full_map lineament param pass-through) that have since been superseded on main.
+
+**Next**: Trace CV baseline is training. Endpoint-extension gate (3 views) follows trace completion.
+
+Results and provenance: `results/runs/ref-cv-fault-full/`
