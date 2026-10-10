@@ -241,3 +241,112 @@ baseline, which unblock the ENDPOINT-EXT gate (currently INCONCLUSIVE on
 spatial-only evidence) and give every lineament candidate its first honest
 three-view trial. The reduced recipe is a speed control; promote surviving
 candidates to the full recipe (epochs=20, train_step=32) on the same folds.
+
+---
+
+## 2026-10-10 — Leakage-safe lineament features for fault/trace CV (INFRASTRUCTURE)
+
+**Problem**: `scripts/train_full_map.py` refused derived lineament features under
+`--cv-scheme fault` or `trace` with error "fault/trace CV needs a masked-input
+transform protocol before comparison". All four queued lineament candidates
+(mumford_shah_log, structure_tensor_coherence, ridge_valley_response,
+steerable_filter) were restricted to spatial CV only, blocking three-view gate
+evaluation. Context from CPU-only local runs (not reproducible in CI): reference
+U-Net spatial CV raw distance-weighted Tversky mean 0.0963, LOFO-calibrated
+0.1230; fault CV folds 0.0374 and 0.0449 so far — generalization to held-out
+faults is the weak point where better input features should be tested.
+
+**Solution**: Implemented leakage-safe protocol for fault/trace CV with derived
+features. The concern was that spatial filters (Gaussian smoothing, structure
+tensor, Hessian, Gabor) with support radius R could carry information from
+held-out fault/trace pixels into training inputs through their filtering
+neighborhood. The protocol ensures held-out regions never contribute to training:
+
+1. **Input masking for filtering**: Pass `train_mask` (excludes held-out faults
+   + buffer) as the `valid_mask` to `grouped_lineament_features` for fault/trace
+   CV. All spatial filters (`_masked_gaussian`, structure tensor, Hessian, Gabor)
+   treat held-out regions as invalid and exclude their values from weighted sums.
+
+2. **Fold-pure normalization**: Already implemented — `normalization_mask` uses
+   `train_mask` for percentile/scale statistics, ensuring held-out pixels never
+   affect normalization parameters.
+
+3. **Buffer >= filter support**: Already enforced — `required_lineament_buffer`
+   check ensures `--buffer-pixels` exceeds spatial filter support (e.g., 4σ for
+   Gaussian, kernel radius for Gabor), so training windows never sample edge
+   artifacts at held-out boundaries.
+
+**Changes**:
+- `scripts/train_full_map.py` (lines 112-136): Removed hard refusal for
+  fault/trace CV with lineament features. Now passes `train_mask` as both
+  `valid_mask` and `normalization_mask` when computing lineament features under
+  any CV scheme with a split (spatial/fault/trace). Added inline comment
+  documenting the leakage-safe protocol.
+
+**Tests** (`tests/test_lineament_cv_leakage.py`, 15 tests, all pass):
+- **Core leakage test**: For all 7 lineament kinds (gradient_energy, phase_edge,
+  mumford_shah_log, structure_tensor_coherence, structure_tensor_orientation,
+  ridge_valley_response, steerable_filter), perturbing held-out region inputs
+  by +1000 leaves training-region lineament features unchanged (tolerance 1e-6).
+  Validates that spatial filters respect the train_mask boundary.
+  
+- **Fold-pure normalization**: Perturbing held-out inputs by 10× leaves
+  normalization pixel counts and scale parameters unchanged for gradient_energy,
+  phase_edge, and structure_tensor_coherence.
+
+- **Spatial CV unchanged**: Confirms spatial CV still uses full `valid` mask for
+  filtering (spatially-separated regions have no fault-based leakage concern),
+  with high correlation (>0.99) between full-valid and train-restricted results
+  in training core region.
+
+- **Buffer efficacy**: With σ=2 Gaussian (support ~8 pixels), training pixels
+  >8 pixels from held-out boundary show near-zero gradient on constant-field
+  inputs (95th percentile <0.01), proving buffer prevents edge artifact leakage.
+
+- **Trace CV**: Two-trace synthetic test verifies endpoint holdout respects
+  train_mask; perturbing held-out endpoints by +500 leaves training region
+  (including trace bodies) unchanged (tolerance 1e-6).
+
+- **Multi-scale features**: mumford_shah_log and ridge_valley_response (with
+  3 scales) respect masking; held-out perturbation causes max absolute
+  difference <1e-5 in training region.
+
+**Verification**: All existing lineament and CV tests pass (44 lineament tests,
+14 CV tests, 15 new leakage tests = 73 total). No change to spatial CV behavior
+or feature computation logic — only the mask selection for fault/trace CV.
+
+**Outcome**: Lineament-feature candidates can now be trained and scored under
+fault and trace CV. The local experiment queue can proceed with all four
+lineament candidates across all three CV views (spatial, fault, trace) for
+honest three-view gate evaluation.
+
+**Config changes for local queue**: None. Existing candidate configs
+(`configs/candidates/cand_mumford_shah_log.yaml`, etc.) work as-is with
+fault/trace CV. Example invocation (same as spatial, now works for fault/trace):
+
+```bash
+uv run python scripts/train_full_map.py \
+  --config configs/candidates/cand_mumford_shah_log.yaml \
+  --features data/raw/gems-geodawn-numerical-features.tif \
+  --labels data/raw/existing_faults.tif \
+  --template data/raw/example_submission.tif \
+  --fold-map data/processed/cv-fault-v1.tif --cv-scheme fault --fold 0 \
+  --buffer-pixels 16 --seed 20260922 \
+  --output runs/mumford-shah-fault-cv/fold-0.tif \
+  --metrics-json runs/mumford-shah-fault-cv/metrics-fold-0.json
+```
+
+Buffer requirement: `--buffer-pixels` must be ≥ `required_lineament_buffer` for
+the chosen `kind`. Current configs use σ=1.0, structure_tensor_window=3.0,
+steerable_wavelength=8.0, yielding required buffers of 4-17 pixels. Default
+`--buffer-pixels 16` satisfies all except steerable_filter (needs 17); increase
+to 20 for steerable if needed.
+
+**Commit**: `cursor/lineament-fault-trace-cv-protocol-3a7e` branch.
+
+**Next steps**: Train all four lineament candidates (mumford_shah_log,
+structure_tensor_coherence, ridge_valley_response, steerable_filter) on
+fault and trace CV views. Score via `scripts/score_cv.py`. Gate against
+reference U-Net baseline using `scripts/verify_candidate.py` with all three
+views (spatial, fault, trace). Promote winners that beat incumbent on ≥2 of 3
+views by more than max(fold-std) × (1 + 0.5·log2(1+n_trials)).
