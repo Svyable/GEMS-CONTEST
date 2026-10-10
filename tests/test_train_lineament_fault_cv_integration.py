@@ -123,6 +123,7 @@ derived_features:
         "--cv-scheme", "fault",
         "--fold", "0",
         "--buffer-pixels", "6",
+        "--overlap", "8",
         "--seed", "42",
         "--metrics-json", str(metrics_path),
     ]
@@ -235,6 +236,7 @@ derived_features:
         "--cv-scheme", "trace",
         "--fold", "0",
         "--buffer-pixels", "16",  # large enough for all lineament kinds
+        "--overlap", "8",
         "--seed", "99",
     ]
     
