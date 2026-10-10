@@ -110,8 +110,8 @@ derived_features:
     metrics_path = tmp_path / "metrics.json"
     
     # Import and run train_full_map main
-    import sys
     import json
+    import sys
     sys.argv = [
         "train_full_map.py",
         "--features", str(features_path),
