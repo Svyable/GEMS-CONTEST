@@ -41,10 +41,36 @@ def main() -> int:
         help="Path pattern containing {fold}, e.g. runs/x/fold-{fold}.tif",
     )
     parser.add_argument("--known-fault-exclusion-pixels", type=int, default=0)
+    parser.add_argument(
+        "--metrics-pattern",
+        help="Optional path pattern to metrics JSON files containing training protocol, e.g. runs/x/metrics-fold-{fold}.json",
+    )
     parser.add_argument("--output-json")
     args = parser.parse_args()
     if args.known_fault_exclusion_pixels < 0:
         parser.error("--known-fault-exclusion-pixels must be non-negative")
+
+    training_protocol = {}
+    if args.metrics_pattern:
+        for fold in range(10):
+            metrics_path = Path(args.metrics_pattern.format(fold=fold))
+            if metrics_path.exists():
+                try:
+                    metrics = json.loads(metrics_path.read_text())
+                    protocol = {
+                        "buffer_pixels": metrics.get("buffer_pixels"),
+                        "seed": metrics.get("seed"),
+                        "epochs": len(metrics.get("epochs", [])) if isinstance(metrics.get("epochs"), list) else metrics.get("epochs"),
+                        "train_step": None,
+                    }
+                    if metrics.get("config_sha256"):
+                        protocol["config_sha256"] = metrics["config_sha256"]
+                    if not training_protocol:
+                        training_protocol = protocol
+                    elif training_protocol != protocol:
+                        print(f"warning: fold {fold} protocol differs from fold 0", file=__import__('sys').stderr)
+                except (json.JSONDecodeError, KeyError) as exc:
+                    print(f"warning: could not parse {metrics_path}: {exc}", file=__import__('sys').stderr)
 
     with rasterio.open(args.truth) as truth_src:
         truth = truth_src.read(1) > 0
@@ -97,6 +123,8 @@ def main() -> int:
             args.known_fault_exclusion_pixels if args.scheme != "spatial" else 0
         ),
     }
+    if training_protocol:
+        result["evaluation_protocol"].update(training_protocol)
 
     payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
     print(payload, end="")

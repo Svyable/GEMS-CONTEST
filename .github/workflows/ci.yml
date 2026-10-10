@@ -32,3 +32,5 @@ jobs:
         run: uv sync --extra ml --extra cpu --extra dev --frozen
       - name: Train, infer and score synthetic discovery fixtures
         run: uv run --no-sync pytest -q tests/test_training_ml.py
+      - name: Lineament fault/trace CV integration tests
+        run: uv run --no-sync pytest -q tests/test_train_lineament_fault_cv_integration.py

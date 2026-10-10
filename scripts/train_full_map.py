@@ -112,11 +112,6 @@ def main() -> int:
     lineament_metadata = None
     lineament_config = config.get("derived_features", {}).get("lineament", {})
     if lineament_config.get("enabled", False):
-        if split is not None and args.cv_scheme in ("fault", "trace"):
-            raise SystemExit(
-                "derived lineament features currently support train-all or spatial CV only; "
-                "fault/trace CV needs a masked-input transform protocol before comparison"
-            )
         categories = tuple(lineament_config.get("categories", ()))
         try:
             options = lineament_kwargs(lineament_config)
@@ -128,11 +123,16 @@ def main() -> int:
                         f"{required_buffer} for kind={options['kind']}"
                     )
             groups = raster_category_groups(args.features, categories)
+            # Leakage-safe protocol for fault/trace CV: use train_mask as the filtering
+            # mask so spatial filters never incorporate held-out region values. The
+            # buffer requirement (checked above) ensures training windows don't sample
+            # edge artifacts. Normalization remains fold-pure (allowed mask).
+            filtering_mask = allowed if allowed is not None else valid
             derived, lineament_metadata = grouped_lineament_features(
                 features,
                 groups,
-                valid_mask=valid,
-                normalization_mask=allowed if allowed is not None else valid,
+                valid_mask=filtering_mask,
+                normalization_mask=filtering_mask,
                 **options,
             )
         except (TypeError, ValueError) as exc:
