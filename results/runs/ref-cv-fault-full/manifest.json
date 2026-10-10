@@ -1,0 +1,62 @@
+{
+  "artifacts": [
+    {
+      "bytes": 3330,
+      "path": "runs/ref-cv-fault-full/fold-0.json",
+      "sha256": "23e4cade8e380b4026e6ca9d85e3331b7beabf8167c61d863e9d4321423f9516"
+    },
+    {
+      "bytes": 3335,
+      "path": "runs/ref-cv-fault-full/fold-1.json",
+      "sha256": "f801e1c961aa88989a259109c809d95341ff381fc67a9ca97bb9b1208671ea0e"
+    },
+    {
+      "bytes": 3333,
+      "path": "runs/ref-cv-fault-full/fold-2.json",
+      "sha256": "e990044c835dd5c8a0630b1da9691a351efeca73e2d15675d1114e6d05fcbb2a"
+    },
+    {
+      "bytes": 3334,
+      "path": "runs/ref-cv-fault-full/fold-3.json",
+      "sha256": "a67dfd364c6bc4e8d95a3f84c2569586db9d6fe24b4daa3cf6d0a7e2e8fbb029"
+    },
+    {
+      "bytes": 3330,
+      "path": "runs/ref-cv-fault-full/fold-4.json",
+      "sha256": "596203dc16fe84a4d99ec5d8163f87e3c6b24cb476d4dccadaf176fbf305090e"
+    },
+    {
+      "bytes": 1115,
+      "path": "runs/ref-cv-fault-full/scores/fault.json",
+      "sha256": "ab11fc548a91b80ccffc479fa2f9195722520779fb28a9a773d596ec8216897e"
+    },
+    {
+      "bytes": 1696,
+      "path": "runs/ref-cv-fault-full/scores/lofo-fault.json",
+      "sha256": "70b44096843deb885be50278cbe1acb5f5a892104a877800d22b9626928d9a9f"
+    }
+  ],
+  "code": {
+    "git_commit": "b82efe91eeefccfc722d80440ef2f36bae1ca518",
+    "git_dirty": true
+  },
+  "command": "queue: /workspace/gems/queue/tasks.json",
+  "config": {
+    "path": "configs/reference_unet.yaml",
+    "sha256": "7a5cd36b898933b4562b98db332b6b58f6ec8a21b294403d31911c2e00fbd232"
+  },
+  "created_utc": "2026-10-10T14:58:40.324555+00:00",
+  "data_manifest": {
+    "manifest_sha256": "ab3ec3ccac312dc2d05508ec6e063c1c1de261998f004423d2f54075e4bc4800",
+    "path": "data/manifests/official.json",
+    "sha256": "0d0388fd408bcce2f8a7ad31bb3842ac184239dfaf34dbfe7335c314b5e77ab1"
+  },
+  "environment": {
+    "platform": "Linux-6.12.94+-x86_64-with-glibc2.41",
+    "python": "3.12.14"
+  },
+  "hypothesis": "Organizer reference U-Net recipe (unreduced configs/reference_unet.yaml) under honest fault CV; incumbent baseline.",
+  "notes": "train_full_map.py --cv-scheme fault --buffer-pixels 16 --negative-ratio 1.0 --seed 20260922; fold-pure normalization; single seed. LOFO calibration: queue/lofo_calibrate_view.py. Local patches: endpoint_extension inplace, train_full_map lineament param pass-through (unused here).",
+  "run_id": "ref-cv-fault-full",
+  "schema_version": 1
+}
