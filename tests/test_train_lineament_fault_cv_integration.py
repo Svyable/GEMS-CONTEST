@@ -1,5 +1,6 @@
 """Integration test: train_full_map.py accepts lineament features under fault/trace CV."""
 
+import importlib.util
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,14 @@ from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
 from gems.cv import assign_fault_components
+
+
+def _trainer():
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("trainer", root / "scripts/train_full_map.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _write_test_raster(path, data, categories=None):
@@ -122,8 +131,8 @@ derived_features:
     # The old code would have raised SystemExit before computing lineament features.
     # Now it should proceed to lineament computation and only fail at torch import (if torch unavailable)
     try:
-        from scripts.train_full_map import main
-        returncode = main()
+        trainer = _trainer()
+        returncode = trainer.main()
         
         # If torch is available, verify full success
         assert returncode == 0, "train_full_map should succeed with lineament + fault CV"
@@ -230,8 +239,8 @@ derived_features:
     ]
     
     try:
-        from scripts.train_full_map import main
-        returncode = main()
+        trainer = _trainer()
+        returncode = trainer.main()
         
         # If torch is available, verify success
         assert returncode == 0, f"{kind} + trace CV should succeed"
