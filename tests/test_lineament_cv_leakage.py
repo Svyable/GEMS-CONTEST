@@ -162,6 +162,7 @@ def test_spatial_cv_still_uses_full_valid_mask():
     """
     features, labels = _synthetic_features_and_faults(seed=7)
     _, W = labels.shape
+    valid = np.ones_like(labels, dtype=bool)
     
     # Spatial split: left half train, right half validation, buffer in between
     train_mask = np.zeros_like(labels, dtype=bool)
