@@ -503,3 +503,39 @@ Next measured experiment: adequately trained baseline with all three views,
 then a budget/seed/fold-matched ResNet-18 distance-aware-loss ablation. Source
 links and the P1-P5 queue live in
 [the research note](research/METRIC_AWARE_RESEARCH_2026-10-10.md).
+
+## 2026-10-10 — Full reference U-Net baseline, honest trace CV (ref-cv-trace-full)
+
+**Config**: `configs/reference_unet.yaml` (organizer reference, unreduced: 5 epochs, train_step 32)  
+**Training**: `scripts/train_full_map.py --cv-scheme trace --buffer-pixels 3 --negative-ratio 1.0 --seed 20260922`  
+**Normalization**: fold-pure (`per_channel_minmax_over_training_region`)  
+**Host**: 8-core CPU-only box, single seed
+
+**Trace CV scores** (5 folds):
+- **Raw** (unthresholded distance-weighted Tversky): macro mean **0.009317 ± 0.001755** (population std)
+- **LOFO-calibrated**: mean **0.016198 ± 0.006655** (population std)
+
+**Fold map note**: Trace-CV baseline crashed on fold 1 because one withheld label pixel (row 3264, col 1516) lies outside the feature valid mask, so it had no retained trace body. Locally we used a repaired fold map `data/processed/cv-trace-v1b.tif` with that pixel set to -1 (fold 0 verified identical); `lofo-trace.json` references it. The fix requires intersecting labels with the feature valid mask before assigning trace bodies/endpoints in the fold builder. This is addressed in the accompanying code fix.
+
+**Decision**: This is the **incumbent baseline for trace view**. All three CV views now complete.
+
+**Results committed**: `results/runs/ref-cv-trace-full/{manifest.json,trace.json,lofo-trace.json}`
+
+**Box note**: The box OOM on 2026-10-10 19:55 CT killed the first lineament candidate (mumford_shah_log, spatial fold 1) due to unrelated memory pressure; it was resumed from fold 1.
+
+**Helper script**: Added `scripts/lofo_calibrate_view.py` — general-purpose leave-one-fold-out exact-threshold calibration for any CV view (spatial/fault/trace), maximizing mean fit score over other folds using exact threshold curves.
+
+## 2026-10-10 — Gate decision: ENDPOINT-EXT-02 (REJECT)
+
+**Candidate**: Endpoint extension (300 m, decay 0.15, skeleton threshold = fold LOFO threshold)  
+**Applied to**: Full-config reference OOF maps (all three views)  
+**Config**: `configs/resnet18_with_endpoint_extension.yaml`
+
+**Results** (3 views):
+- **Spatial**: delta -3.3e-08 (far below required margin 0.0148), won 0/3 views
+- **Fault**: delta -2.0e-06 (far below required margin 0.0067), won 0/3 views
+- **Trace**: delta -4.9e-08 (far below required margin 0.0026), won 0/3 views
+
+**Gate verdict**: **REJECT**. Endpoint extension won on 0 of 3 views; all deltas far below required margins.
+
+**Results committed**: `results/gates/ENDPOINT-EXT-02.json`, appended to `docs/candidate-trials.jsonl`

@@ -1,0 +1,47 @@
+{
+  "evaluation_protocol": {
+    "alpha": 0.2,
+    "beta": 0.8,
+    "fold_map_sha256": "ccbff45e7ccc3f426876a0096400b6bdc89090222eea2bbce552108e9426b73d",
+    "known_fault_exclusion_pixels": 0,
+    "metric": "distance_weighted_tversky",
+    "radius_pixels": 3.0,
+    "schema_version": 1,
+    "truth_sha256": "7ba308ccdc4418b31a178f4f1ef21aaa6e152e4028f2f6f64b01f7eb25ae4093"
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "score": 0.00810774795775231,
+      "truth_pixels": 2156,
+      "valid_pixels": 5108541
+    },
+    {
+      "fold": 1,
+      "score": 0.010651705929924917,
+      "truth_pixels": 2154,
+      "valid_pixels": 5108539
+    },
+    {
+      "fold": 2,
+      "score": 0.00934232611426856,
+      "truth_pixels": 2162,
+      "valid_pixels": 5108547
+    },
+    {
+      "fold": 3,
+      "score": 0.011705088838013819,
+      "truth_pixels": 2162,
+      "valid_pixels": 5108547
+    },
+    {
+      "fold": 4,
+      "score": 0.006777198882434709,
+      "truth_pixels": 2156,
+      "valid_pixels": 5108541
+    }
+  ],
+  "macro_mean": 0.009316813544478863,
+  "macro_std": 0.0017548749057596485,
+  "scheme": "trace"
+}

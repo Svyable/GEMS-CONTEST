@@ -131,6 +131,7 @@ def main() -> int:
                 seed=args.seed,
                 min_pixels=args.min_pixels,
                 endpoint_fraction=args.endpoint_fraction,
+                valid_mask=valid,
             ).astype("int16")
             manifest["min_pixels"] = args.min_pixels
             manifest["endpoint_fraction"] = args.endpoint_fraction
