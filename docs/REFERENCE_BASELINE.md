@@ -98,6 +98,17 @@ Results and provenance: `results/runs/ref-cv-spatial-full/`
 
 **Note**: Manifest records `git_dirty=true` at commit b82efe9 because of local patches (endpoint_extension inplace, train_full_map lineament param pass-through) that have since been superseded on main.
 
-**Next**: Trace CV baseline is training. Endpoint-extension gate (3 views) follows trace completion.
-
 Results and provenance: `results/runs/ref-cv-fault-full/`
+
+## Full-config trace CV results (2026-10-10) [SUPERSEDED]
+
+**Status**: SUPERSEDED on 2026-10-10 by ref-cv-trace-b16. This run used buffer 3 (below every lineament kind's minimum buffer requirement) and mixed fold maps (fold 0 on pre-repair cv-trace-v1, folds 1-4 on cv-trace-v1b). The raw score 0.009317 ± 0.001755 and LOFO-calibrated score 0.016198 ± 0.006655 are on a mixed protocol and must not be used for gating or incumbent comparison.
+
+**Config**: `configs/reference_unet.yaml` (unreduced: 5 epochs, train_step 32)  
+**Training**: `train_full_map.py --cv-scheme trace --buffer-pixels 3`, fold-pure normalization, negative_ratio 1.0, seed 20260922  
+**Raw trace scores**: macro mean **0.009317 ± 0.001755** (MIXED PROTOCOL, NOT VALID FOR GATING)  
+**LOFO-calibrated**: mean **0.016198 ± 0.006655** (MIXED PROTOCOL, NOT VALID FOR GATING)
+
+**Note**: Fold 0 trained on cv-trace-v1 (pre-repair), folds 1-4 on cv-trace-v1b (post-repair). Buffer 3 is below the minimum buffer requirement for all lineament kinds (mumford_shah_log needs 5, steerable_filter needs 7, structure_tensor_coherence needs 17, ridge_valley_response needs 30). The replacement ref-cv-trace-b16 (all 5 folds on v1b, buffer 16) is queued and has no score yet.
+
+Results and provenance: `results/runs/ref-cv-trace-full/` (preserved with SUPERSEDED note)

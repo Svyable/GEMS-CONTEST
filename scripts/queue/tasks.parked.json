@@ -1,0 +1,14 @@
+[
+ {
+  "id": "s6-gate-mumford_shah_log-trace",
+  "step": 6,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-MUMFORD_SHAH_LOG-TRACE runs/gate/ref-b32 runs/gate/cand-mumford_shah_log-b32 configs/candidates/cand_mumford_shah_log.yaml \"mumford_shah_log (buffer 32) beats the buffer-32 reference U-Net on the trace view. Informational only: single view.\"",
+  "note": "PARKED (user decision 2026-10-10): trace-only b32 gates for b16 kinds stay parked unless those kinds also get spatial+fault @32. b16 gates restored as s5b-gate-*-b16 (3 views @16)."
+ },
+ {
+  "id": "s6-gate-steerable_filter-trace",
+  "step": 6,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-STEERABLE_FILTER-TRACE runs/gate/ref-b32 runs/gate/cand-steerable_filter-b32 configs/candidates/cand_steerable_filter.yaml \"steerable_filter (buffer 32) beats the buffer-32 reference U-Net on the trace view. Informational only: single view.\"",
+  "note": "PARKED (user decision 2026-10-10): trace-only b32 gates for b16 kinds stay parked unless those kinds also get spatial+fault @32. b16 gates restored as s5b-gate-*-b16 (3 views @16)."
+ }
+]

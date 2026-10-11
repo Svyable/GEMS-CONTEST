@@ -504,7 +504,9 @@ then a budget/seed/fold-matched ResNet-18 distance-aware-loss ablation. Source
 links and the P1-P5 queue live in
 [the research note](research/METRIC_AWARE_RESEARCH_2026-10-10.md).
 
-## 2026-10-10 — Full reference U-Net baseline, honest trace CV (ref-cv-trace-full)
+## 2026-10-10 — Full reference U-Net baseline, honest trace CV (ref-cv-trace-full) [SUPERSEDED]
+
+**STATUS: SUPERSEDED on 2026-10-10 by ref-cv-trace-b16.** This run used buffer 3 (below every lineament kind's minimum buffer requirement) and mixed fold maps (fold 0 on pre-repair cv-trace-v1, folds 1-4 on cv-trace-v1b). Its raw score 0.009317 ± 0.001755 and LOFO-calibrated score 0.016198 ± 0.006655 are on a mixed protocol and must not be used for gating or incumbent comparison. The replacement ref-cv-trace-b16 (all 5 folds on v1b, buffer 16) is queued in s5b and has no score yet.
 
 **Config**: `configs/reference_unet.yaml` (organizer reference, unreduced: 5 epochs, train_step 32)  
 **Training**: `scripts/train_full_map.py --cv-scheme trace --buffer-pixels 3 --negative-ratio 1.0 --seed 20260922`  
@@ -517,9 +519,9 @@ links and the P1-P5 queue live in
 
 **Fold map note**: Trace-CV baseline crashed on fold 1 because one withheld label pixel (row 3264, col 1516) lies outside the feature valid mask, so it had no retained trace body. Locally we used a repaired fold map `data/processed/cv-trace-v1b.tif` with that pixel set to -1 (fold 0 verified identical); `lofo-trace.json` references it. The fix requires intersecting labels with the feature valid mask before assigning trace bodies/endpoints in the fold builder. This is addressed in the accompanying code fix.
 
-**Decision**: This is the **incumbent baseline for trace view**. All three CV views now complete.
+**Decision**: ~~This is the incumbent baseline for trace view.~~ **SUPERSEDED.** All three CV views now complete but trace incumbent is invalid due to mixed protocol.
 
-**Results committed**: `results/runs/ref-cv-trace-full/{manifest.json,trace.json,lofo-trace.json}`
+**Results committed**: `results/runs/ref-cv-trace-full/{manifest.json,trace.json,lofo-trace.json}` (preserved for provenance; see SUPERSEDED note in manifest directory)
 
 **Box note**: The box OOM on 2026-10-10 19:55 CT killed the first lineament candidate (mumford_shah_log, spatial fold 1) due to unrelated memory pressure; it was resumed from fold 1.
 
@@ -539,3 +541,45 @@ links and the P1-P5 queue live in
 **Gate verdict**: **REJECT**. Endpoint extension won on 0 of 3 views; all deltas far below required margins.
 
 **Results committed**: `results/gates/ENDPOINT-EXT-02.json`, appended to `docs/candidate-trials.jsonl`
+
+---
+
+## 2026-10-10 — Queue state decisions (DOCUMENTATION)
+
+Infrastructure and queue-management decisions made on the training box on 2026-10-10 evening (CT):
+
+### INVALIDATED: stale mumford_shah_log spatial run
+
+**Timestamp**: 2026-10-10 20:15:02 CDT
+
+**Decision**: Invalidated `runs/cand-mumford_shah_log-spatial` (stale spatial run) and moved to `.stale-precommit34`. This run was trained on stale checkout b82efe9 lacking PR #34 (fold-pure lineament scaling) and PR #36 (leakage-safe protocol). Its fold 0 holdout score of 0.1096 is NOT valid evidence for gating. Fold 1 was killed mid-training. Queue paused and repo synced to origin/main a2733ad.
+
+### SUPERSEDED: ref-cv-trace-full (trace incumbent)
+
+**Timestamp**: 2026-10-10 20:22:25 CDT
+
+**Decision**: Marked `ref-cv-trace-full` (trace incumbent) as SUPERSEDED. This run used buffer 3 (below every lineament kind's minimum buffer requirement) and mixed fold maps (fold 0 on pre-repair cv-trace-v1 sha 75eb89db..., folds 1-4 on v1b sha ccbff45e...). Its committed EXPERIMENT_LOG numbers (raw 0.0093 ± 0.0018, calibrated 0.0162 ± 0.0067) are on a mixed protocol and must not be used for gating. Replaced by `ref-cv-trace-b16` (all 5 folds on v1b, buffer 16) which is queued as s5b-train-ref-trace-b16.
+
+### RESYNC: queue tasks and incumbent gates
+
+**Timestamp**: 2026-10-10 20:19:44 CDT
+
+**Decision**: Rebuilt `tasks.json` from main `scripts/queue/tasks.json` with cv-trace-v1 → v1b, b16 kinds first, b32 block after. Four mumford/steerable gates (two spatial+fault b16 gates @ s5-gate-*, two trace-only b32 gates @ s6-gate-*-trace) were parked in `tasks.parked-gates-20261010.json`. Baseline gate JSONs rescored with schema-2 and train_step=32 reconstructed (sidecars `runs/ref-cv-*-full/protocol/`).
+
+### REMOVED: block D (6 trace-only b32 tasks)
+
+**Timestamp**: 2026-10-10 20:22:45 CDT
+
+**Decision**: Removed block D (6 trace-only b32 training and scoring tasks for mumford_shah_log and steerable_filter candidates at buffer 32). These tasks trained the candidates but their corresponding gates (s6-gate-mumford_shah_log-trace and s6-gate-steerable_filter-trace) remain parked. Single-view gates cannot ACCEPT by policy, and these b16 kinds now have 3-view gates (s5b-gate-*-b16) at buffer 16 instead.
+
+### REPAIR: OOM kill and memory gate addition
+
+**Timestamp**: 2026-10-10 21:57:37 CDT
+
+**Decision**: After s4-train-mumford_shah_log-spatial fold 0 was OOM-killed (rc=137) at 20:33 CT by shared-box memory pressure (other agents' video render), added memory gate (wait for MemAvailable >= 5000 MB) and up to 3 OOM retries per fold in `train_folds.sh`. Backed up as `train_folds.sh.bak-20261010-oom` locally. Cleared `.failed` marker and restarted runner. These changes are now being synced to the repo.
+
+### SYNC: fast-forward to PR #39
+
+**Timestamp**: 2026-10-10 21:58:18 CDT
+
+**Decision**: Local checkout fast-forwarded a2733ad → d17d57b (PR #39: trace valid-mask fix, docs/results only; no train_full_map change) before candidate fold 0 restarted. This sync had no impact on training code but updated docs and results manifests.

@@ -37,12 +37,12 @@
  {
   "id": "s2-train-ref-trace",
   "step": 2,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-trace-full configs/reference_unet.yaml trace data/processed/cv-trace-v1.tif 3"
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-trace-full configs/reference_unet.yaml trace data/processed/cv-trace-v1b.tif 3"
  },
  {
   "id": "s2-score-ref-trace",
   "step": 2,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-trace-full trace data/processed/cv-trace-v1.tif runs/gate/ref-full"
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-trace-full trace data/processed/cv-trace-v1b.tif runs/gate/ref-full"
  },
  {
   "id": "s2-record-ref-trace",
@@ -62,7 +62,7 @@
  {
   "id": "s3-endpoint-trace",
   "step": 3,
-  "cmd": "/workspace/gems/queue/endpoint_view.sh runs/ref-cv-trace-full runs/endpoint-cv-trace-full trace && /workspace/gems/queue/score_view.sh runs/endpoint-cv-trace-full trace data/processed/cv-trace-v1.tif runs/gate/endpoint-full"
+  "cmd": "/workspace/gems/queue/endpoint_view.sh runs/ref-cv-trace-full runs/endpoint-cv-trace-full trace && /workspace/gems/queue/score_view.sh runs/endpoint-cv-trace-full trace data/processed/cv-trace-v1b.tif runs/gate/endpoint-full"
  },
  {
   "id": "s3-gate-endpoint",
@@ -100,46 +100,6 @@
   "cmd": "/workspace/gems/queue/record.sh cand-steerable_filter-spatial-b16 runs/cand-steerable_filter-spatial-b16 configs/candidates/cand_steerable_filter.yaml \"Adding the Gabor steerable-filter channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 16 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
  },
  {
-  "id": "s4-train-ref-spatial-b32",
-  "step": 4,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-spatial-b32 configs/reference_unet.yaml spatial data/processed/cv-spatial-v1.tif 32"
- },
- {
-  "id": "s4-score-ref-spatial-b32",
-  "step": 4,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-spatial-b32 spatial data/processed/cv-spatial-v1.tif runs/gate/ref-b32"
- },
- {
-  "id": "s4-train-structure_tensor_coherence-spatial",
-  "step": 4,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-spatial-b32 configs/candidates/cand_structure_tensor_coherence.yaml spatial data/processed/cv-spatial-v1.tif 32"
- },
- {
-  "id": "s4-score-structure_tensor_coherence-spatial",
-  "step": 4,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-structure_tensor_coherence-spatial-b32 spatial data/processed/cv-spatial-v1.tif runs/gate/cand-structure_tensor_coherence-b32"
- },
- {
-  "id": "s4-record-structure_tensor_coherence-spatial",
-  "step": 4,
-  "cmd": "/workspace/gems/queue/record.sh cand-structure_tensor_coherence-spatial-b32 runs/cand-structure_tensor_coherence-spatial-b32 configs/candidates/cand_structure_tensor_coherence.yaml \"Adding the structure-tensor coherence channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
- },
- {
-  "id": "s4-train-ridge_valley_response-spatial",
-  "step": 4,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-ridge_valley_response-spatial-b32 configs/candidates/cand_ridge_valley_response.yaml spatial data/processed/cv-spatial-v1.tif 32"
- },
- {
-  "id": "s4-score-ridge_valley_response-spatial",
-  "step": 4,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-ridge_valley_response-spatial-b32 spatial data/processed/cv-spatial-v1.tif runs/gate/cand-ridge_valley_response-b32"
- },
- {
-  "id": "s4-record-ridge_valley_response-spatial",
-  "step": 4,
-  "cmd": "/workspace/gems/queue/record.sh cand-ridge_valley_response-spatial-b32 runs/cand-ridge_valley_response-spatial-b32 configs/candidates/cand_ridge_valley_response.yaml \"Adding the Hessian ridge/valley channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
- },
- {
   "id": "s5-train-mumford_shah_log-fault",
   "step": 5,
   "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-mumford_shah_log-fault-b16 configs/candidates/cand_mumford_shah_log.yaml fault data/processed/cv-fault-v1.tif 16"
@@ -170,143 +130,221 @@
   "cmd": "/workspace/gems/queue/record.sh cand-steerable_filter-fault-b16 runs/cand-steerable_filter-fault-b16 configs/candidates/cand_steerable_filter.yaml \"Adding the Gabor steerable-filter channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme fault --buffer-pixels 16 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
  },
  {
+  "id": "s5b-train-ref-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-trace-b16 configs/reference_unet.yaml trace data/processed/cv-trace-v1b.tif 16",
+  "note": "replaces superseded buffer-3/mixed-fold-map trace baseline; all 5 folds on v1b"
+ },
+ {
+  "id": "s5b-score-ref-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-trace-b16 trace data/processed/cv-trace-v1b.tif runs/gate/ref-b16"
+ },
+ {
+  "id": "s5b-record-ref-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/record.sh ref-cv-trace-b16 runs/ref-cv-trace-b16 configs/reference_unet.yaml \"Organizer reference U-Net recipe under honest trace CV at buffer 16 (cv-trace-v1b, all 5 folds); supersedes ref-cv-trace-full (buffer 3, fold 0 on pre-repair v1 map).\" \"train_full_map.py --cv-scheme trace --buffer-pixels 16 --seed 20260922; same config/epochs/train_step as spatial/fault incumbent.\""
+ },
+ {
+  "id": "s5b-assemble-ref-b16",
+  "step": 5,
+  "cmd": "mkdir -p runs/gate/ref-b16 && cp runs/gate/ref-full/spatial.json runs/gate/ref-full/fault.json runs/gate/ref-b16/ && ls runs/gate/ref-b16",
+  "note": "ref-b16 = ref-full spatial+fault (buffer 16, schema-2) + new trace@16"
+ },
+ {
+  "id": "s5b-train-mumford_shah_log-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-mumford_shah_log-trace-b16 configs/candidates/cand_mumford_shah_log.yaml trace data/processed/cv-trace-v1b.tif 16"
+ },
+ {
+  "id": "s5b-score-mumford_shah_log-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-mumford_shah_log-trace-b16 trace data/processed/cv-trace-v1b.tif runs/gate/cand-mumford_shah_log-b16"
+ },
+ {
+  "id": "s5b-record-mumford_shah_log-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/record.sh cand-mumford_shah_log-trace-b16 runs/cand-mumford_shah_log-trace-b16 configs/candidates/cand_mumford_shah_log.yaml \"Incumbent + mumford_shah_log lineament channels under trace CV at buffer 16.\" \"buffer 16, seed 20260922, cv-trace-v1b\""
+ },
+ {
+  "id": "s5b-train-steerable_filter-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-steerable_filter-trace-b16 configs/candidates/cand_steerable_filter.yaml trace data/processed/cv-trace-v1b.tif 16"
+ },
+ {
+  "id": "s5b-score-steerable_filter-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-steerable_filter-trace-b16 trace data/processed/cv-trace-v1b.tif runs/gate/cand-steerable_filter-b16"
+ },
+ {
+  "id": "s5b-record-steerable_filter-trace-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/record.sh cand-steerable_filter-trace-b16 runs/cand-steerable_filter-trace-b16 configs/candidates/cand_steerable_filter.yaml \"Incumbent + steerable_filter lineament channels under trace CV at buffer 16.\" \"buffer 16, seed 20260922, cv-trace-v1b\""
+ },
+ {
+  "id": "s5b-gate-mumford_shah_log-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-MUMFORD_SHAH_LOG-B16 runs/gate/ref-b16 runs/gate/cand-mumford_shah_log-b16 configs/candidates/cand_mumford_shah_log.yaml \"Incumbent + mumford_shah_log lineament channels (buffer 16) beats the buffer-16 reference on pooled spatial with fault/trace non-regression.\""
+ },
+ {
+  "id": "s5b-gate-steerable_filter-b16",
+  "step": 5,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-STEERABLE_FILTER-B16 runs/gate/ref-b16 runs/gate/cand-steerable_filter-b16 configs/candidates/cand_steerable_filter.yaml \"Incumbent + steerable_filter lineament channels (buffer 16) beats the buffer-16 reference on pooled spatial with fault/trace non-regression.\""
+ },
+ {
+  "id": "s4-train-ref-spatial-b32",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-spatial-b32 configs/reference_unet.yaml spatial data/processed/cv-spatial-v1.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
+  "id": "s4-score-ref-spatial-b32",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-spatial-b32 spatial data/processed/cv-spatial-v1.tif runs/gate/ref-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
+  "id": "s4-train-structure_tensor_coherence-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-spatial-b32 configs/candidates/cand_structure_tensor_coherence.yaml spatial data/processed/cv-spatial-v1.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
+  "id": "s4-score-structure_tensor_coherence-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-structure_tensor_coherence-spatial-b32 spatial data/processed/cv-spatial-v1.tif runs/gate/cand-structure_tensor_coherence-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
+  "id": "s4-record-structure_tensor_coherence-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/record.sh cand-structure_tensor_coherence-spatial-b32 runs/cand-structure_tensor_coherence-spatial-b32 configs/candidates/cand_structure_tensor_coherence.yaml \"Adding the structure-tensor coherence channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\"",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
+  "id": "s4-train-ridge_valley_response-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-ridge_valley_response-spatial-b32 configs/candidates/cand_ridge_valley_response.yaml spatial data/processed/cv-spatial-v1.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
+  "id": "s4-score-ridge_valley_response-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-ridge_valley_response-spatial-b32 spatial data/processed/cv-spatial-v1.tif runs/gate/cand-ridge_valley_response-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
+  "id": "s4-record-ridge_valley_response-spatial",
+  "step": 4,
+  "cmd": "/workspace/gems/queue/record.sh cand-ridge_valley_response-spatial-b32 runs/cand-ridge_valley_response-spatial-b32 configs/candidates/cand_ridge_valley_response.yaml \"Adding the Hessian ridge/valley channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\"",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
   "id": "s5-train-ref-fault-b32",
   "step": 5,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-fault-b32 configs/reference_unet.yaml fault data/processed/cv-fault-v1.tif 32"
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-fault-b32 configs/reference_unet.yaml fault data/processed/cv-fault-v1.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s5-score-ref-fault-b32",
   "step": 5,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-fault-b32 fault data/processed/cv-fault-v1.tif runs/gate/ref-b32"
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-fault-b32 fault data/processed/cv-fault-v1.tif runs/gate/ref-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s5-train-structure_tensor_coherence-fault",
   "step": 5,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-fault-b32 configs/candidates/cand_structure_tensor_coherence.yaml fault data/processed/cv-fault-v1.tif 32"
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-fault-b32 configs/candidates/cand_structure_tensor_coherence.yaml fault data/processed/cv-fault-v1.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s5-score-structure_tensor_coherence-fault",
   "step": 5,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-structure_tensor_coherence-fault-b32 fault data/processed/cv-fault-v1.tif runs/gate/cand-structure_tensor_coherence-b32"
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-structure_tensor_coherence-fault-b32 fault data/processed/cv-fault-v1.tif runs/gate/cand-structure_tensor_coherence-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s5-record-structure_tensor_coherence-fault",
   "step": 5,
-  "cmd": "/workspace/gems/queue/record.sh cand-structure_tensor_coherence-fault-b32 runs/cand-structure_tensor_coherence-fault-b32 configs/candidates/cand_structure_tensor_coherence.yaml \"Adding the structure-tensor coherence channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme fault --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
+  "cmd": "/workspace/gems/queue/record.sh cand-structure_tensor_coherence-fault-b32 runs/cand-structure_tensor_coherence-fault-b32 configs/candidates/cand_structure_tensor_coherence.yaml \"Adding the structure-tensor coherence channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme fault --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\"",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s5-train-ridge_valley_response-fault",
   "step": 5,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-ridge_valley_response-fault-b32 configs/candidates/cand_ridge_valley_response.yaml fault data/processed/cv-fault-v1.tif 32"
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-ridge_valley_response-fault-b32 configs/candidates/cand_ridge_valley_response.yaml fault data/processed/cv-fault-v1.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s5-score-ridge_valley_response-fault",
   "step": 5,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-ridge_valley_response-fault-b32 fault data/processed/cv-fault-v1.tif runs/gate/cand-ridge_valley_response-b32"
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-ridge_valley_response-fault-b32 fault data/processed/cv-fault-v1.tif runs/gate/cand-ridge_valley_response-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s5-record-ridge_valley_response-fault",
   "step": 5,
-  "cmd": "/workspace/gems/queue/record.sh cand-ridge_valley_response-fault-b32 runs/cand-ridge_valley_response-fault-b32 configs/candidates/cand_ridge_valley_response.yaml \"Adding the Hessian ridge/valley channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme fault --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
- },
- {
-  "id": "s5-gate-mumford_shah_log-b16",
-  "step": 5,
-  "cmd": "/workspace/gems/queue/gate.sh CAND-MUMFORD_SHAH_LOG runs/gate/ref-full runs/gate/cand-mumford_shah_log-b16 configs/candidates/cand_mumford_shah_log.yaml \"mumford_shah_log (buffer 16) beats the reference U-Net on >=2 of the spatial/fault views.\""
- },
- {
-  "id": "s5-gate-steerable_filter-b16",
-  "step": 5,
-  "cmd": "/workspace/gems/queue/gate.sh CAND-STEERABLE_FILTER runs/gate/ref-full runs/gate/cand-steerable_filter-b16 configs/candidates/cand_steerable_filter.yaml \"steerable_filter (buffer 16) beats the reference U-Net on >=2 of the spatial/fault views.\""
+  "cmd": "/workspace/gems/queue/record.sh cand-ridge_valley_response-fault-b32 runs/cand-ridge_valley_response-fault-b32 configs/candidates/cand_ridge_valley_response.yaml \"Adding the Hessian ridge/valley channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme fault --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\"",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-train-ref-trace-b32",
   "step": 6,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-trace-b32 configs/reference_unet.yaml trace data/processed/cv-trace-v1.tif 32"
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-trace-b32 configs/reference_unet.yaml trace data/processed/cv-trace-v1b.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-score-ref-trace-b32",
   "step": 6,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-trace-b32 trace data/processed/cv-trace-v1.tif runs/gate/ref-b32"
- },
- {
-  "id": "s6-train-mumford_shah_log-trace",
-  "step": 6,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-mumford_shah_log-trace-b32 configs/candidates/cand_mumford_shah_log.yaml trace data/processed/cv-trace-v1.tif 32"
- },
- {
-  "id": "s6-score-mumford_shah_log-trace",
-  "step": 6,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-mumford_shah_log-trace-b32 trace data/processed/cv-trace-v1.tif runs/gate/cand-mumford_shah_log-b32"
- },
- {
-  "id": "s6-record-mumford_shah_log-trace",
-  "step": 6,
-  "cmd": "/workspace/gems/queue/record.sh cand-mumford_shah_log-trace-b32 runs/cand-mumford_shah_log-trace-b32 configs/candidates/cand_mumford_shah_log.yaml \"Adding the LoG edge-strength channel (kind mumford_shah_log) improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme trace --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-trace-b32 trace data/processed/cv-trace-v1b.tif runs/gate/ref-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-train-structure_tensor_coherence-trace",
   "step": 6,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-trace-b32 configs/candidates/cand_structure_tensor_coherence.yaml trace data/processed/cv-trace-v1.tif 32"
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-trace-b32 configs/candidates/cand_structure_tensor_coherence.yaml trace data/processed/cv-trace-v1b.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-score-structure_tensor_coherence-trace",
   "step": 6,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-structure_tensor_coherence-trace-b32 trace data/processed/cv-trace-v1.tif runs/gate/cand-structure_tensor_coherence-b32"
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-structure_tensor_coherence-trace-b32 trace data/processed/cv-trace-v1b.tif runs/gate/cand-structure_tensor_coherence-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-record-structure_tensor_coherence-trace",
   "step": 6,
-  "cmd": "/workspace/gems/queue/record.sh cand-structure_tensor_coherence-trace-b32 runs/cand-structure_tensor_coherence-trace-b32 configs/candidates/cand_structure_tensor_coherence.yaml \"Adding the structure-tensor coherence channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme trace --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
- },
- {
-  "id": "s6-train-steerable_filter-trace",
-  "step": 6,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-steerable_filter-trace-b32 configs/candidates/cand_steerable_filter.yaml trace data/processed/cv-trace-v1.tif 32"
- },
- {
-  "id": "s6-score-steerable_filter-trace",
-  "step": 6,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-steerable_filter-trace-b32 trace data/processed/cv-trace-v1.tif runs/gate/cand-steerable_filter-b32"
- },
- {
-  "id": "s6-record-steerable_filter-trace",
-  "step": 6,
-  "cmd": "/workspace/gems/queue/record.sh cand-steerable_filter-trace-b32 runs/cand-steerable_filter-trace-b32 configs/candidates/cand_steerable_filter.yaml \"Adding the Gabor steerable-filter channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme trace --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
+  "cmd": "/workspace/gems/queue/record.sh cand-structure_tensor_coherence-trace-b32 runs/cand-structure_tensor_coherence-trace-b32 configs/candidates/cand_structure_tensor_coherence.yaml \"Adding the structure-tensor coherence channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme trace --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\"",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-train-ridge_valley_response-trace",
   "step": 6,
-  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-ridge_valley_response-trace-b32 configs/candidates/cand_ridge_valley_response.yaml trace data/processed/cv-trace-v1.tif 32"
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-ridge_valley_response-trace-b32 configs/candidates/cand_ridge_valley_response.yaml trace data/processed/cv-trace-v1b.tif 32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-score-ridge_valley_response-trace",
   "step": 6,
-  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-ridge_valley_response-trace-b32 trace data/processed/cv-trace-v1.tif runs/gate/cand-ridge_valley_response-b32"
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-ridge_valley_response-trace-b32 trace data/processed/cv-trace-v1b.tif runs/gate/cand-ridge_valley_response-b32",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-record-ridge_valley_response-trace",
   "step": 6,
-  "cmd": "/workspace/gems/queue/record.sh cand-ridge_valley_response-trace-b32 runs/cand-ridge_valley_response-trace-b32 configs/candidates/cand_ridge_valley_response.yaml \"Adding the Hessian ridge/valley channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme trace --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\""
+  "cmd": "/workspace/gems/queue/record.sh cand-ridge_valley_response-trace-b32 runs/cand-ridge_valley_response-trace-b32 configs/candidates/cand_ridge_valley_response.yaml \"Adding the Hessian ridge/valley channel improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.\" \"train_full_map.py --cv-scheme trace --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.\"",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-gate-structure_tensor_coherence-b32",
   "step": 6,
-  "cmd": "/workspace/gems/queue/gate.sh CAND-STRUCTURE_TENSOR_COHERENCE-B32 runs/gate/ref-b32 runs/gate/cand-structure_tensor_coherence-b32 configs/candidates/cand_structure_tensor_coherence.yaml \"structure_tensor_coherence (buffer 32) beats the buffer-32 reference U-Net on >=2 of 3 views.\""
+  "cmd": "/workspace/gems/queue/gate.sh CAND-STRUCTURE_TENSOR_COHERENCE-B32 runs/gate/ref-b32 runs/gate/cand-structure_tensor_coherence-b32 configs/candidates/cand_structure_tensor_coherence.yaml \"structure_tensor_coherence (buffer 32) beats the buffer-32 reference U-Net on >=2 of 3 views.\"",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  },
  {
   "id": "s6-gate-ridge_valley_response-b32",
   "step": 6,
-  "cmd": "/workspace/gems/queue/gate.sh CAND-RIDGE_VALLEY_RESPONSE-B32 runs/gate/ref-b32 runs/gate/cand-ridge_valley_response-b32 configs/candidates/cand_ridge_valley_response.yaml \"ridge_valley_response (buffer 32) beats the buffer-32 reference U-Net on >=2 of 3 views.\""
- },
- {
-  "id": "s6-gate-mumford_shah_log-trace",
-  "step": 6,
-  "cmd": "/workspace/gems/queue/gate.sh CAND-MUMFORD_SHAH_LOG-TRACE runs/gate/ref-b32 runs/gate/cand-mumford_shah_log-b32 configs/candidates/cand_mumford_shah_log.yaml \"mumford_shah_log (buffer 32) beats the buffer-32 reference U-Net on the trace view. Informational only: single view.\""
- },
- {
-  "id": "s6-gate-steerable_filter-trace",
-  "step": 6,
-  "cmd": "/workspace/gems/queue/gate.sh CAND-STEERABLE_FILTER-TRACE runs/gate/ref-b32 runs/gate/cand-steerable_filter-b32 configs/candidates/cand_steerable_filter.yaml \"steerable_filter (buffer 32) beats the buffer-32 reference U-Net on the trace view. Informational only: single view.\""
+  "cmd": "/workspace/gems/queue/gate.sh CAND-RIDGE_VALLEY_RESPONSE-B32 runs/gate/ref-b32 runs/gate/cand-ridge_valley_response-b32 configs/candidates/cand_ridge_valley_response.yaml \"ridge_valley_response (buffer 32) beats the buffer-32 reference U-Net on >=2 of 3 views.\"",
+  "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
  }
 ]
