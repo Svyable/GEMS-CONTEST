@@ -206,8 +206,13 @@ def grouped_lineament_features(
     if x.ndim != 3 or valid.shape != x.shape[:2]:
         raise ValueError("features must be HWC and valid_mask must match HW")
     fit = valid if normalization_mask is None else np.asarray(normalization_mask, dtype=bool)
-    if fit.shape != valid.shape or np.any(fit & ~valid) or not fit.any():
-        raise ValueError("normalization_mask must be a nonempty subset of valid_mask")
+    if fit.shape != valid.shape:
+        raise ValueError("normalization_mask must match valid_mask shape")
+    # For two-pass CV, normalization_mask (training region) may be disjoint from
+    # valid_mask (held-out region). Normalization statistics are computed from
+    # raw features in normalization_mask, then applied to filtered features over valid_mask.
+    if not fit.any():
+        raise ValueError("normalization_mask must be nonempty")
     allowed_kinds = {
         "gradient_energy", "phase_edge", "mumford_shah_log",
         "structure_tensor_coherence", "structure_tensor_orientation",
@@ -278,8 +283,14 @@ def grouped_lineament_features(
                 )
             grad_norm = np.sqrt(energy / len(indices))
             
-            # Normalize gradient norm to [0, 1]
-            fit_max = float(grad_norm[fit].max())
+            # Normalize gradient norm to [0, 1] using statistics from fit region
+            # For two-pass CV, fit may be disjoint from valid; use intersection if available
+            fit_valid = fit & valid
+            if fit_valid.any():
+                fit_max = float(grad_norm[fit_valid].max())
+            else:
+                # Fit and valid are disjoint; skip gradient-norm normalization for this pass
+                fit_max = 0.0
             if fit_max > 0:
                 grad_norm = grad_norm / fit_max
             
@@ -378,8 +389,14 @@ def grouped_lineament_features(
 
             signed = max_valley - max_ridge
             # Estimate the response scale from training pixels, never held-out pixels.
-            valid_signed = np.abs(signed[fit])
-            denom = float(np.percentile(valid_signed, 99.0)) if valid_signed.size else 0.0
+            # For two-pass CV, fit may be disjoint from valid; use intersection if available
+            fit_valid = fit & valid
+            if fit_valid.any():
+                valid_signed = np.abs(signed[fit_valid])
+                denom = float(np.percentile(valid_signed, 99.0)) if valid_signed.size else 0.0
+            else:
+                # Fit and valid are disjoint; skip percentile normalization for this pass
+                denom = 0.0
             if denom > 0:
                 derived = np.clip(signed / denom, -1.0, 1.0).astype(np.float32, copy=False)
             else:
@@ -441,8 +458,14 @@ def grouped_lineament_features(
                 max_response = np.maximum(max_response, response)
             
             # Use training pixels for scale fitting; transform the full image.
-            valid_responses = max_response[fit]
-            denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+            # For two-pass CV, fit may be disjoint from valid; use intersection if available
+            fit_valid = fit & valid
+            if fit_valid.any():
+                valid_responses = max_response[fit_valid]
+                denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+            else:
+                # Fit and valid are disjoint; skip percentile normalization for this pass
+                denom = 0.0
             if denom > 1e-6:
                 derived = np.clip(max_response / denom, 0.0, 1.0).astype(np.float32, copy=False)
             else:

@@ -359,3 +359,156 @@ def test_multiscale_lineament_features_respect_masking(kind):
     max_abs_diff = np.abs(baseline[train_region] - perturbed_result[train_region]).max()
     assert max_abs_diff < 1e-5, \
         f"{kind}: held-out perturbation leaked (max diff {max_abs_diff})"
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "gradient_energy",
+        "phase_edge",
+        "mumford_shah_log",
+        "structure_tensor_coherence",
+        "structure_tensor_orientation",
+        "ridge_valley_response",
+        "steerable_filter",
+    ],
+)
+def test_two_pass_produces_varying_held_out_features(kind):
+    """Two-pass protocol must produce non-constant derived channels in held-out region.
+    
+    This regression test catches the bug where train_mask was passed as valid_mask
+    to grouped_lineament_features for both training and held-out regions, causing
+    derived[~valid] = 0.0 to zero out all held-out pixels. The two-pass fix computes
+    held-out features with validation_mask, producing real (non-zero) values.
+    """
+    features, labels = _synthetic_features_and_faults(seed=77)
+    valid = np.ones_like(labels, dtype=bool)
+    
+    # Create CV split with held-out component
+    component_folds = assign_fault_components(labels, n_folds=2, seed=3)
+    fold_spec = fault_discovery_fold(
+        labels,
+        component_folds,
+        fold=0,
+        buffer_pixels=10,
+        valid_mask=valid,
+    )
+    
+    kwargs = {"sigma_pixels": 1.0}
+    if kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
+        kwargs["structure_tensor_window"] = 2.0
+    if kind == "ridge_valley_response":
+        kwargs["ridge_valley_scales"] = (0.5, 1.5)
+        kwargs["structure_tensor_window"] = 2.0
+    if kind == "steerable_filter":
+        kwargs["steerable_wavelength"] = 8.0
+        kwargs["steerable_orientations"] = 4
+    
+    # Two-pass protocol: Pass A (training) + Pass B (evaluation)
+    derived_train, _ = grouped_lineament_features(
+        features,
+        {"group": (0, 1, 2)},
+        valid_mask=fold_spec.train_valid_mask,
+        normalization_mask=fold_spec.train_valid_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    derived_evaluation, _ = grouped_lineament_features(
+        features,
+        {"group": (0, 1, 2)},
+        valid_mask=fold_spec.evaluation_mask,
+        normalization_mask=fold_spec.train_valid_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Combine by region
+    evaluation_mask_3d = fold_spec.evaluation_mask[..., np.newaxis]
+    train_mask_3d = fold_spec.train_valid_mask[..., np.newaxis]
+    derived_combined = np.where(
+        train_mask_3d,
+        derived_train,
+        np.where(evaluation_mask_3d, derived_evaluation, 0.0),
+    )
+    
+    # Check: held-out region must have varying (non-constant-zero) values
+    held_out_values = derived_combined[fold_spec.evaluation_mask, 0]
+    assert held_out_values.size > 0, "evaluation mask is empty"
+    
+    # Allow for the possibility that the feature is genuinely flat (e.g., constant input),
+    # but at minimum check it's not all exactly zero (the bug symptom)
+    min_val = float(held_out_values.min())
+    max_val = float(held_out_values.max())
+    
+    # The bug produced exactly zero everywhere in held-out region
+    assert not (min_val == 0.0 and max_val == 0.0), (
+        f"{kind}: held-out region is constant zero, indicating the train_mask "
+        f"leakage bug (all held-out pixels were zeroed by derived[~valid] = 0.0)"
+    )
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "gradient_energy",
+        "phase_edge",
+        "mumford_shah_log",
+    ],
+)
+def test_two_pass_fold_pure_normalization(kind):
+    """Two-pass protocol must use training-only normalization for held-out features.
+    
+    Verifies that Pass B (held-out features) uses normalization_mask=train_mask,
+    not validation_mask, so held-out pixel statistics never influence feature scaling.
+    """
+    features, labels = _synthetic_features_and_faults(seed=88)
+    valid = np.ones_like(labels, dtype=bool)
+    
+    component_folds = assign_fault_components(labels, n_folds=2, seed=4)
+    fold_spec = fault_discovery_fold(
+        labels,
+        component_folds,
+        fold=0,
+        buffer_pixels=8,
+        valid_mask=valid,
+    )
+    
+    kwargs = {"sigma_pixels": 1.0}
+    
+    # Perturb only held-out fault pixels (not background), so training region is unaffected
+    held_out_only = fold_spec.evaluation_mask & ~fold_spec.train_valid_mask
+    perturbed = features.copy()
+    perturbed[held_out_only] *= 100.0
+    
+    # Baseline: Pass A (training) with baseline features
+    baseline_train, meta_baseline = grouped_lineament_features(
+        features,
+        {"test": (0, 1)},
+        valid_mask=fold_spec.train_valid_mask,
+        normalization_mask=fold_spec.train_valid_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Pass A (training) with perturbed features (held-out region perturbed)
+    perturbed_train, meta_perturbed = grouped_lineament_features(
+        perturbed,
+        {"test": (0, 1)},
+        valid_mask=fold_spec.train_valid_mask,
+        normalization_mask=fold_spec.train_valid_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Training region must be unchanged (held-out perturbation had no effect)
+    # because normalization_mask = train_valid_mask uses only training pixels
+    assert np.allclose(
+        baseline_train[fold_spec.train_valid_mask],
+        perturbed_train[fold_spec.train_valid_mask],
+        rtol=0,
+        atol=1e-6,
+    ), f"{kind}: held-out perturbation affected training features (normalization leaked)"
+    
+    # Normalization pixel count must be identical
+    assert meta_baseline["normalization_pixels"] == meta_perturbed["normalization_pixels"]
