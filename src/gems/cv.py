@@ -214,14 +214,25 @@ def assign_trace_endpoints(
     seed: int = 0,
     min_pixels: int = 24,
     endpoint_fraction: float = 0.3,
+    valid_mask: np.ndarray | None = None,
 ) -> np.ndarray:
     """Hold out one endpoint of each long 8-connected trace, balanced across folds.
 
     Short components stay labeled -1. They remain available as training context.
     Only the withheld endpoint pixels receive a fold id. This is the continuation
     view: the rest of that same trace is still supervision.
+    
+    If valid_mask is provided, only label pixels within the valid mask are considered
+    for component detection and endpoint assignment. This prevents withheld endpoints
+    from falling outside the feature valid mask, which would leave them with no
+    retained trace body.
     """
     truth = np.asarray(labels) > 0
+    if valid_mask is not None:
+        valid = np.asarray(valid_mask, bool)
+        if valid.shape != truth.shape:
+            raise ValueError("valid_mask must match labels shape")
+        truth = truth & valid
     if truth.ndim != 2:
         raise ValueError("labels must be a 2D raster")
     if n_folds < 2:
