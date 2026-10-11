@@ -9,6 +9,7 @@ import rasterio
 import yaml
 
 from gems.data import raster_alignment_errors, sha256_file
+from gems.distance_tversky import build_training_loss
 from gems.lineament import (
     grouped_lineament_features,
     lineament_kwargs,
@@ -174,7 +175,6 @@ def main() -> int:
     try:
         import torch
         from segmentation_models_pytorch import Unet
-        from segmentation_models_pytorch.losses import TverskyLoss
         from torch import optim
         from torch.nn import functional
         from torch.utils.data import DataLoader, Dataset
@@ -228,7 +228,15 @@ def main() -> int:
         classes=int(config["model"]["classes"]),
     ).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
-    criterion = TverskyLoss(alpha=alpha, beta=beta, mode="binary")
+    criterion, spatial_loss = build_training_loss(config)
+    loss_descriptor = {
+        "name": str(config["training"].get("loss", "tversky")),
+        "alpha": alpha,
+        "beta": beta,
+        "distance_weight": float(config["training"].get("loss_distance_weight", 0.5)),
+        "radius_pixels": float(config["training"].get("loss_radius_pixels", 3.0)),
+        "halo_pixels": int(config["training"].get("loss_halo_pixels", 0)),
+    }
     transform = v2.Compose(
         [
             v2.RandomResizedCrop(
@@ -260,11 +268,20 @@ def main() -> int:
                 if not mask.any():
                     continue
                 batch_x = batch_x.masked_fill(~mask[:, None], 0)
-                loss = masked_binary_loss(criterion, model(batch_x)[:, 0], batch_y, mask)
+                if spatial_loss:
+                    # Distance-aware losses keep the 2D batch structure: the
+                    # supervision mask zeroes contributions instead of
+                    # flattening, so the distance kernel stays meaningful.
+                    loss = criterion(model(batch_x)[:, 0], batch_y, mask)
+                else:
+                    loss = masked_binary_loss(criterion, model(batch_x)[:, 0], batch_y, mask)
                 supervised_pixels += int(mask.sum().item())
             else:
                 batch_x, batch_y = transform(batch_x, tv_tensors.Mask(batch_y))
-                loss = criterion(model(batch_x)[:, 0], batch_y)
+                if spatial_loss:
+                    loss = criterion(model(batch_x)[:, 0], batch_y)
+                else:
+                    loss = criterion(model(batch_x)[:, 0], batch_y)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -476,6 +493,7 @@ def main() -> int:
             "known_fault_exclusion_pixels": args.known_fault_exclusion_pixels,
             "training_input_mask": "zero_excluded_pixels" if masked_supervision else None,
             "training_loss_mask": "supervised_pixels_only" if masked_supervision else None,
+            "training_loss": loss_descriptor,
             "min_training_fraction": args.min_training_fraction if masked_supervision else 1.0,
             "encoder": config["model"]["encoder"],
             "windows": len(origins),

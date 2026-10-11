@@ -576,3 +576,17 @@ Validation covers scoring and selection behavior, not improved official-data
 predictions. Distance-aware loss, wavelet entropy and incomplete-label training
 remain proposed ablations. No external dataset, checkpoint, paid compute, model
 API call or competition submission was introduced.
+
+## 2026-10-11 — Distance-aware Tversky loss (P1)
+
+Muse implemented the P1 distance-aware differentiable Tversky loss from
+`docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md`:
+`src/gems/distance_tversky.py` (NumPy reference + torch module + loss factory),
+`scripts/train_full_map.py` wiring (spatial-loss branch under masked
+supervision, `training_loss` descriptor in metrics JSON),
+`configs/candidates/cand_loss_distance_tversky.yaml`, and
+`tests/test_distance_tversky.py` (19 tests, NumPy half runs on CPU, torch half
+gated on torch availability).
+
+No competition data was read; no model training ran on this CPU-only VM and no
+new held-out score is claimed. The candidate config targets the torch+data box.

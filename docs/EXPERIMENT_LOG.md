@@ -583,3 +583,58 @@ Infrastructure and queue-management decisions made on the training box on 2026-1
 **Timestamp**: 2026-10-10 21:58:18 CDT
 
 **Decision**: Local checkout fast-forwarded a2733ad → d17d57b (PR #39: trace valid-mask fix, docs/results only; no train_full_map change) before candidate fold 0 restarted. This sync had no impact on training code but updated docs and results manifests.
+
+## 2026-10-11 — Distance-aware Tversky loss, P1 implementation (INFRASTRUCTURE)
+
+Implements the P1 hypothesis from `docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md`:
+train directly on the competition's distance-weighted Tversky equations.
+
+**What changed**:
+1. `src/gems/distance_tversky.py` (new): NumPy reference for the patch loss
+   evidence (T/F/FN) plus a torch `DistanceTverskyLoss` module, blended as
+   `(1-w)*Tversky + w*L_distance` with `w = loss_distance_weight` (0.5, fixed in
+   config before evaluation). Semantics mirror `gems.metric` exactly:
+   Euclidean triangular kernel, radius 3.0 px, no wraparound, core-only
+   contribution counting with halo context, validity/supervision masks
+   (predictions zeroed outside valid; truth outside valid never enters the
+   truth distance kernel, so withheld labels cannot leak into the FP field).
+   Patchwise ratio is documented as a surrogate for the global ratio
+   (zero-fill at patch borders). `build_training_loss(config)` maps
+   `loss: tversky` → existing smp TverskyLoss (unchanged behavior) and
+   `loss: distance_tversky` → the blended loss (`needs_spatial=True`).
+2. `scripts/train_full_map.py`: loss factory wiring; distance-aware losses keep
+   the 2D batch structure under masked supervision (supervision mask zeroes
+   contributions instead of flattening — flattening would destroy the distance
+   kernel). Metrics JSON now records a `training_loss` descriptor
+   (name/alpha/beta/distance_weight/radius/halo) alongside `config_sha256`.
+3. `configs/candidates/cand_loss_distance_tversky.yaml` (new): incumbent
+   recipe byte-identical except the loss (same model/seed/epochs/train_step/
+   buffer/augmentation) — protocol-equal for the propose-and-verify gate.
+4. `tests/test_distance_tversky.py` (new, 19 tests): NumPy tests run on CPU —
+   perfect-prediction zero loss, one-pixel shift penalized (loss exactly 1/3)
+   but not fatal, distant prediction = pure FP, empty-truth unit loss,
+   invalid-pixel isolation (no truth kernel from unsupervised truth),
+   halo/core evidence vs an independent brute-force reference, halo-free
+   agreement with the published metric, no border wraparound, monotonicity in
+   prediction quality, shape validation; torch tests (numpy/torch agreement,
+   gradient flow, empty-truth finiteness, masked-supervision structure) are
+   `importorskip("torch")` and run on the torch box/CI.
+
+**Verification**: 334 passed, 10 skipped (torch/skimage-dependent), ruff clean.
+Two test failures during development caught real issues (eps tolerance on the
+exact-zero assertion; halo-context truth kernel vs the metric's core-only
+kernel) and were fixed in the tests, not by weakening the implementation.
+No competition data read; no training on this CPU-only VM; no score claimed.
+
+**Next (torch+data box handoff — queue untouched, lineament s4–s6 in flight)**:
+```
+# From the repo root on the box, after the lineament queue drains:
+uv run python scripts/queue/train_folds.sh configs/candidates/cand_loss_distance_tversky.yaml spatial   # + fault, trace views
+uv run python scripts/queue/score_view.sh ...   # per scripts/queue/README.md
+uv run python scripts/verify_candidate.py --candidate DIST-TVERSKY --incumbent-dir runs/gate/ref-full ...
+```
+Gate hypothesis: the distance-aware loss beats the reference U-Net on ≥2 of
+3 views (pooled spatial + fault/trace non-regression, per the v2 selection
+policy). If the queue runner pulls this commit, the config is ready to
+schedule; it was deliberately NOT added to `scripts/queue/tasks.json` here
+because the box queue is mid-run and queue edits are the box's lane.
