@@ -663,5 +663,5 @@ on zeros in validation regions. Observed symptom: held-out predictions collapsed
 
 **Impact**: All lineament-derived CV runs (mumford_shah_log, structure_tensor_*,
 ridge_valley_response, steerable_filter) trained before this fix have invalid
-held-out scores. Spatial CV runs were unaffected (no split, single pass with
-full valid mask). Re-run all lineament CV experiments after this fix merges.
+held-out scores. This includes spatial, fault-discovery, and trace-completion CV.
+Re-run all lineament CV experiments after this fix merges.

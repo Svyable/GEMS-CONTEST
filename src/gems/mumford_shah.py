@@ -30,9 +30,10 @@ def compute_edge_strength(
     epsilon: float = 1.0,
     lambda_smooth: float = 0.1,
     normalization_mask: np.ndarray | None = None,
+    edge_max: float | None = None,
     max_iterations: int = 100,
     tolerance: float = 1e-4,
-) -> np.ndarray:
+) -> tuple[np.ndarray, float]:
     """Compute edge-strength using Laplacian of Gaussian (LoG) edge detection.
     
     This uses the second derivative (Laplacian) of a smoothed image to detect edges.
@@ -44,11 +45,12 @@ def compute_edge_strength(
         epsilon: Smoothing scale (larger = smoother, default: 1.0)
         lambda_smooth: Edge emphasis (larger = stronger edges, default: 0.1)
         normalization_mask: Optional training-pixel mask for fitting the LoG scale
+        edge_max: Optional precomputed max value from normalization_mask (Pass B)
         max_iterations: Unused (for API compatibility)
         tolerance: Unused (for API compatibility)
     
     Returns:
-        Edge indicator in [0, 1], where 1 indicates strong edges
+        Tuple of (edge indicator in [0, 1], computed/provided edge_max)
     """
     g = np.asarray(image, dtype=np.float64)
     if g.ndim != 2:
@@ -72,7 +74,12 @@ def compute_edge_strength(
     # Take absolute value and normalize
     edge_indicator = np.abs(laplacian_img)
     
-    fit_max = float(edge_indicator[fit].max())
+    # Use provided edge_max or compute from fit region
+    if edge_max is not None:
+        fit_max = edge_max
+    else:
+        fit_max = float(edge_indicator[fit].max())
+    
     if fit_max > 0:
         edge_indicator = edge_indicator / fit_max
     
@@ -84,7 +91,7 @@ def compute_edge_strength(
     # Smooth slightly to get spatially coherent edges
     edge_strength = gaussian_filter(edge_strength, sigma=sigma * 0.3, mode='reflect')
     
-    return edge_strength.astype(np.float32)
+    return edge_strength.astype(np.float32), fit_max
 
 
 def compute_multiband_edge_strength(
@@ -113,13 +120,14 @@ def compute_multiband_edge_strength(
     
     if bands_arr.ndim == 2:
         # Single band
-        return compute_edge_strength(
+        edges, _ = compute_edge_strength(
             bands_arr,
             epsilon=epsilon,
             lambda_smooth=lambda_smooth,
             max_iterations=max_iterations,
             tolerance=tolerance,
         )
+        return edges
     elif bands_arr.ndim != 3:
         raise ValueError("bands must be 2D or 3D")
     
@@ -128,7 +136,7 @@ def compute_multiband_edge_strength(
         edge_strengths = []
         for i in range(bands_arr.shape[2]):
             band = bands_arr[:, :, i]
-            edges = compute_edge_strength(
+            edges, _ = compute_edge_strength(
                 band,
                 epsilon=epsilon,
                 lambda_smooth=lambda_smooth,
@@ -157,13 +165,14 @@ def compute_multiband_edge_strength(
             grad_norm = grad_norm / grad_norm.max()
         
         # Compute edge-strength from gradient magnitude
-        return compute_edge_strength(
+        edges, _ = compute_edge_strength(
             grad_norm,
             epsilon=epsilon,
             lambda_smooth=lambda_smooth,
             max_iterations=max_iterations,
             tolerance=tolerance,
         )
+        return edges
 
 
 def normalize_band(

@@ -130,7 +130,7 @@ def main() -> int:
             # held-out features using evaluation_mask. Both passes use fold-pure
             # normalization (train_mask only). Buffer pixels remain zero.
             if split is not None:
-                # Pass A: training pixels with train_mask
+                # Pass A: training pixels with train_mask, collect normalization parameters
                 derived_train, lineament_metadata = grouped_lineament_features(
                     features,
                     groups,
@@ -138,12 +138,14 @@ def main() -> int:
                     normalization_mask=split.train_mask,
                     **options,
                 )
-                # Pass B: held-out pixels with evaluation_mask, fold-pure normalization
+                # Pass B: held-out pixels with evaluation_mask, reuse Pass A normalization
+                norm_params = lineament_metadata.get("norm_params")
                 derived_evaluation, _ = grouped_lineament_features(
                     features,
                     groups,
                     valid_mask=split.evaluation_mask,
                     normalization_mask=split.train_mask,
+                    norm_params=norm_params,
                     **options,
                 )
                 # Combine by region: training where train_mask, evaluation where evaluation_mask
@@ -156,19 +158,56 @@ def main() -> int:
                         0.0,
                     ),
                 )
-                # Runtime check: ensure derived channels vary across held-out region
-                # (catch the zeroing bug this fix addresses)
+                # Runtime check: ensure derived channels have similar distributions
+                # across training and held-out regions (catch scale mismatch bugs)
                 for channel_idx in range(derived.shape[-1]):
-                    evaluation_values = derived[split.evaluation_mask, channel_idx]
-                    if evaluation_values.size > 0:
-                        channel_min = float(evaluation_values.min())
-                        channel_max = float(evaluation_values.max())
-                        channel_name = lineament_metadata["output_channels"][channel_idx]
-                        if channel_min == channel_max == 0.0:
+                    train_values = derived[split.train_mask, channel_idx]
+                    eval_values = derived[split.evaluation_mask, channel_idx]
+                    channel_name = lineament_metadata["output_channels"][channel_idx]
+                    
+                    if eval_values.size == 0:
+                        continue
+                    
+                    # Check for constant zero (original bug)
+                    if eval_values.min() == eval_values.max() == 0.0:
+                        raise ValueError(
+                            f"derived channel {channel_name!r} is constant zero over "
+                            f"held-out region (fold={args.fold}); normalization failed"
+                        )
+                    
+                    # Check for scale mismatch (>5x difference in median or p99)
+                    if train_values.size > 0:
+                        train_median = float(np.median(train_values))
+                        eval_median = float(np.median(eval_values))
+                        train_p99 = float(np.percentile(train_values, 99.0))
+                        eval_p99 = float(np.percentile(eval_values, 99.0))
+                        
+                        # Compare ratios (handle near-zero denominators)
+                        median_ratio = (
+                            eval_median / train_median if train_median > 1e-6
+                            else float('inf') if eval_median > 1e-6
+                            else 1.0
+                        )
+                        p99_ratio = (
+                            eval_p99 / train_p99 if train_p99 > 1e-6
+                            else float('inf') if eval_p99 > 1e-6
+                            else 1.0
+                        )
+                        
+                        if median_ratio > 5.0 or median_ratio < 0.2:
                             raise ValueError(
-                                f"derived channel {channel_name!r} is constant zero over "
-                                f"held-out region (fold={args.fold}); this indicates a "
-                                f"leakage bug where train_mask was passed as valid_mask"
+                                f"derived channel {channel_name!r} has {median_ratio:.1f}x "
+                                f"median mismatch (train={train_median:.4f}, "
+                                f"eval={eval_median:.4f}, fold={args.fold}); "
+                                f"normalization scale reuse failed"
+                            )
+                        
+                        if p99_ratio > 5.0 or p99_ratio < 0.2:
+                            raise ValueError(
+                                f"derived channel {channel_name!r} has {p99_ratio:.1f}x "
+                                f"p99 mismatch (train={train_p99:.4f}, "
+                                f"eval={eval_p99:.4f}, fold={args.fold}); "
+                                f"normalization scale reuse failed"
                             )
             else:
                 # Spatial CV: single pass with full valid mask (no leakage concern)
