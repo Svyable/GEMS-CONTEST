@@ -12,9 +12,13 @@ gems.calibration.exact_threshold_curve (exact step function), so scores at the
 candidates are exact. Evaluation on fold k uses binary_threshold (>=) + the
 published metric on fold k's region.
 """
-import json, sys
+import json
+import sys
 from pathlib import Path
-import numpy as np, rasterio
+
+import numpy as np
+import rasterio
+
 from gems.calibration import binary_threshold, exact_threshold_curve
 from gems.cv import fault_discovery_fold, trace_completion_fold
 from gems.metric import distance_weighted_tversky
@@ -67,7 +71,8 @@ for k in ids:
                 "raw_score": float(raw), "calibrated_score": float(cal),
                 "eval_pixels": int(mask_k.sum()), "truth_pixels": int((truth_k & mask_k).sum())})
     print(out[-1], flush=True)
-raw = [r["raw_score"] for r in out]; cal = [r["calibrated_score"] for r in out]
+raw = [r["raw_score"] for r in out]
+cal = [r["calibrated_score"] for r in out]
 summary = {"scheme": scheme, "method": "LOFO exact threshold: maximize mean exact_threshold_curve fit over other folds; evaluate once on held-out fold",
            "fold_map": fold_map_path, "folds": out,
            "raw_mean": float(np.mean(raw)), "raw_std": float(np.std(raw)),
