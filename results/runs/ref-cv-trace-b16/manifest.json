@@ -1,0 +1,62 @@
+{
+  "artifacts": [
+    {
+      "bytes": 3355,
+      "path": "runs/ref-cv-trace-b16/fold-0.json",
+      "sha256": "cfdc82e713a69bdd27c11ee0c9c54372dfbdf47ac4a0eda94cd7607bee4d9a85"
+    },
+    {
+      "bytes": 3510,
+      "path": "runs/ref-cv-trace-b16/fold-1.json",
+      "sha256": "1ded905547fc15a8feb995891c45367a69a03aedd2f471c80b2a628cc269ee6d"
+    },
+    {
+      "bytes": 3510,
+      "path": "runs/ref-cv-trace-b16/fold-2.json",
+      "sha256": "f59788f78e9074a064de4d5c53f92a41e8e210f26bf3fd0b953954da1b38f113"
+    },
+    {
+      "bytes": 3510,
+      "path": "runs/ref-cv-trace-b16/fold-3.json",
+      "sha256": "d318d4cd30d4e04c5925ee1d03b7db88818d0005b3d49c7578d567dbd1b3af67"
+    },
+    {
+      "bytes": 3509,
+      "path": "runs/ref-cv-trace-b16/fold-4.json",
+      "sha256": "7fb64643521b7c24f96186ebfdb43df31c5b10201c7c0909651bee6761d0e110"
+    },
+    {
+      "bytes": 1776,
+      "path": "runs/ref-cv-trace-b16/scores/lofo-trace.json",
+      "sha256": "59e8ed21b222d91eb8ce0885545872c20678593a1e12d812a2957d2655b34cc9"
+    },
+    {
+      "bytes": 1345,
+      "path": "runs/ref-cv-trace-b16/scores/trace.json",
+      "sha256": "472e2c37041e2b62da24d314113586799b04dbfc4ecec4984c2a13a7749ab15b"
+    }
+  ],
+  "code": {
+    "git_commit": "0134ae87d33d8b1d13b131556918cc9fe240aa68",
+    "git_dirty": true
+  },
+  "command": "queue: /workspace/gems/queue/tasks.json",
+  "config": {
+    "path": "configs/reference_unet.yaml",
+    "sha256": "7a5cd36b898933b4562b98db332b6b58f6ec8a21b294403d31911c2e00fbd232"
+  },
+  "created_utc": "2026-10-11T22:06:22.849409+00:00",
+  "data_manifest": {
+    "manifest_sha256": "ab3ec3ccac312dc2d05508ec6e063c1c1de261998f004423d2f54075e4bc4800",
+    "path": "data/manifests/official.json",
+    "sha256": "0d0388fd408bcce2f8a7ad31bb3842ac184239dfaf34dbfe7335c314b5e77ab1"
+  },
+  "environment": {
+    "platform": "Linux-6.12.94+-x86_64-with-glibc2.41",
+    "python": "3.12.14"
+  },
+  "hypothesis": "Organizer reference U-Net recipe under honest trace CV at buffer 16 (cv-trace-v1b, all 5 folds); supersedes ref-cv-trace-full (buffer 3, fold 0 on pre-repair v1 map).",
+  "notes": "train_full_map.py --cv-scheme trace --buffer-pixels 16 --seed 20260922; same config/epochs/train_step as spatial/fault incumbent.",
+  "run_id": "ref-cv-trace-b16",
+  "schema_version": 1
+}

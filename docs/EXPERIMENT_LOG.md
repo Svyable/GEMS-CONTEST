@@ -665,3 +665,59 @@ on zeros in validation regions. Observed symptom: held-out predictions collapsed
 ridge_valley_response, steerable_filter) trained before this fix have invalid
 held-out scores. This includes spatial, fault-discovery, and trace-completion CV.
 Re-run all lineament CV experiments after this fix merges.
+
+---
+
+## 2026-10-11 — Corrected lineament candidate results after held-out zeroing fix
+
+### RERUN: cand_mumford_shah_log spatial b16 (post-fix)
+
+**Context**: PR #42 and PR #43 fixed the held-out zeroing bug that invalidated the original cand_mumford_shah_log spatial b16 run in PR #41. This is the corrected rerun.
+
+**Config**: `configs/candidates/cand_mumford_shah_log.yaml` (LoG edge-strength lineament candidate, kind `mumford_shah_log`)  
+**Training**: `scripts/train_full_map.py --cv-scheme spatial --buffer-pixels 16 --seed 20260922`  
+**Normalization**: fold-pure (`per_channel_minmax_over_training_region`)  
+**Host**: 8-core CPU-only box, single seed
+
+**Spatial CV scores** (5 folds, buffer 16):
+- **Raw**: macro mean **0.0914 ± 0.0135** (population std), stitched aggregate **0.0903**
+  - Per fold: 0.1108 / 0.0939 / 0.0783 / 0.0996 / 0.0745
+- **LOFO-calibrated**: mean **0.1146 ± 0.0143**
+  - Per fold: 0.1259 / 0.1188 / 0.0945 / 0.1320 / 0.1018
+  - Thresholds: 0.977 / 0.899 / 0.936 / 0.899 / 0.962
+
+**Comparison to reference U-Net (same protocol, buffer 16)**:
+- Reference aggregate: 0.0967, raw mean: 0.0963, calibrated mean: 0.1230
+- Candidate delta vs reference: calibrated **-0.0084**, aggregate **-0.0064**
+- Within about one fold std; no clear gain over reference on spatial view
+
+**Gate status**: Fault and trace views are still queued; no gate decision yet pending completion of all three views.
+
+**Results committed**: `results/runs/cand-mumford_shah_log-spatial-b16/{manifest.json,scores/spatial.json,scores/lofo-spatial.json}`, `results/runs/gate/cand-mumford_shah_log-b16/spatial.json`
+
+**Note**: The earlier PR #41 spatial result (raw 0.0398, calibrated 0.0619) is **INVALID** and **SUPERSEDED** by this corrected run.
+
+### BASELINE: ref-cv-trace-b16 (honest trace CV, buffer 16)
+
+**Context**: Completes the ref-b16 baseline gate (spatial/fault/trace at buffer 16). Supersedes ref-cv-trace-full (buffer 3, fold 0 on pre-repair cv-trace-v1 map, mixed protocol).
+
+**Config**: `configs/reference_unet.yaml` (organizer reference: 5 epochs, train_step 32)  
+**Training**: `scripts/train_full_map.py --cv-scheme trace --buffer-pixels 16 --seed 20260922`  
+**Normalization**: fold-pure (`per_channel_minmax_over_training_region`)  
+**Fold map**: `data/processed/cv-trace-v1b.tif` (all 5 folds)  
+**Host**: 8-core CPU-only box, single seed
+
+**Trace CV scores** (5 folds, buffer 16):
+- **Raw**: macro mean **0.00783 ± 0.00157** (population std)
+  - Per fold: 0.00710 / 0.00798 / 0.00570 / 0.01050 / 0.00788
+- **LOFO-calibrated**: mean **0.01856 ± 0.00557**
+  - Per fold: 0.02075 / 0.01121 / 0.01334 / 0.02652 / 0.02096
+  - Thresholds: 0.99999994 / 0.99999994 / 0.99999976 / 0.99999994 / 0.99999940
+
+**Decision**: This is the **incumbent baseline for trace view at buffer 16**. Completes the ref-b16 gate baseline (spatial/fault/trace).
+
+**Results committed**: `results/runs/ref-cv-trace-b16/{manifest.json,scores/trace.json,scores/lofo-trace.json}`, `results/runs/gate/ref-b16/trace.json`
+
+**Note**: Supersedes ref-cv-trace-full (buffer 3, mixed fold maps, recorded as SUPERSEDED on 2026-10-10).
+
+**Manifest note**: Both manifests show `git_dirty=true` at commit 0134ae8 only because of an untracked `configs/local/` directory on the training box; no tracked files were modified.
