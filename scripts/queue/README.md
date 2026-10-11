@@ -6,7 +6,8 @@ Resumable CPU-based experiment queue runner and helper scripts for GEMS competit
 
 - **runner.py**: Main queue runner. Reads tasks from `tasks.json` and executes them sequentially, tracking state in `state/*.{done,failed,started}`. Stops on first failure for inspection.
 - **tasks.json**: Queue task definitions (one per experiment). Re-read before each task execution, allowing live task additions.
-- **train_folds.sh**: Resumable 5-fold training script. Skips folds that already have outputs.
+- **tasks.parked.json**: Parked tasks (removed from active queue but kept for reference).
+- **train_folds.sh**: Resumable 5-fold training script. Skips folds that already have outputs. Includes memory gate (waits for available memory before starting each fold) and OOM retry logic (retries folds killed with exit code 137 up to 3 times).
 - **score_view.sh**: Score a completed fold-map experiment for one CV view.
 - **lofo_calibrate_view.py**: Leave-one-fold-out exact-threshold calibration. For fold k, finds the threshold that maximizes mean score over the other 4 folds, then evaluates once on fold k.
 - **endpoint_view.sh**: Apply endpoint extension to fold predictions.
@@ -19,12 +20,29 @@ All scripts support environment variable overrides with sensible defaults:
 
 - `GEMS_WORKSPACE`: Repository root (default: `/workspace/gems/GEMS-CONTEST`)
 - `QUEUE_DIR`: Queue state/log directory (default: `/workspace/gems/queue`)
+- `GEMS_MIN_AVAIL_MB`: Minimum available memory in MB before starting a fold (default: 5000). Used by `train_folds.sh` memory gate.
 
 Example:
 ```bash
 export GEMS_WORKSPACE=/workspace
 export QUEUE_DIR=/workspace/scripts/queue
+export GEMS_MIN_AVAIL_MB=8000
 ```
+
+## Memory Gate and OOM Retry (added 2026-10-10)
+
+`train_folds.sh` includes two resilience mechanisms for shared-box training:
+
+1. **Memory gate**: Before starting each fold, waits until `/proc/meminfo` reports `MemAvailable >= GEMS_MIN_AVAIL_MB` (default 5000 MB). Logs wait time when memory is insufficient. Prevents OOM kills from concurrent jobs.
+
+2. **OOM retry**: If a fold exits with code 137 (OOM kill), retries up to 3 times with 120-second delays between attempts. Logs each retry attempt. This handles transient memory pressure from other agents on the shared box.
+
+These features were added after two OOM kills (exit code 137) interrupted training due to unrelated memory pressure on 2026-10-10 evening CT.
+
+## Task Parking
+
+Tasks removed from the active queue but kept for reference are stored in `tasks.parked.json`. Current parked tasks:
+- **s6-gate-mumford_shah_log-trace** and **s6-gate-steerable_filter-trace**: Trace-only b32 gates for b16 kinds. Parked by user decision 2026-10-10 because single-view gates cannot ACCEPT by policy. The corresponding b16 kinds now have 3-view gates (s5b-gate-*-b16) at buffer 16.
 
 ## Fair-comparison buffer protocol
 
