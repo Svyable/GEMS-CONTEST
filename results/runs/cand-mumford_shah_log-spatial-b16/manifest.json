@@ -1,0 +1,62 @@
+{
+  "artifacts": [
+    {
+      "bytes": 4275,
+      "path": "runs/cand-mumford_shah_log-spatial-b16/fold-0.json",
+      "sha256": "8df4b335b0740fe2287c77776dbaf45b7b3af71ad5ef2c04b5358a75cdf1f961"
+    },
+    {
+      "bytes": 4264,
+      "path": "runs/cand-mumford_shah_log-spatial-b16/fold-1.json",
+      "sha256": "eab600b5c90534591a6c7dea5836e98e4452f9f0396684f5f8ad447d853d09c9"
+    },
+    {
+      "bytes": 4260,
+      "path": "runs/cand-mumford_shah_log-spatial-b16/fold-2.json",
+      "sha256": "83fe334e4495a0f347e1c8d606ffcab92f83b5975660c1ce73e6ccfd8c0bf1d7"
+    },
+    {
+      "bytes": 4261,
+      "path": "runs/cand-mumford_shah_log-spatial-b16/fold-3.json",
+      "sha256": "716b4c3f8b727415e424183525fc080fa54ce3cb1d8404f29de566248bc91fba"
+    },
+    {
+      "bytes": 4264,
+      "path": "runs/cand-mumford_shah_log-spatial-b16/fold-4.json",
+      "sha256": "5602853fafb6908f722d836a796ec3c0e98d703d1c627065ff9dc280f90654d0"
+    },
+    {
+      "bytes": 1730,
+      "path": "runs/cand-mumford_shah_log-spatial-b16/scores/lofo-spatial.json",
+      "sha256": "59b6f77e376faa5dde4d06721c07e9123db85ed550bc1c45c5101653a510826d"
+    },
+    {
+      "bytes": 1560,
+      "path": "runs/cand-mumford_shah_log-spatial-b16/scores/spatial.json",
+      "sha256": "bafa822593146cf58fdf3f0bab995bec46adbdb8af2d407188b9784978ccc2cb"
+    }
+  ],
+  "code": {
+    "git_commit": "d17d57bcb419a0307761768cb26cbb7057cfecc4",
+    "git_dirty": true
+  },
+  "command": "queue: /workspace/gems/queue/tasks.json",
+  "config": {
+    "path": "configs/candidates/cand_mumford_shah_log.yaml",
+    "sha256": "833b08c8129e5bfd7490f4df138e1b087aeac0bb9f83fc3685e331e6d6e4224c"
+  },
+  "created_utc": "2026-10-11T14:50:30.272643+00:00",
+  "data_manifest": {
+    "manifest_sha256": "ab3ec3ccac312dc2d05508ec6e063c1c1de261998f004423d2f54075e4bc4800",
+    "path": "data/manifests/official.json",
+    "sha256": "0d0388fd408bcce2f8a7ad31bb3842ac184239dfaf34dbfe7335c314b5e77ab1"
+  },
+  "environment": {
+    "platform": "Linux-6.12.94+-x86_64-with-glibc2.41",
+    "python": "3.12.14"
+  },
+  "hypothesis": "Adding the LoG edge-strength channel (kind mumford_shah_log) improves distance-weighted Tversky vs the reference U-Net under the fair-comparison protocol.",
+  "notes": "train_full_map.py --cv-scheme spatial --buffer-pixels 16 --seed 20260922; fold-pure normalization; single seed; leakage-safe lineament filtering (PR #36). LOFO calibration: queue/lofo_calibrate_view.py.",
+  "run_id": "cand-mumford_shah_log-spatial-b16",
+  "schema_version": 1
+}

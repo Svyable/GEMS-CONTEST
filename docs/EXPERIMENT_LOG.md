@@ -638,3 +638,24 @@ Gate hypothesis: the distance-aware loss beats the reference U-Net on ≥2 of
 policy). If the queue runner pulls this commit, the config is ready to
 schedule; it was deliberately NOT added to `scripts/queue/tasks.json` here
 because the box queue is mid-run and queue edits are the box's lane.
+
+## 2026-10-11 — Lineament candidate: mumford_shah_log spatial view results (cand-mumford_shah_log-spatial-b16)
+
+**Config**: `configs/candidates/cand_mumford_shah_log.yaml` (LoG edge-strength channel, kind `mumford_shah_log`)  
+**Training**: `scripts/train_full_map.py --cv-scheme spatial --buffer-pixels 16 --seed 20260922`  
+**Normalization**: fold-pure, leakage-safe lineament filtering (PR #36)  
+**Host**: 8-core CPU-only box, single seed
+
+**Spatial CV scores** (5 folds):
+- **Raw** (unthresholded distance-weighted Tversky): 0.0337, 0.0750, 0.0298, 0.0297, 0.0310
+  - Macro mean: **0.0398 ± 0.0176** (population std)
+- **LOFO-calibrated**: mean **0.0619 ± 0.0168** (population std)
+- **Stitched spatial OOF aggregate**: 0.0445
+
+**Comparison to reference**: Reference U-Net under the same protocol (spatial, buffer 16, seed 20260922, 5 epochs) has aggregate 0.0967, raw mean 0.0963, calibrated 0.1230. On the spatial view this candidate is substantially worse than the reference (raw: 0.0398 vs 0.0963; calibrated: 0.0619 vs 0.1230; aggregate: 0.0445 vs 0.0967).
+
+**Gate status**: Formal gate decision NOT made yet (awaits fault and trace-b16 views still queued). This is a spatial-view result only.
+
+**Results committed**: `results/runs/cand-mumford_shah_log-spatial-b16/{manifest.json,scores/spatial.json,scores/lofo-spatial.json}`, gate view summary `results/runs/gate/cand-mumford_shah_log-b16/spatial.json`
+
+**Note**: Manifest records `git_dirty=true` at commit d17d57b. The record step warned the local checkout had uncommitted changes (only an untracked `configs/local/` directory) when the run was recorded.
