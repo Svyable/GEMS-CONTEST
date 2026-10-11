@@ -134,6 +134,7 @@ def grouped_lineament_features(
     *,
     valid_mask: np.ndarray,
     normalization_mask: np.ndarray | None = None,
+    norm_params: dict | None = None,
     kind: str = "phase_edge",
     sigma_pixels: float = 1.0,
     phase_epsilon_pixels: float = 1.0,
@@ -200,6 +201,15 @@ def grouped_lineament_features(
     normalized to [0,1] by the 99th percentile over the valid region
     (fold-pure). This completes roadmap priority #5 (multi-scale gradient
     and structure-tensor features).
+    
+    norm_params: Optional precomputed normalization parameters from a previous
+    pass (Pass A). When provided, these scale constants are reused instead of
+    refitting. Required keys depend on kind:
+    - mumford_shah_log: 'band_percentiles' (dict mapping group name to list of
+      (p_low, p_high) tuples), 'grad_norm_max' (dict mapping group name to float)
+    - ridge_valley_response: 'signed_p99' (dict mapping group name to float)
+    - steerable_filter: 'response_p99' (dict mapping group name to float)
+    Returned metadata includes 'norm_params' for reuse in subsequent passes.
     """
     x = np.asarray(features, dtype=np.float32)
     valid = np.asarray(valid_mask, dtype=bool)
@@ -242,6 +252,17 @@ def grouped_lineament_features(
     outputs: list[np.ndarray] = []
     output_names: list[str] = []
     normalized_groups: dict[str, list[int]] = {}
+    
+    # Initialize norm_params collection (will be populated if norm_params is None)
+    collected_norm_params: dict = {}
+    if norm_params is not None:
+        # Validate that provided norm_params has expected structure for this kind
+        if kind == "mumford_shah_log" and ('band_percentiles' not in norm_params or 'grad_norm_max' not in norm_params):
+            raise ValueError("norm_params for mumford_shah_log must include 'band_percentiles' and 'grad_norm_max'")
+        if kind == "ridge_valley_response" and 'signed_p99' not in norm_params:
+            raise ValueError("norm_params for ridge_valley_response must include 'signed_p99'")
+        if kind == "steerable_filter" and 'response_p99' not in norm_params:
+            raise ValueError("norm_params for steerable_filter must include 'response_p99'")
 
     for name, raw_indices in groups.items():
         indices = tuple(int(index) for index in raw_indices)
@@ -255,18 +276,34 @@ def grouped_lineament_features(
         if kind == "mumford_shah_log":
             # Use Laplacian of Gaussian edge detection on normalized bands
             # First normalize each band to [0, 1] using training region stats
-            normalized_stack = []
-            for index in indices:
-                band = x[..., index]
-                valid_values = band[fit & np.isfinite(band)]
-                if len(valid_values) > 0:
-                    p_low = np.percentile(valid_values, 2.0)
-                    p_high = np.percentile(valid_values, 98.0)
-                    if p_high > p_low:
-                        normalized = (band - p_low) / (p_high - p_low)
-                        normalized = np.clip(normalized, 0, 1)
+            
+            # Get or compute band percentiles
+            if norm_params is not None:
+                band_percentiles = norm_params['band_percentiles'][name]
+            else:
+                band_percentiles = []
+                for index in indices:
+                    band = x[..., index]
+                    valid_values = band[fit & np.isfinite(band)]
+                    if len(valid_values) > 0:
+                        p_low = float(np.percentile(valid_values, 2.0))
+                        p_high = float(np.percentile(valid_values, 98.0))
                     else:
-                        normalized = np.full_like(band, 0.5)
+                        p_low = p_high = 0.0
+                    band_percentiles.append((p_low, p_high))
+                # Store for return
+                if 'band_percentiles' not in collected_norm_params:
+                    collected_norm_params['band_percentiles'] = {}
+                collected_norm_params['band_percentiles'][name] = band_percentiles
+            
+            # Normalize bands using percentiles
+            normalized_stack = []
+            for idx, index in enumerate(indices):
+                band = x[..., index]
+                p_low, p_high = band_percentiles[idx]
+                if p_high > p_low:
+                    normalized = (band - p_low) / (p_high - p_low)
+                    normalized = np.clip(normalized, 0, 1)
                 else:
                     normalized = np.full_like(band, 0.5)
                 # Apply smoothing
@@ -283,24 +320,45 @@ def grouped_lineament_features(
                 )
             grad_norm = np.sqrt(energy / len(indices))
             
-            # Normalize gradient norm to [0, 1] using statistics from fit region
-            # For two-pass CV, fit may be disjoint from valid; use intersection if available
-            fit_valid = fit & valid
-            if fit_valid.any():
-                fit_max = float(grad_norm[fit_valid].max())
+            # Get or compute gradient norm max
+            if norm_params is not None:
+                fit_max = norm_params['grad_norm_max'][name]
             else:
-                # Fit and valid are disjoint; skip gradient-norm normalization for this pass
-                fit_max = 0.0
+                # Compute from fit region
+                fit_valid = fit & valid
+                if fit_valid.any():
+                    fit_max = float(grad_norm[fit_valid].max())
+                else:
+                    fit_max = float(grad_norm[fit].max()) if fit.any() else 0.0
+                # Store for return
+                if 'grad_norm_max' not in collected_norm_params:
+                    collected_norm_params['grad_norm_max'] = {}
+                collected_norm_params['grad_norm_max'][name] = fit_max
+            
+            # Apply normalization
             if fit_max > 0:
                 grad_norm = grad_norm / fit_max
             
             # Apply LoG edge detection
-            derived = compute_edge_strength(
+            # Get or compute edge max for the LoG normalization
+            if norm_params is not None and 'edge_max' in norm_params:
+                edge_max_param = norm_params['edge_max'].get(name)
+            else:
+                edge_max_param = None
+            
+            derived, edge_max_computed = compute_edge_strength(
                 grad_norm,
                 epsilon=phase_epsilon_pixels,
                 lambda_smooth=0.1,
                 normalization_mask=fit,
+                edge_max=edge_max_param,
             )
+            
+            # Store edge_max for reuse
+            if norm_params is None:
+                if 'edge_max' not in collected_norm_params:
+                    collected_norm_params['edge_max'] = {}
+                collected_norm_params['edge_max'][name] = edge_max_computed
         elif kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
             # Compute structure tensor from smoothed gradients
             # J = [ Jxx Jxy ]  where J_ij = smooth(∂x_i * ∂x_j)
@@ -388,15 +446,25 @@ def grouped_lineament_features(
                 max_ridge = np.maximum(max_ridge, ridge)
 
             signed = max_valley - max_ridge
-            # Estimate the response scale from training pixels, never held-out pixels.
-            # For two-pass CV, fit may be disjoint from valid; use intersection if available
-            fit_valid = fit & valid
-            if fit_valid.any():
-                valid_signed = np.abs(signed[fit_valid])
-                denom = float(np.percentile(valid_signed, 99.0)) if valid_signed.size else 0.0
+            
+            # Get or compute 99th percentile for normalization
+            if norm_params is not None:
+                denom = norm_params['signed_p99'][name]
             else:
-                # Fit and valid are disjoint; skip percentile normalization for this pass
-                denom = 0.0
+                # Compute from fit region
+                fit_valid = fit & valid
+                if fit_valid.any():
+                    valid_signed = np.abs(signed[fit_valid])
+                    denom = float(np.percentile(valid_signed, 99.0)) if valid_signed.size else 0.0
+                else:
+                    # Fit and valid are disjoint; compute from fit directly
+                    valid_signed = np.abs(signed[fit])
+                    denom = float(np.percentile(valid_signed, 99.0)) if valid_signed.size else 0.0
+                # Store for return
+                if 'signed_p99' not in collected_norm_params:
+                    collected_norm_params['signed_p99'] = {}
+                collected_norm_params['signed_p99'][name] = denom
+            
             if denom > 0:
                 derived = np.clip(signed / denom, -1.0, 1.0).astype(np.float32, copy=False)
             else:
@@ -457,15 +525,24 @@ def grouped_lineament_features(
                 # Max across orientations for orientation-invariant response
                 max_response = np.maximum(max_response, response)
             
-            # Use training pixels for scale fitting; transform the full image.
-            # For two-pass CV, fit may be disjoint from valid; use intersection if available
-            fit_valid = fit & valid
-            if fit_valid.any():
-                valid_responses = max_response[fit_valid]
-                denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+            # Get or compute 99th percentile for normalization
+            if norm_params is not None:
+                denom = norm_params['response_p99'][name]
             else:
-                # Fit and valid are disjoint; skip percentile normalization for this pass
-                denom = 0.0
+                # Compute from fit region
+                fit_valid = fit & valid
+                if fit_valid.any():
+                    valid_responses = max_response[fit_valid]
+                    denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+                else:
+                    # Fit and valid are disjoint; compute from fit directly
+                    valid_responses = max_response[fit]
+                    denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+                # Store for return
+                if 'response_p99' not in collected_norm_params:
+                    collected_norm_params['response_p99'] = {}
+                collected_norm_params['response_p99'][name] = denom
+            
             if denom > 1e-6:
                 derived = np.clip(max_response / denom, 0.0, 1.0).astype(np.float32, copy=False)
             else:
@@ -537,5 +614,9 @@ def grouped_lineament_features(
     if kind == "steerable_filter":
         metadata["steerable_wavelength"] = float(steerable_wavelength)
         metadata["steerable_orientations"] = int(steerable_orientations)
+
+    # Include collected norm_params for reuse in Pass B
+    if collected_norm_params:
+        metadata["norm_params"] = collected_norm_params
 
     return stacked, metadata

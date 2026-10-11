@@ -16,7 +16,7 @@ def test_compute_edge_strength_step_discontinuity():
     image = np.zeros((100, 100), dtype=np.float32)
     image[:, 50:] = 1.0
     
-    edges = compute_edge_strength(image, epsilon=1.0, lambda_smooth=0.1, max_iterations=50)
+    edges, _ = compute_edge_strength(image, epsilon=1.0, lambda_smooth=0.1, max_iterations=50)
     
     assert edges.shape == image.shape
     assert edges.dtype == np.float32
@@ -39,7 +39,7 @@ def test_compute_edge_strength_horizontal_line():
     image = np.zeros((100, 100), dtype=np.float32)
     image[50:, :] = 1.0
     
-    edges = compute_edge_strength(image, epsilon=1.0, lambda_smooth=0.1, max_iterations=50)
+    edges, _ = compute_edge_strength(image, epsilon=1.0, lambda_smooth=0.1, max_iterations=50)
     
     # Edge should be detected along horizontal line
     horizontal_strip = edges[48:52, :]
@@ -58,10 +58,10 @@ def test_compute_edge_strength_smooth_field():
     image_step = np.zeros((100, 100), dtype=np.float32)
     image_step[:, 50:] = 1.0
     
-    edges_smooth = compute_edge_strength(
+    edges_smooth, _ = compute_edge_strength(
         image_smooth, epsilon=1.0, lambda_smooth=0.1, max_iterations=50
     )
-    edges_step = compute_edge_strength(
+    edges_step, _ = compute_edge_strength(
         image_step, epsilon=1.0, lambda_smooth=0.1, max_iterations=50
     )
     
@@ -87,7 +87,7 @@ def test_compute_edge_strength_diagonal_line():
             if j > i:
                 image[i, j] = 1.0
     
-    edges = compute_edge_strength(image, epsilon=1.0, lambda_smooth=0.1, max_iterations=50)
+    edges, _ = compute_edge_strength(image, epsilon=1.0, lambda_smooth=0.1, max_iterations=50)
     
     # Edge should be detected along diagonal
     # Sample points along the diagonal
@@ -102,16 +102,16 @@ def test_compute_edge_strength_parameters():
     image[:, 25:] = 1.0
     
     # Smaller epsilon should give sharper edges
-    edges_small_eps = compute_edge_strength(image, epsilon=0.5, max_iterations=50)
-    edges_large_eps = compute_edge_strength(image, epsilon=2.0, max_iterations=50)
+    edges_small_eps, _ = compute_edge_strength(image, epsilon=0.5, max_iterations=50)
+    edges_large_eps, _ = compute_edge_strength(image, epsilon=2.0, max_iterations=50)
     
     # Both should detect edges
     assert edges_small_eps.max() > 0.5
     assert edges_large_eps.max() > 0.5
     
     # Smaller lambda_smooth should allow more edges
-    edges_small_lambda = compute_edge_strength(image, lambda_smooth=0.05, max_iterations=50)
-    edges_large_lambda = compute_edge_strength(image, lambda_smooth=0.5, max_iterations=50)
+    edges_small_lambda, _ = compute_edge_strength(image, lambda_smooth=0.05, max_iterations=50)
+    edges_large_lambda, _ = compute_edge_strength(image, lambda_smooth=0.5, max_iterations=50)
     
     # Both should work
     assert edges_small_lambda.max() > 0.3
@@ -124,9 +124,9 @@ def test_compute_edge_strength_deterministic():
     image[:, 25:] = 1.0
     
     # Multiple calls should give identical results (deterministic)
-    edges_1 = compute_edge_strength(image, max_iterations=50)
-    edges_2 = compute_edge_strength(image, max_iterations=50)
-    edges_3 = compute_edge_strength(image, max_iterations=100)
+    edges_1, _ = compute_edge_strength(image, max_iterations=50)
+    edges_2, _ = compute_edge_strength(image, max_iterations=50)
+    edges_3, _ = compute_edge_strength(image, max_iterations=100)
     
     # Should be identical (current implementation doesn't use iterations)
     assert np.allclose(edges_1, edges_2), "Expected deterministic results"
@@ -282,7 +282,7 @@ def test_edge_detection_integration():
     normalized_filled = np.nan_to_num(normalized, 0.0)
     
     # Detect edges
-    edges = compute_edge_strength(normalized_filled, max_iterations=30)
+    edges, _ = compute_edge_strength(normalized_filled, max_iterations=30)
     
     # Should detect the step
     center_strip = edges[:, 28:32]

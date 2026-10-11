@@ -512,3 +512,108 @@ def test_two_pass_fold_pure_normalization(kind):
     
     # Normalization pixel count must be identical
     assert meta_baseline["normalization_pixels"] == meta_perturbed["normalization_pixels"]
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "gradient_energy",
+        "phase_edge",
+        "mumford_shah_log",
+        "structure_tensor_coherence",
+        "structure_tensor_orientation",
+        "ridge_valley_response",
+        "steerable_filter",
+    ],
+)
+def test_two_pass_distribution_match_with_norm_params(kind):
+    """Two-pass with norm_params reuse must produce similar distributions.
+    
+    When the same synthetic pattern appears in both training and held-out regions,
+    Pass B (using norm_params from Pass A) must produce a distribution that matches
+    Pass A within ~5x on median and p99. This catches the scale-reuse bug where
+    Pass B tried to refit on disjoint masks and produced 10-300x smaller values.
+    """
+    # Create synthetic features with a gradient pattern across the whole region
+    rng = np.random.default_rng(99)
+    H, W = 60, 80
+    _, xx = np.indices((H, W))
+    # Exponential gradient + noise
+    pattern = np.exp(-((xx - W/2) / 10.0) ** 2) + rng.normal(0, 0.1, (H, W))
+    features = pattern[..., np.newaxis].astype(np.float32)
+    
+    # Create a split where left half is training, right half is held-out
+    train_mask = np.zeros((H, W), dtype=bool)
+    train_mask[:, :W//2 - 5] = True  # buffer of 5 pixels
+    eval_mask = np.zeros((H, W), dtype=bool)
+    eval_mask[:, W//2 + 5:] = True
+    
+    kwargs = {"sigma_pixels": 1.0}
+    if kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
+        kwargs["structure_tensor_window"] = 2.0
+    if kind == "ridge_valley_response":
+        kwargs["ridge_valley_scales"] = (0.5, 1.5)
+        kwargs["structure_tensor_window"] = 2.0
+    if kind == "steerable_filter":
+        kwargs["steerable_wavelength"] = 8.0
+        kwargs["steerable_orientations"] = 4
+    
+    # Pass A: compute training features and collect norm_params
+    derived_train, meta_train = grouped_lineament_features(
+        features,
+        {"test": (0,)},
+        valid_mask=train_mask,
+        normalization_mask=train_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Pass B: compute held-out features using norm_params from Pass A
+    norm_params = meta_train.get("norm_params")
+    derived_eval, _ = grouped_lineament_features(
+        features,
+        {"test": (0,)},
+        valid_mask=eval_mask,
+        normalization_mask=train_mask,
+        norm_params=norm_params,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Check that distributions match within 5x
+    train_values = derived_train[train_mask, 0]
+    eval_values = derived_eval[eval_mask, 0]
+    
+    assert train_values.size > 0 and eval_values.size > 0
+    
+    train_median = float(np.median(train_values))
+    eval_median = float(np.median(eval_values))
+    train_p99 = float(np.percentile(train_values, 99.0))
+    eval_p99 = float(np.percentile(eval_values, 99.0))
+    
+    # Both regions should have non-trivial values (not all zero)
+    # For orientation (which can be negative), check that not all values are near zero
+    if kind == "structure_tensor_orientation":
+        assert np.abs(train_values).max() > 1e-6, f"{kind}: training region is all near-zero"
+        assert np.abs(eval_values).max() > 1e-6, f"{kind}: held-out region is all near-zero"
+    else:
+        assert train_median > 1e-6, f"{kind}: training region is all near-zero"
+        assert eval_median > 1e-6, f"{kind}: held-out region is all near-zero"
+    
+    # Compute ratios (skip for kinds that don't use percentile normalization)
+    # structure_tensor_coherence/orientation don't use norm_params (no percentile normalization)
+    # gradient_energy and phase_edge also don't, but their values are always positive
+    if kind not in ("structure_tensor_coherence", "structure_tensor_orientation"):
+        # For kinds with percentile normalization, check distribution match
+        median_ratio = eval_median / train_median if abs(train_median) > 1e-6 else 1.0
+        p99_ratio = eval_p99 / train_p99 if abs(train_p99) > 1e-6 else 1.0
+        
+        # Allow up to 5x difference (same pattern, so they should be close)
+        assert 0.2 <= median_ratio <= 5.0, (
+            f"{kind}: median ratio {median_ratio:.2f} out of range "
+            f"(train={train_median:.4f}, eval={eval_median:.4f})"
+        )
+        assert 0.2 <= p99_ratio <= 5.0, (
+            f"{kind}: p99 ratio {p99_ratio:.2f} out of range "
+            f"(train={train_p99:.4f}, eval={eval_p99:.4f})"
+        )
