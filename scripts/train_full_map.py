@@ -124,18 +124,61 @@ def main() -> int:
                         f"{required_buffer} for kind={options['kind']}"
                     )
             groups = raster_category_groups(args.features, categories)
-            # Leakage-safe protocol for fault/trace CV: use train_mask as the filtering
-            # mask so spatial filters never incorporate held-out region values. The
-            # buffer requirement (checked above) ensures training windows don't sample
-            # edge artifacts. Normalization remains fold-pure (allowed mask).
-            filtering_mask = allowed if allowed is not None else valid
-            derived, lineament_metadata = grouped_lineament_features(
-                features,
-                groups,
-                valid_mask=filtering_mask,
-                normalization_mask=filtering_mask,
-                **options,
-            )
+            # Leakage-safe protocol for fault/trace CV: two-pass filtering to compute
+            # derived features for both training and held-out regions without leakage.
+            # Pass A computes training-region features using train_mask. Pass B computes
+            # held-out features using evaluation_mask. Both passes use fold-pure
+            # normalization (train_mask only). Buffer pixels remain zero.
+            if split is not None:
+                # Pass A: training pixels with train_mask
+                derived_train, lineament_metadata = grouped_lineament_features(
+                    features,
+                    groups,
+                    valid_mask=split.train_mask,
+                    normalization_mask=split.train_mask,
+                    **options,
+                )
+                # Pass B: held-out pixels with evaluation_mask, fold-pure normalization
+                derived_evaluation, _ = grouped_lineament_features(
+                    features,
+                    groups,
+                    valid_mask=split.evaluation_mask,
+                    normalization_mask=split.train_mask,
+                    **options,
+                )
+                # Combine by region: training where train_mask, evaluation where evaluation_mask
+                derived = np.where(
+                    split.train_mask[..., np.newaxis],
+                    derived_train,
+                    np.where(
+                        split.evaluation_mask[..., np.newaxis],
+                        derived_evaluation,
+                        0.0,
+                    ),
+                )
+                # Runtime check: ensure derived channels vary across held-out region
+                # (catch the zeroing bug this fix addresses)
+                for channel_idx in range(derived.shape[-1]):
+                    evaluation_values = derived[split.evaluation_mask, channel_idx]
+                    if evaluation_values.size > 0:
+                        channel_min = float(evaluation_values.min())
+                        channel_max = float(evaluation_values.max())
+                        channel_name = lineament_metadata["output_channels"][channel_idx]
+                        if channel_min == channel_max == 0.0:
+                            raise ValueError(
+                                f"derived channel {channel_name!r} is constant zero over "
+                                f"held-out region (fold={args.fold}); this indicates a "
+                                f"leakage bug where train_mask was passed as valid_mask"
+                            )
+            else:
+                # Spatial CV: single pass with full valid mask (no leakage concern)
+                derived, lineament_metadata = grouped_lineament_features(
+                    features,
+                    groups,
+                    valid_mask=valid,
+                    normalization_mask=allowed if allowed is not None else valid,
+                    **options,
+                )
         except (TypeError, ValueError) as exc:
             raise SystemExit(f"lineament features: {exc}") from exc
         base_channels = features.shape[-1]

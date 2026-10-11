@@ -92,13 +92,24 @@ def test_lineament_rejects_invalid_normalization_mask():
     valid = np.ones((12, 12), dtype=bool)
     valid[0, 0] = False
 
-    for fit_mask in (
-        np.zeros((12, 12), dtype=bool),
-        np.ones((12, 12), dtype=bool),
-        np.ones((2, 2), dtype=bool),
-    ):
-        with pytest.raises(ValueError, match="normalization_mask"):
-            grouped_lineament_features(
-                features, {"signal": (0,)},
-                valid_mask=valid, normalization_mask=fit_mask,
-            )
+    # Empty normalization_mask should fail
+    with pytest.raises(ValueError, match="normalization_mask must be nonempty"):
+        grouped_lineament_features(
+            features, {"signal": (0,)},
+            valid_mask=valid, normalization_mask=np.zeros((12, 12), dtype=bool),
+        )
+
+    # Wrong shape should fail
+    with pytest.raises(ValueError, match="normalization_mask must match valid_mask shape"):
+        grouped_lineament_features(
+            features, {"signal": (0,)},
+            valid_mask=valid, normalization_mask=np.ones((2, 2), dtype=bool),
+        )
+
+    # Superset is now allowed (for two-pass CV where train and eval are disjoint)
+    # This should not raise
+    result, _ = grouped_lineament_features(
+        features, {"signal": (0,)},
+        valid_mask=valid, normalization_mask=np.ones((12, 12), dtype=bool),
+    )
+    assert result.shape == (12, 12, 1)
