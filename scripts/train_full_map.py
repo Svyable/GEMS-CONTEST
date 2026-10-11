@@ -124,18 +124,100 @@ def main() -> int:
                         f"{required_buffer} for kind={options['kind']}"
                     )
             groups = raster_category_groups(args.features, categories)
-            # Leakage-safe protocol for fault/trace CV: use train_mask as the filtering
-            # mask so spatial filters never incorporate held-out region values. The
-            # buffer requirement (checked above) ensures training windows don't sample
-            # edge artifacts. Normalization remains fold-pure (allowed mask).
-            filtering_mask = allowed if allowed is not None else valid
-            derived, lineament_metadata = grouped_lineament_features(
-                features,
-                groups,
-                valid_mask=filtering_mask,
-                normalization_mask=filtering_mask,
-                **options,
-            )
+            # Leakage-safe protocol for fault/trace CV: two-pass filtering to compute
+            # derived features for both training and held-out regions without leakage.
+            # Pass A computes training-region features using train_mask. Pass B computes
+            # held-out features using evaluation_mask. Both passes use fold-pure
+            # normalization (train_mask only). Buffer pixels remain zero.
+            if split is not None:
+                # Pass A: training pixels with train_mask, collect normalization parameters
+                derived_train, lineament_metadata = grouped_lineament_features(
+                    features,
+                    groups,
+                    valid_mask=split.train_mask,
+                    normalization_mask=split.train_mask,
+                    **options,
+                )
+                # Pass B: held-out pixels with evaluation_mask, reuse Pass A normalization
+                norm_params = lineament_metadata.get("norm_params")
+                derived_evaluation, _ = grouped_lineament_features(
+                    features,
+                    groups,
+                    valid_mask=split.evaluation_mask,
+                    normalization_mask=split.train_mask,
+                    norm_params=norm_params,
+                    **options,
+                )
+                # Combine by region: training where train_mask, evaluation where evaluation_mask
+                derived = np.where(
+                    split.train_mask[..., np.newaxis],
+                    derived_train,
+                    np.where(
+                        split.evaluation_mask[..., np.newaxis],
+                        derived_evaluation,
+                        0.0,
+                    ),
+                )
+                # Runtime check: ensure derived channels have similar distributions
+                # across training and held-out regions (catch scale mismatch bugs)
+                for channel_idx in range(derived.shape[-1]):
+                    train_values = derived[split.train_mask, channel_idx]
+                    eval_values = derived[split.evaluation_mask, channel_idx]
+                    channel_name = lineament_metadata["output_channels"][channel_idx]
+                    
+                    if eval_values.size == 0:
+                        continue
+                    
+                    # Check for constant zero (original bug)
+                    if eval_values.min() == eval_values.max() == 0.0:
+                        raise ValueError(
+                            f"derived channel {channel_name!r} is constant zero over "
+                            f"held-out region (fold={args.fold}); normalization failed"
+                        )
+                    
+                    # Check for scale mismatch (>5x difference in median or p99)
+                    if train_values.size > 0:
+                        train_median = float(np.median(train_values))
+                        eval_median = float(np.median(eval_values))
+                        train_p99 = float(np.percentile(train_values, 99.0))
+                        eval_p99 = float(np.percentile(eval_values, 99.0))
+                        
+                        # Compare ratios (handle near-zero denominators)
+                        median_ratio = (
+                            eval_median / train_median if train_median > 1e-6
+                            else float('inf') if eval_median > 1e-6
+                            else 1.0
+                        )
+                        p99_ratio = (
+                            eval_p99 / train_p99 if train_p99 > 1e-6
+                            else float('inf') if eval_p99 > 1e-6
+                            else 1.0
+                        )
+                        
+                        if median_ratio > 5.0 or median_ratio < 0.2:
+                            raise ValueError(
+                                f"derived channel {channel_name!r} has {median_ratio:.1f}x "
+                                f"median mismatch (train={train_median:.4f}, "
+                                f"eval={eval_median:.4f}, fold={args.fold}); "
+                                f"normalization scale reuse failed"
+                            )
+                        
+                        if p99_ratio > 5.0 or p99_ratio < 0.2:
+                            raise ValueError(
+                                f"derived channel {channel_name!r} has {p99_ratio:.1f}x "
+                                f"p99 mismatch (train={train_p99:.4f}, "
+                                f"eval={eval_p99:.4f}, fold={args.fold}); "
+                                f"normalization scale reuse failed"
+                            )
+            else:
+                # Spatial CV: single pass with full valid mask (no leakage concern)
+                derived, lineament_metadata = grouped_lineament_features(
+                    features,
+                    groups,
+                    valid_mask=valid,
+                    normalization_mask=allowed if allowed is not None else valid,
+                    **options,
+                )
         except (TypeError, ValueError) as exc:
             raise SystemExit(f"lineament features: {exc}") from exc
         base_channels = features.shape[-1]

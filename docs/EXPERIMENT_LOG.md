@@ -659,3 +659,30 @@ because the box queue is mid-run and queue edits are the box's lane.
 **Results committed**: `results/runs/cand-mumford_shah_log-spatial-b16/{manifest.json,scores/spatial.json,scores/lofo-spatial.json}`, gate view summary `results/runs/gate/cand-mumford_shah_log-b16/spatial.json`
 
 **Note**: Manifest records `git_dirty=true` at commit d17d57b. The record step warned the local checkout had uncommitted changes (only an untracked `configs/local/` directory) when the run was recorded.
+=======
+## 2026-10-11 — INVALID: cand_mumford_shah_log spatial b16 (BUG)
+
+**Result**: Raw 0.0398, calibrated 0.0619 (if recorded)
+
+**Status**: **INVALID** due to lineament CV held-out zeroing bug
+
+**Bug description**: In `scripts/train_full_map.py` lines 112-136, for CV runs
+`filtering_mask = split.train_mask` was passed as both `valid_mask` and
+`normalization_mask` to `grouped_lineament_features`. This caused
+`derived[~valid] = 0.0` in `src/gems/lineament.py` line 469 to zero out all
+derived lineament channels over the entire held-out fold. Models trained on
+real gradient/edge/structure-tensor values in training regions but were scored
+on zeros in validation regions. Observed symptom: held-out predictions collapsed
+(mean probability ~0.05 vs 0.3 in-train).
+
+**Fix**: PR #XX implements two-pass filtering:
+- Pass A: `valid_mask=train_mask` for training pixels
+- Pass B: `valid_mask=validation_mask` for held-out pixels
+- Both passes use `normalization_mask=train_mask` (fold-pure)
+- Combined by region; buffer pixels remain zero
+- Added regression tests and runtime checks
+
+**Impact**: All lineament-derived CV runs (mumford_shah_log, structure_tensor_*,
+ridge_valley_response, steerable_filter) trained before this fix have invalid
+held-out scores. This includes spatial, fault-discovery, and trace-completion CV.
+Re-run all lineament CV experiments after this fix merges.

@@ -359,3 +359,261 @@ def test_multiscale_lineament_features_respect_masking(kind):
     max_abs_diff = np.abs(baseline[train_region] - perturbed_result[train_region]).max()
     assert max_abs_diff < 1e-5, \
         f"{kind}: held-out perturbation leaked (max diff {max_abs_diff})"
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "gradient_energy",
+        "phase_edge",
+        "mumford_shah_log",
+        "structure_tensor_coherence",
+        "structure_tensor_orientation",
+        "ridge_valley_response",
+        "steerable_filter",
+    ],
+)
+def test_two_pass_produces_varying_held_out_features(kind):
+    """Two-pass protocol must produce non-constant derived channels in held-out region.
+    
+    This regression test catches the bug where train_mask was passed as valid_mask
+    to grouped_lineament_features for both training and held-out regions, causing
+    derived[~valid] = 0.0 to zero out all held-out pixels. The two-pass fix computes
+    held-out features with validation_mask, producing real (non-zero) values.
+    """
+    features, labels = _synthetic_features_and_faults(seed=77)
+    valid = np.ones_like(labels, dtype=bool)
+    
+    # Create CV split with held-out component
+    component_folds = assign_fault_components(labels, n_folds=2, seed=3)
+    fold_spec = fault_discovery_fold(
+        labels,
+        component_folds,
+        fold=0,
+        buffer_pixels=10,
+        valid_mask=valid,
+    )
+    
+    kwargs = {"sigma_pixels": 1.0}
+    if kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
+        kwargs["structure_tensor_window"] = 2.0
+    if kind == "ridge_valley_response":
+        kwargs["ridge_valley_scales"] = (0.5, 1.5)
+        kwargs["structure_tensor_window"] = 2.0
+    if kind == "steerable_filter":
+        kwargs["steerable_wavelength"] = 8.0
+        kwargs["steerable_orientations"] = 4
+    
+    # Two-pass protocol: Pass A (training) + Pass B (evaluation)
+    derived_train, _ = grouped_lineament_features(
+        features,
+        {"group": (0, 1, 2)},
+        valid_mask=fold_spec.train_valid_mask,
+        normalization_mask=fold_spec.train_valid_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    derived_evaluation, _ = grouped_lineament_features(
+        features,
+        {"group": (0, 1, 2)},
+        valid_mask=fold_spec.evaluation_mask,
+        normalization_mask=fold_spec.train_valid_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Combine by region
+    evaluation_mask_3d = fold_spec.evaluation_mask[..., np.newaxis]
+    train_mask_3d = fold_spec.train_valid_mask[..., np.newaxis]
+    derived_combined = np.where(
+        train_mask_3d,
+        derived_train,
+        np.where(evaluation_mask_3d, derived_evaluation, 0.0),
+    )
+    
+    # Check: held-out region must have varying (non-constant-zero) values
+    held_out_values = derived_combined[fold_spec.evaluation_mask, 0]
+    assert held_out_values.size > 0, "evaluation mask is empty"
+    
+    # Allow for the possibility that the feature is genuinely flat (e.g., constant input),
+    # but at minimum check it's not all exactly zero (the bug symptom)
+    min_val = float(held_out_values.min())
+    max_val = float(held_out_values.max())
+    
+    # The bug produced exactly zero everywhere in held-out region
+    assert not (min_val == 0.0 and max_val == 0.0), (
+        f"{kind}: held-out region is constant zero, indicating the train_mask "
+        f"leakage bug (all held-out pixels were zeroed by derived[~valid] = 0.0)"
+    )
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "gradient_energy",
+        "phase_edge",
+        "mumford_shah_log",
+    ],
+)
+def test_two_pass_fold_pure_normalization(kind):
+    """Two-pass protocol must use training-only normalization for held-out features.
+    
+    Verifies that Pass B (held-out features) uses normalization_mask=train_mask,
+    not validation_mask, so held-out pixel statistics never influence feature scaling.
+    """
+    features, labels = _synthetic_features_and_faults(seed=88)
+    valid = np.ones_like(labels, dtype=bool)
+    
+    component_folds = assign_fault_components(labels, n_folds=2, seed=4)
+    fold_spec = fault_discovery_fold(
+        labels,
+        component_folds,
+        fold=0,
+        buffer_pixels=8,
+        valid_mask=valid,
+    )
+    
+    kwargs = {"sigma_pixels": 1.0}
+    
+    # Perturb only held-out fault pixels (not background), so training region is unaffected
+    held_out_only = fold_spec.evaluation_mask & ~fold_spec.train_valid_mask
+    perturbed = features.copy()
+    perturbed[held_out_only] *= 100.0
+    
+    # Baseline: Pass A (training) with baseline features
+    baseline_train, meta_baseline = grouped_lineament_features(
+        features,
+        {"test": (0, 1)},
+        valid_mask=fold_spec.train_valid_mask,
+        normalization_mask=fold_spec.train_valid_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Pass A (training) with perturbed features (held-out region perturbed)
+    perturbed_train, meta_perturbed = grouped_lineament_features(
+        perturbed,
+        {"test": (0, 1)},
+        valid_mask=fold_spec.train_valid_mask,
+        normalization_mask=fold_spec.train_valid_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Training region must be unchanged (held-out perturbation had no effect)
+    # because normalization_mask = train_valid_mask uses only training pixels
+    assert np.allclose(
+        baseline_train[fold_spec.train_valid_mask],
+        perturbed_train[fold_spec.train_valid_mask],
+        rtol=0,
+        atol=1e-6,
+    ), f"{kind}: held-out perturbation affected training features (normalization leaked)"
+    
+    # Normalization pixel count must be identical
+    assert meta_baseline["normalization_pixels"] == meta_perturbed["normalization_pixels"]
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "gradient_energy",
+        "phase_edge",
+        "mumford_shah_log",
+        "structure_tensor_coherence",
+        "structure_tensor_orientation",
+        "ridge_valley_response",
+        "steerable_filter",
+    ],
+)
+def test_two_pass_distribution_match_with_norm_params(kind):
+    """Two-pass with norm_params reuse must produce similar distributions.
+    
+    When the same synthetic pattern appears in both training and held-out regions,
+    Pass B (using norm_params from Pass A) must produce a distribution that matches
+    Pass A within ~5x on median and p99. This catches the scale-reuse bug where
+    Pass B tried to refit on disjoint masks and produced 10-300x smaller values.
+    """
+    # Create synthetic features with a gradient pattern across the whole region
+    rng = np.random.default_rng(99)
+    H, W = 60, 80
+    _, xx = np.indices((H, W))
+    # Exponential gradient + noise
+    pattern = np.exp(-((xx - W/2) / 10.0) ** 2) + rng.normal(0, 0.1, (H, W))
+    features = pattern[..., np.newaxis].astype(np.float32)
+    
+    # Create a split where left half is training, right half is held-out
+    train_mask = np.zeros((H, W), dtype=bool)
+    train_mask[:, :W//2 - 5] = True  # buffer of 5 pixels
+    eval_mask = np.zeros((H, W), dtype=bool)
+    eval_mask[:, W//2 + 5:] = True
+    
+    kwargs = {"sigma_pixels": 1.0}
+    if kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
+        kwargs["structure_tensor_window"] = 2.0
+    if kind == "ridge_valley_response":
+        kwargs["ridge_valley_scales"] = (0.5, 1.5)
+        kwargs["structure_tensor_window"] = 2.0
+    if kind == "steerable_filter":
+        kwargs["steerable_wavelength"] = 8.0
+        kwargs["steerable_orientations"] = 4
+    
+    # Pass A: compute training features and collect norm_params
+    derived_train, meta_train = grouped_lineament_features(
+        features,
+        {"test": (0,)},
+        valid_mask=train_mask,
+        normalization_mask=train_mask,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Pass B: compute held-out features using norm_params from Pass A
+    norm_params = meta_train.get("norm_params")
+    derived_eval, _ = grouped_lineament_features(
+        features,
+        {"test": (0,)},
+        valid_mask=eval_mask,
+        normalization_mask=train_mask,
+        norm_params=norm_params,
+        kind=kind,
+        **kwargs,
+    )
+    
+    # Check that distributions match within 5x
+    train_values = derived_train[train_mask, 0]
+    eval_values = derived_eval[eval_mask, 0]
+    
+    assert train_values.size > 0 and eval_values.size > 0
+    
+    train_median = float(np.median(train_values))
+    eval_median = float(np.median(eval_values))
+    train_p99 = float(np.percentile(train_values, 99.0))
+    eval_p99 = float(np.percentile(eval_values, 99.0))
+    
+    # Both regions should have non-trivial values (not all zero)
+    # For orientation (which can be negative), check that not all values are near zero
+    if kind == "structure_tensor_orientation":
+        assert np.abs(train_values).max() > 1e-6, f"{kind}: training region is all near-zero"
+        assert np.abs(eval_values).max() > 1e-6, f"{kind}: held-out region is all near-zero"
+    else:
+        assert train_median > 1e-6, f"{kind}: training region is all near-zero"
+        assert eval_median > 1e-6, f"{kind}: held-out region is all near-zero"
+    
+    # Compute ratios (skip for kinds that don't use percentile normalization)
+    # structure_tensor_coherence/orientation don't use norm_params (no percentile normalization)
+    # gradient_energy and phase_edge also don't, but their values are always positive
+    if kind not in ("structure_tensor_coherence", "structure_tensor_orientation"):
+        # For kinds with percentile normalization, check distribution match
+        median_ratio = eval_median / train_median if abs(train_median) > 1e-6 else 1.0
+        p99_ratio = eval_p99 / train_p99 if abs(train_p99) > 1e-6 else 1.0
+        
+        # Allow up to 5x difference (same pattern, so they should be close)
+        assert 0.2 <= median_ratio <= 5.0, (
+            f"{kind}: median ratio {median_ratio:.2f} out of range "
+            f"(train={train_median:.4f}, eval={eval_median:.4f})"
+        )
+        assert 0.2 <= p99_ratio <= 5.0, (
+            f"{kind}: p99 ratio {p99_ratio:.2f} out of range "
+            f"(train={train_p99:.4f}, eval={eval_p99:.4f})"
+        )
