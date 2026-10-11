@@ -1,0 +1,57 @@
+{
+  "scheme": "trace",
+  "method": "LOFO exact threshold: maximize mean exact_threshold_curve fit over other folds; evaluate once on held-out fold",
+  "fold_map": "data/processed/cv-trace-v1b.tif",
+  "folds": [
+    {
+      "fold": 0,
+      "threshold": 0.9999999403953552,
+      "fit_mean_other_folds": 0.018925679568099582,
+      "raw_score": 0.007096239614543545,
+      "calibrated_score": 0.020749712634205796,
+      "eval_pixels": 5108541,
+      "truth_pixels": 2156
+    },
+    {
+      "fold": 1,
+      "threshold": 0.9999999403953552,
+      "fit_mean_other_folds": 0.021311515178982447,
+      "raw_score": 0.00798268700609352,
+      "calibrated_score": 0.011206370190674287,
+      "eval_pixels": 5108539,
+      "truth_pixels": 2154
+    },
+    {
+      "fold": 2,
+      "threshold": 0.9999997615814209,
+      "fit_mean_other_folds": 0.020622657774697357,
+      "raw_score": 0.0056958266945291176,
+      "calibrated_score": 0.013338290787343797,
+      "eval_pixels": 5108547,
+      "truth_pixels": 2162
+    },
+    {
+      "fold": 3,
+      "threshold": 0.9999999403953552,
+      "fit_mean_other_folds": 0.017482142737809868,
+      "raw_score": 0.01050291945937502,
+      "calibrated_score": 0.02652385995536468,
+      "eval_pixels": 5108547,
+      "truth_pixels": 2162
+    },
+    {
+      "fold": 4,
+      "threshold": 0.9999994039535522,
+      "fit_mean_other_folds": 0.018437525028533814,
+      "raw_score": 0.007881488829098856,
+      "calibrated_score": 0.020958473461079916,
+      "eval_pixels": 5108541,
+      "truth_pixels": 2156
+    }
+  ],
+  "raw_mean": 0.007831832320728012,
+  "raw_std": 0.0015661127719108156,
+  "calibrated_mean": 0.018555341405733696,
+  "calibrated_std": 0.0055733758479794985,
+  "std_note": "population std (ddof=0), same as score_cv macro_std"
+}

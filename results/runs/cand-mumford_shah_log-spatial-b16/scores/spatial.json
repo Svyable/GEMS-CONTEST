@@ -1,0 +1,61 @@
+{
+  "aggregate_components": {
+    "fn_w": 32263.74049453185,
+    "fp_w": 1312229.8456143038,
+    "tp_w": 28630.25950546815,
+    "truth_pixels": 60894,
+    "valid_pixels": 5164312
+  },
+  "aggregate_score": 0.09034841926713073,
+  "evaluation_protocol": {
+    "aggregation": "stitched_spatial_oof",
+    "alpha": 0.2,
+    "beta": 0.8,
+    "buffer_pixels": 16,
+    "config_sha256": "833b08c8129e5bfd7490f4df138e1b087aeac0bb9f83fc3685e331e6d6e4224c",
+    "epochs": 5,
+    "fold_map_sha256": "4d690ed4c69e4c86daf6df2e526cc92691d1074efc51d52ad09a98693ee519bb",
+    "known_fault_exclusion_pixels": 0,
+    "metric": "distance_weighted_tversky",
+    "radius_pixels": 3.0,
+    "schema_version": 2,
+    "seed": 20260922,
+    "train_step": 32,
+    "truth_sha256": "7ba308ccdc4418b31a178f4f1ef21aaa6e152e4028f2f6f64b01f7eb25ae4093"
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "score": 0.11084255632481566,
+      "truth_pixels": 14445,
+      "valid_pixels": 1027386
+    },
+    {
+      "fold": 1,
+      "score": 0.09393930235582476,
+      "truth_pixels": 13041,
+      "valid_pixels": 1033305
+    },
+    {
+      "fold": 2,
+      "score": 0.07827514073280765,
+      "truth_pixels": 10058,
+      "valid_pixels": 965083
+    },
+    {
+      "fold": 3,
+      "score": 0.0995700092788421,
+      "truth_pixels": 11061,
+      "valid_pixels": 899130
+    },
+    {
+      "fold": 4,
+      "score": 0.07454800135975634,
+      "truth_pixels": 12289,
+      "valid_pixels": 1239408
+    }
+  ],
+  "macro_mean": 0.0914350020104093,
+  "macro_std": 0.013471865258864549,
+  "scheme": "spatial"
+}
