@@ -93,7 +93,7 @@ Results and provenance: `results/runs/ref-cv-spatial-full/`
 **Raw spatial scores**: macro mean **0.0988 ± 0.0157**, stitched aggregate **0.0967**  
 **LOFO-calibrated**: macro mean **0.1245 ± 0.0151**
 
-Comparable to ref spatial b16 (raw 0.0963 / LOFO 0.1230 / agg 0.0967): essentially equal. This baseline is required before gating `structure_tensor_coherence` (min buffer 17) and `ridge_valley_response` (min buffer 30). Fault-b32 and trace-b32 reference runs are still training on the box queue.
+Comparable to ref spatial b16 (raw 0.0963 / LOFO 0.1230 / agg 0.0967): essentially equal. This baseline is required before gating `structure_tensor_coherence` (min buffer 17) and `ridge_valley_response` (min buffer 30). Fault-b32 is now scored (`ref-cv-fault-b32`); trace-b32 remains in the queue.
 
 Results and provenance: `results/runs/ref-cv-spatial-b32/`
 
@@ -112,6 +112,19 @@ Results and provenance: `results/runs/ref-cv-spatial-b32/`
 **Note**: Manifest records `git_dirty=true` at commit b82efe9 because of local patches (endpoint_extension inplace, train_full_map lineament param pass-through) that have since been superseded on main.
 
 Results and provenance: `results/runs/ref-cv-fault-full/`
+
+## Fault CV results at buffer 32 (2026-10-12)
+
+**Status**: Complete. Buffer-32 fault-split reference baseline (`run_id` `ref-cv-fault-b32`). Not a candidate and not a replacement for the buffer-16 fault incumbent.
+
+**Config**: `configs/reference_unet.yaml` (unreduced: 5 epochs, train_step 32)  
+**Training**: Honest fault CV with 32-pixel buffer, fold-pure normalization, negative_ratio 1.0, seed 20260922  
+**Raw fault scores**: macro mean **0.0366 ± 0.0076**  
+**LOFO-calibrated**: macro mean **0.0450 ± 0.0105**
+
+Lower than ref fault b16 (raw 0.0455 ± 0.0045 / LOFO 0.0547 ± 0.0071) by about 0.009–0.010. Buffer-32 candidates must be compared only against this b32 baseline, never against b16. Required before gating `structure_tensor_coherence` (min buffer 17) and `ridge_valley_response` (min buffer 30). Trace-b32 reference is next in the queue.
+
+Results and provenance: `results/runs/ref-cv-fault-b32/`
 
 ## Full-config trace CV results (2026-10-10) [SUPERSEDED]
 

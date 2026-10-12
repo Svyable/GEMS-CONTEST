@@ -800,3 +800,27 @@ Per-fold LOFO-cal: 0.1278 / 0.1340 / 0.1200 / 0.1426 / 0.0983
 essentially equal on aggregate; raw/LOFO slightly higher within noise.
 Not a candidate — this is the buffer-32 reference baseline itself.
 Fault and trace buffer-32 reference runs remain in the queue.
+
+## 2026-10-12 — Reference fault CV at buffer 32 (ref-cv-fault-b32)
+
+**Purpose**: buffer-32 fault-split reference baseline, needed before gating
+structure_tensor_coherence (min buffer 17) and ridge_valley_response (min buffer 30).
+
+**Training**: train_full_map.py --cv-scheme fault --buffer-pixels 32, fold map
+data/processed/cv-fault-v1.tif, reference_unet.yaml, seed 20260922, 5 epochs.
+Training finished 2026-10-12 15:17 CDT; scoring/LOFO calibration finished 16:03 CDT
+on the box queue (s5-train/score-ref-fault-b32). Box was paused ~Oct 11 19:45 to Oct 12 11:15.
+
+**Scores** (schema_version 2, distance-weighted Tversky, alpha 0.2 / beta 0.8, radius 3 px):
+- Raw macro mean **0.0366 ± 0.0076**
+- LOFO-calibrated macro mean **0.0450 ± 0.0105**
+
+Per-fold raw: 0.0260 / 0.0345 / 0.0491 / 0.0341 / 0.0393
+Per-fold LOFO-cal: 0.0312 / 0.0419 / 0.0629 / 0.0410 / 0.0482
+LOFO thresholds: 0.882 / 0.884 / 0.849 / 0.882 / 0.952
+
+**Comparison vs ref fault b16** (raw 0.0455 ± 0.0045 / LOFO 0.0547 ± 0.0071):
+about 0.009–0.010 lower on both raw and calibrated at buffer 32 (wider exclusion
+buffer leaves less fault-adjacent training data). Unlike spatial (b32 ≈ b16), the
+fault view is buffer-sensitive, so buffer-32 candidates must be compared only
+against this b32 baseline, never against b16. Not a candidate; ref trace b32 is next in the queue.
