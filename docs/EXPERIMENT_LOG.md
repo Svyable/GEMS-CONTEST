@@ -778,3 +778,25 @@ Added to `scripts/queue/tasks.json` (now **75 tasks** total, runner re-reads liv
   spatial+fault+trace reruns are still queued on the box runner.
 - Step 7 (this run): the loss ablation — the highest-expected-gain open item
   that fits this VM (CPU prep of box-side training).
+
+## 2026-10-11 — Reference spatial CV at buffer 32 (ref-cv-spatial-b32)
+
+**Purpose**: Establish the buffer-32 spatial baseline needed before gating
+structure_tensor_coherence (min buffer 17) and ridge_valley_response (min buffer 30).
+
+**Training**: `train_full_map.py --cv-scheme spatial --buffer-pixels 32`, fold-pure
+normalization, negative_ratio 1.0, seed 20260922, 5 epochs, reference_unet.yaml.
+Finished scoring 2026-10-11 18:26 CDT on the box queue (`s4-train/score-ref-spatial-b32`).
+
+**Scores** (schema_version 2, distance-weighted Tversky):
+- Raw macro mean **0.0988 ± 0.0157**
+- LOFO-calibrated macro mean **0.1245 ± 0.0151**
+- Stitched aggregate **0.0967**
+
+Per-fold raw: 0.1203 / 0.1015 / 0.0905 / 0.1078 / 0.0739
+Per-fold LOFO-cal: 0.1278 / 0.1340 / 0.1200 / 0.1426 / 0.0983
+
+**Comparison vs ref spatial b16** (raw 0.0963 / LOFO 0.1230 / agg 0.0967):
+essentially equal on aggregate; raw/LOFO slightly higher within noise.
+Not a candidate — this is the buffer-32 reference baseline itself.
+Fault and trace buffer-32 reference runs remain in the queue.

@@ -1,0 +1,67 @@
+{
+  "artifacts": [
+    {
+      "bytes": 3463,
+      "path": "runs/ref-cv-spatial-b32/fold-0.json",
+      "sha256": "a55d027706c828ce76d471f80bd8ef5b482757da7877c36c5281054ea5db4fa2"
+    },
+    {
+      "bytes": 3452,
+      "path": "runs/ref-cv-spatial-b32/fold-1.json",
+      "sha256": "acd88392fc91650ce3d84f913121cc3e2e87c0d15d4dfda7f1efcfa0c3cdedc9"
+    },
+    {
+      "bytes": 3448,
+      "path": "runs/ref-cv-spatial-b32/fold-2.json",
+      "sha256": "59aeb358f1589a50da80e1559fd741f14d4313876daf38fe66442d8f7b1ab03c"
+    },
+    {
+      "bytes": 3449,
+      "path": "runs/ref-cv-spatial-b32/fold-3.json",
+      "sha256": "107c72d03873f7bf8ca73c3db0543f5786d3beed662e3811abca0b334176016c"
+    },
+    {
+      "bytes": 3460,
+      "path": "runs/ref-cv-spatial-b32/fold-4.json",
+      "sha256": "5e2e6bfc0f40f4b3938e37158aec54cff95d9fc822f4f3a382c3b46b7918a823"
+    },
+    {
+      "bytes": 1719,
+      "path": "runs/ref-cv-spatial-b32/scores/lofo-spatial.json",
+      "sha256": "ea116c0590d0dad4077415f8c08ce37e26031837a7953d53bfddca6cead8bf7b"
+    },
+    {
+      "bytes": 1561,
+      "path": "runs/ref-cv-spatial-b32/scores/spatial.json",
+      "sha256": "9ce36f880c979f1e9fceb6188d9401668f679607b60348b9359c16dc39be0aad"
+    }
+  ],
+  "code": {
+    "git_commit": "a171a13c91a9b14cf6922c3fd9f5c2fbc829eedc",
+    "git_dirty": true
+  },
+  "command": "queue: /workspace/gems/queue/tasks.json s4-train/score-ref-spatial-b32",
+  "config": {
+    "path": "configs/reference_unet.yaml",
+    "sha256": "7a5cd36b898933b4562b98db332b6b58f6ec8a21b294403d31911c2e00fbd232"
+  },
+  "created_utc": "2026-10-11T23:26:19+00:00",
+  "data_manifest": {
+    "path": "data/manifests/official.json"
+  },
+  "environment": {
+    "platform": "Linux-x86_64",
+    "python": "3.12"
+  },
+  "hypothesis": "Reference U-Net re-run at buffer_pixels=32 (spatial CV) to establish the buffer-32 baseline for structure_tensor_coherence (min buffer 17) and ridge_valley_response (min buffer 30) gates.",
+  "notes": "train_full_map.py --cv-scheme spatial --buffer-pixels 32 --seed 20260922; fold-pure normalization; single seed. LOFO calibration: queue/lofo_calibrate_view.py. Scores essentially equal to ref spatial b16 (raw 0.0963 / LOFO 0.1230 / agg 0.0967).",
+  "run_id": "ref-cv-spatial-b32",
+  "schema_version": 1,
+  "scores_summary": {
+    "raw_mean": 0.0987845492793316,
+    "raw_std": 0.01573421803461912,
+    "calibrated_mean": 0.1245168290861994,
+    "calibrated_std": 0.015065110569081976,
+    "aggregate_score": 0.09666798468707147
+  }
+}
