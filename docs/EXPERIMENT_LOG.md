@@ -721,3 +721,60 @@ Re-run all lineament CV experiments after this fix merges.
 **Note**: Supersedes ref-cv-trace-full (buffer 3, mixed fold maps, recorded as SUPERSEDED on 2026-10-10).
 
 **Manifest note**: Both manifests show `git_dirty=true` at commit 0134ae8 only because of an untracked `configs/local/` directory on the training box; no tracked files were modified.
+
+---
+
+## 2026-10-12 — P1 distance-aware Tversky queued (s7) + result re-verification
+
+### CPU verification of the P1 loss implementation (this VM, no torch)
+
+**Tests**: `.venv/bin/python -m pytest -q --ignore=tests/test_endpoint_extension.py`
+- **351 passed, 10 skipped**. The excluded module `test_endpoint_extension.py` is
+  uncollectable here (no `skimage` in this VM's venv, no pip to install it) — the
+  same documented VM gap as prior runs.
+- `tests/test_distance_tversky.py` (the P1 suite, commit 3b3e413): **13 passed,
+  6 skipped** — the 6 skips are the torch-half tests, which cannot run on this
+  VM but will run on the training box. NumPy half (kernel offsets, validity/
+  supervision masking, blend behavior, config mapping) fully green on CPU.
+
+### Re-verification: cand_mumford_shah_log spatial b16 rerun numbers
+
+Recomputed directly from `results/runs/cand-mumford_shah_log-spatial-b16/scores/`:
+- Raw per-fold: 0.1108 / 0.0939 / 0.0783 / 0.0996 / 0.0745 → macro **0.0914 ± 0.0135**,
+  aggregate **0.0903**
+- LOFO-calibrated per-fold: 0.1259 / 0.1188 / 0.0945 / 0.1320 / 0.1018 → macro **0.1146 ± 0.0143**
+
+All figures match the 2026-10-11 log entry exactly — no transcription error.
+Standing comparison vs the spatial incumbent (raw 0.0963, LOFO-cal 0.1230):
+candidate delta **−0.0084 calibrated / −0.0064 aggregate**, within one fold std —
+no spatial gain. Fault/trace reruns remain queued on the box; no gate verdict yet
+(gate policy requires ≥2 comparable views).
+
+### Queued: step 7 — P1 distance-aware Tversky gate candidate
+
+Rationale: the P1 loss (commit 3b3e413) trains directly on the competition's
+distance-weighted Tversky equations — the single most metric-aligned idea in the
+plan's loss-ablation item, and ENDPOINT-EXT-02's REJECT leaves the modeling
+improvement lane as the top remaining bet. Training needs the box; config is
+already protocol-equal to the incumbent (identical model/seed/epochs/train_step/
+buffer; only `loss` changes), so the honest move is to enqueue rather than stall.
+
+Added to `scripts/queue/tasks.json` (now **75 tasks** total, runner re-reads live):
+- `s7-train/score/record-loss_distance_tversky-{spatial,fault,trace}` — honest
+  5-fold CV at buffer 16 on `configs/candidates/cand_loss_distance_tversky.yaml`
+- `s7-assemble-ref-b16` — idempotent copy of ref-full spatial/fault gate JSONs
+  into `runs/gate/ref-b16` (cp -n; no clobbering)
+- `s7-gate-loss_distance_tversky-b16` — `CAND-LOSS_DISTANCE_TVERSKY-B16` vs
+  `runs/gate/ref-b16`; hypothesis: pooled-spatial OOF gain with
+  fault/trace non-regression safeguards, per `verify_candidate.py` policy.
+
+### Standing box-queue picture after this run
+
+- Steps 1–3 done. ENDPOINT-EXT-02 **REJECT** (endpoint extension dead as a
+  candidate class: deltas ~1e-7 to 1e-8 on all three views at 1.5× margin).
+- Steps 4–6 (lineament candidates at correct buffers, post zeroing-fix): only
+  `cand-mumford_shah_log-spatial-b16` has completed re-running; the remaining
+  steerable_filter / structure_tensor_coherence / ridge_valley_response
+  spatial+fault+trace reruns are still queued on the box runner.
+- Step 7 (this run): the loss ablation — the highest-expected-gain open item
+  that fits this VM (CPU prep of box-side training).

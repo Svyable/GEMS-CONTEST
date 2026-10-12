@@ -346,5 +346,61 @@
   "step": 6,
   "cmd": "/workspace/gems/queue/gate.sh CAND-RIDGE_VALLEY_RESPONSE-B32 runs/gate/ref-b32 runs/gate/cand-ridge_valley_response-b32 configs/candidates/cand_ridge_valley_response.yaml \"ridge_valley_response (buffer 32) beats the buffer-32 reference U-Net on >=2 of 3 views.\"",
   "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+ },
+ {
+  "id": "s7-train-loss_distance_tversky-spatial",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_distance_tversky-spatial-b16 configs/candidates/cand_loss_distance_tversky.yaml spatial data/processed/cv-spatial-v1.tif 16"
+ },
+ {
+  "id": "s7-score-loss_distance_tversky-spatial",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_distance_tversky-spatial-b16 spatial data/processed/cv-spatial-v1.tif runs/gate/cand-loss_distance_tversky-b16"
+ },
+ {
+  "id": "s7-record-loss_distance_tversky-spatial",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_distance_tversky-spatial-b16 runs/cand-loss_distance_tversky-spatial-b16 configs/candidates/cand_loss_distance_tversky.yaml \"Reference U-Net recipe with P1 distance-aware Tversky training loss (protocol-equal gate candidate, honest spatial CV at buffer 16).\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 16 --seed 20260922; loss: distance_tversky, loss_distance_weight 0.5, radius 3px, halo 0; fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s7-train-loss_distance_tversky-fault",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_distance_tversky-fault-b16 configs/candidates/cand_loss_distance_tversky.yaml fault data/processed/cv-fault-v1.tif 16"
+ },
+ {
+  "id": "s7-score-loss_distance_tversky-fault",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_distance_tversky-fault-b16 fault data/processed/cv-fault-v1.tif runs/gate/cand-loss_distance_tversky-b16"
+ },
+ {
+  "id": "s7-record-loss_distance_tversky-fault",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_distance_tversky-fault-b16 runs/cand-loss_distance_tversky-fault-b16 configs/candidates/cand_loss_distance_tversky.yaml \"Reference U-Net recipe with P1 distance-aware Tversky training loss (protocol-equal gate candidate, honest fault CV at buffer 16).\" \"train_full_map.py --cv-scheme fault --buffer-pixels 16 --seed 20260922; loss: distance_tversky, loss_distance_weight 0.5, radius 3px, halo 0; fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s7-train-loss_distance_tversky-trace",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_distance_tversky-trace-b16 configs/candidates/cand_loss_distance_tversky.yaml trace data/processed/cv-trace-v1b.tif 16"
+ },
+ {
+  "id": "s7-score-loss_distance_tversky-trace",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_distance_tversky-trace-b16 trace data/processed/cv-trace-v1b.tif runs/gate/cand-loss_distance_tversky-b16"
+ },
+ {
+  "id": "s7-record-loss_distance_tversky-trace",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_distance_tversky-trace-b16 runs/cand-loss_distance_tversky-trace-b16 configs/candidates/cand_loss_distance_tversky.yaml \"Reference U-Net recipe with P1 distance-aware Tversky training loss (protocol-equal gate candidate, honest trace CV at buffer 16).\" \"train_full_map.py --cv-scheme trace --buffer-pixels 16 --seed 20260922; loss: distance_tversky, loss_distance_weight 0.5, radius 3px, halo 0; fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s7-assemble-ref-b16",
+  "step": 7,
+  "cmd": "mkdir -p runs/gate/ref-b16 && cp -n runs/gate/ref-full/spatial.json runs/gate/ref-full/fault.json runs/gate/ref-b16/ 2>/dev/null; ls runs/gate/ref-b16",
+  "note": "Idempotent: ref-b16 needs spatial+fault JSONs (copied from ref-full) before the loss gate; cp -n never clobbers an already-assembled dir."
+ },
+ {
+  "id": "s7-gate-loss_distance_tversky-b16",
+  "step": 7,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-LOSS_DISTANCE_TVERSKY-B16 runs/gate/ref-b16 runs/gate/cand-loss_distance_tversky-b16 configs/candidates/cand_loss_distance_tversky.yaml \"Reference U-Net recipe with the P1 distance-aware Tversky training loss (blend weight 0.5, kernel radius 3 px, halo 0) beats the buffer-16 reference on pooled spatial OOF with fault/trace non-regression safeguards.\""
  }
 ]
