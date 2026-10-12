@@ -1,0 +1,147 @@
+{
+  "normalization": {
+    "method": "training_region_channel_minmax_v1",
+    "fit_pixels": 3503693,
+    "finite_fit_pixels_per_channel": [
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503681,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693,
+      3503693
+    ],
+    "minimum": [
+      -1052.0047607421875,
+      -2786.299560546875,
+      0.004909869749099016,
+      1.2000000476837158,
+      0.0013825353235006332,
+      2.9534237384796143,
+      0.0,
+      -16.5,
+      -7.650597095489502,
+      0.0,
+      -17.243989944458008,
+      -580.0780029296875,
+      -45.75756072998047,
+      -2178.27783203125,
+      -11.064605712890625,
+      236.8000030517578,
+      0.2220785766839981,
+      -15.441243171691895,
+      0.001103136339224875
+    ],
+    "maximum": [
+      2109.447509765625,
+      4508.76025390625,
+      1958.8375244140625,
+      87.0,
+      0.6517290472984314,
+      88.56654357910156,
+      54.400001525878906,
+      32.5,
+      13.103830337524414,
+      4962515.0,
+      12.578903198242188,
+      1469.9127197265625,
+      24.232954025268555,
+      4506.14111328125,
+      7135.306640625,
+      7869.5,
+      4.969292640686035,
+      12.856057167053223,
+      62.64591598510742
+    ],
+    "constant_channels": [],
+    "nonfinite_fill": 0.0,
+    "clip": false
+  },
+  "derived_features": null,
+  "feature_channels": {
+    "base": 19,
+    "derived": 0,
+    "total": 19
+  },
+  "config_sha256": "7a5cd36b898933b4562b98db332b6b58f6ec8a21b294403d31911c2e00fbd232",
+  "input_sha256": {
+    "features": "4371c82e3b8339b807bdffcf4ef59a225520fe2988d521be208ae33743123bc5",
+    "labels": "7ba308ccdc4418b31a178f4f1ef21aaa6e152e4028f2f6f64b01f7eb25ae4093",
+    "template": "2176d08e485aa2cd2860ce8df539db4faf4d76163b38a4dd8c30a40454d35cbc",
+    "fold_map": "e793e03a900f6d4e0523994c5b5dbe412b7b19f5a84ae9f0d9d4ff1200466223"
+  },
+  "buffer_pixels": 32,
+  "validation": {
+    "scheme": "fault",
+    "train_pixels": 3503693,
+    "train_fault_pixels": 19660,
+    "evaluation_pixels": 5117142,
+    "evaluation_fault_pixels": 12184
+  },
+  "known_fault_exclusion_pixels": 0,
+  "training_input_mask": "zero_excluded_pixels",
+  "training_loss_mask": "supervised_pixels_only",
+  "training_loss": {
+    "name": "tversky",
+    "alpha": 0.2,
+    "beta": 0.8,
+    "distance_weight": 0.5,
+    "radius_pixels": 3.0,
+    "halo_pixels": 0
+  },
+  "min_training_fraction": 0.5,
+  "encoder": "resnet18",
+  "windows": 3484,
+  "positive_windows": 2712,
+  "negative_windows": 772,
+  "epochs": [
+    {
+      "epoch": 0,
+      "train_loss": 0.9722639508203629,
+      "optimizer_steps": 109,
+      "supervised_pixels": 41687449
+    },
+    {
+      "epoch": 1,
+      "train_loss": 0.9594925062372051,
+      "optimizer_steps": 109,
+      "supervised_pixels": 41320606
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.940585291166918,
+      "optimizer_steps": 109,
+      "supervised_pixels": 41411938
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.9214409168707122,
+      "optimizer_steps": 109,
+      "supervised_pixels": 41331042
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.8974524113016391,
+      "optimizer_steps": 109,
+      "supervised_pixels": 41371107
+    }
+  ],
+  "overlap": 64,
+  "seed": 20260922,
+  "train_step": 32,
+  "negative_ratio": 1.0,
+  "fold": 1,
+  "holdout_distance_weighted_tversky": 0.034472228303484696
+}

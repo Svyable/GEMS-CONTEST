@@ -1,0 +1,53 @@
+{
+  "evaluation_protocol": {
+    "aggregation": "overlapping_background_macro",
+    "alpha": 0.2,
+    "beta": 0.8,
+    "buffer_pixels": 32,
+    "config_sha256": "7a5cd36b898933b4562b98db332b6b58f6ec8a21b294403d31911c2e00fbd232",
+    "epochs": 5,
+    "fold_map_sha256": "e793e03a900f6d4e0523994c5b5dbe412b7b19f5a84ae9f0d9d4ff1200466223",
+    "known_fault_exclusion_pixels": 0,
+    "metric": "distance_weighted_tversky",
+    "radius_pixels": 3.0,
+    "schema_version": 2,
+    "seed": 20260922,
+    "train_step": 32,
+    "truth_sha256": "7ba308ccdc4418b31a178f4f1ef21aaa6e152e4028f2f6f64b01f7eb25ae4093"
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "score": 0.02600363143016741,
+      "truth_pixels": 12198,
+      "valid_pixels": 5118583
+    },
+    {
+      "fold": 1,
+      "score": 0.03451845036581371,
+      "truth_pixels": 12197,
+      "valid_pixels": 5118582
+    },
+    {
+      "fold": 2,
+      "score": 0.04914503204921197,
+      "truth_pixels": 12198,
+      "valid_pixels": 5118583
+    },
+    {
+      "fold": 3,
+      "score": 0.03409883584654465,
+      "truth_pixels": 12197,
+      "valid_pixels": 5118582
+    },
+    {
+      "fold": 4,
+      "score": 0.039298186583413934,
+      "truth_pixels": 12198,
+      "valid_pixels": 5118583
+    }
+  ],
+  "macro_mean": 0.03661282725503034,
+  "macro_std": 0.007583256755934873,
+  "scheme": "fault"
+}
