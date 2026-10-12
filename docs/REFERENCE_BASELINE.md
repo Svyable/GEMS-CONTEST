@@ -84,6 +84,19 @@ This isolates gains from better validation, better modeling, and better data rat
 
 Results and provenance: `results/runs/ref-cv-spatial-full/`
 
+## Spatial CV results at buffer 32 (2026-10-11)
+
+**Status**: Complete. Buffer-32 spatial reference baseline (`run_id` `ref-cv-spatial-b32`). Not a candidate and not a replacement for the buffer-16 spatial incumbent.
+
+**Config**: `configs/reference_unet.yaml` (unreduced: 5 epochs, train_step 32)  
+**Training**: Honest spatial CV with 32-pixel buffer, fold-pure normalization, negative_ratio 1.0, seed 20260922  
+**Raw spatial scores**: macro mean **0.0988 ± 0.0157**, stitched aggregate **0.0967**  
+**LOFO-calibrated**: macro mean **0.1245 ± 0.0151**
+
+Comparable to ref spatial b16 (raw 0.0963 / LOFO 0.1230 / agg 0.0967): essentially equal. This baseline is required before gating `structure_tensor_coherence` (min buffer 17) and `ridge_valley_response` (min buffer 30). Fault-b32 and trace-b32 reference runs are still training on the box queue.
+
+Results and provenance: `results/runs/ref-cv-spatial-b32/`
+
 ## Full-config fault CV results (2026-10-10)
 
 **Status**: Complete. This is the incumbent baseline for fault view.
