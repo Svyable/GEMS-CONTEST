@@ -824,3 +824,53 @@ about 0.009–0.010 lower on both raw and calibrated at buffer 32 (wider exclusi
 buffer leaves less fault-adjacent training data). Unlike spatial (b32 ≈ b16), the
 fault view is buffer-sensitive, so buffer-32 candidates must be compared only
 against this b32 baseline, never against b16. Not a candidate; ref trace b32 is next in the queue.
+
+## 2026-10-13 — Step 8: seed-robustness probe queued (s8) + train_folds.sh seed plumbing
+
+**Rationale** (plan: validation gaps first). Every incumbent number and every
+gate verdict rests on a single seed (20260922) — the standing honest watch
+item. Gate margins are computed from fold stds only, so seed variance is an
+unmodeled noise source: if the P1 loss gate wins by less than the seed swing,
+the verdict is ambiguous. This probe quantifies that swing on the view every
+gate decision keys on (pooled spatial aggregate).
+
+**Changes** (CPU-only, this VM; no training here):
+- `scripts/queue/train_folds.sh`: optional 6th arg `SEED` (default 20260922),
+  forwarded as `train_full_map.py --seed`. Backward compatible — all existing
+  5-arg call sites behave identically (`bash -n` clean).
+- `scripts/queue/tasks.json`: 75 → **78 tasks**. Step 8 appends after the s7
+  gate so it never preempts live candidates:
+  - `s8-train-seed20260923-spatial` — reference U-Net, honest spatial CV at
+    buffer 16, seed **20260923** (protocol-identical to ref-cv-spatial-full
+    except the seed)
+  - `s8-score-seed20260923-spatial` — schema-2 scorer (pooled spatial
+    aggregate) into `runs/gate/ref-seed20260923-b16`
+  - `s8-record-seed20260923-spatial` — manifest + data fingerprint
+- `tests/test_queue_tasks.py` (new, 6 tests): tasks.json validity, unique ids,
+  every referenced `configs/*.yaml` and queue script exists, seed forwarding
+  in train_folds.sh, probe tasks present.
+- `scripts/queue/README.md`: documented the SEED arg.
+
+**Scope notes**: spatial-only, one extra seed — 5 fold-trainings, the same box
+cost as one view of any candidate. Fault/trace seed probes are follow-ups if
+the spatial seed variance is material. This is NOT a gate candidate:
+`verify_candidate` treats differing seeds as a training-protocol mismatch by
+design (correct), so the comparison is a manual side-by-side of the pooled
+`aggregate_score`s. Decision rule when it completes: if |aggregate delta| is
+well under the gate's required-margin scale, seed noise is contained; if it
+is comparable or larger, gates need a seed term before any ACCEPT.
+
+**Gate-chain audit** (same run): verified the step-7 chain is sound as queued —
+`s1/s2` schema-2 re-scores feed `runs/gate/ref-full/`, the s7 assemble/gate
+tasks reference live box paths, and `verify_candidate --print-only` parses the
+schema-2 gate JSONs. One repo-hygiene finding, no action needed on the box:
+the *committed* `results/runs/ref-cv-{spatial,fault}-full/{spatial,fault}.json`
+are **schema-1** (no `aggregation`, no pooled `aggregate_score`), so they
+cannot serve any gate — the box's uncommitted schema-2 re-scores in
+`runs/gate/ref-full/` remain the gate's incumbent source. Do not "fix" this
+by copying schema-1 JSONs into a gate dir; a re-score needs the fold
+prediction rasters, which are (correctly) not committed.
+
+**Tests** (this VM): `351 → 357 passed, 10 skipped` — same skips as 10-12
+(`test_endpoint_extension.py` uncollectable: no skimage; 6 torch-half skips in
+the P1 suite).

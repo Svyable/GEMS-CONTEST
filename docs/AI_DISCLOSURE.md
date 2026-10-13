@@ -691,3 +691,19 @@ and reference-baseline notes. Numbers were not invented or altered.
 
 No model training, raw rasters, checkpoints, prediction GeoTIFFs, or
 DrivenData submission in this change.
+
+## 2026-10-13 — Seed-robustness probe (step 8) + train_folds.sh seed plumbing
+
+Cloud agent: added an optional 6th `SEED` arg to `scripts/queue/train_folds.sh`
+(default 20260922, backward compatible, forwarded as `train_full_map.py --seed`);
+appended 3 step-8 queue tasks to `scripts/queue/tasks.json` (train/score/record
+the spatial incumbent at seed 20260923 — the single-seed validation gap);
+added `tests/test_queue_tasks.py` (6 tests: queue integrity + seed plumbing);
+documented the SEED arg in `scripts/queue/README.md`; appended the experiment-log
+entry and this disclosure. Also audited the step-7 gate chain and confirmed it
+is sound as queued (schema-2 gate JSONs on the box; committed ref-full scores
+are schema-1 and correctly not used for gating).
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — analysis used only
+committed score JSONs and configs.

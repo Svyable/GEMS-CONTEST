@@ -7,7 +7,7 @@ Resumable CPU-based experiment queue runner and helper scripts for GEMS competit
 - **runner.py**: Main queue runner. Reads tasks from `tasks.json` and executes them sequentially, tracking state in `state/*.{done,failed,started}`. Stops on first failure for inspection.
 - **tasks.json**: Queue task definitions (one per experiment). Re-read before each task execution, allowing live task additions.
 - **tasks.parked.json**: Parked tasks (removed from active queue but kept for reference).
-- **train_folds.sh**: Resumable 5-fold training script. Skips folds that already have outputs. Includes memory gate (waits for available memory before starting each fold) and OOM retry logic (retries folds killed with exit code 137 up to 3 times).
+- **train_folds.sh**: Resumable 5-fold training script. Skips folds that already have outputs. Includes memory gate (waits for available memory before starting each fold) and OOM retry logic (retries folds killed with exit code 137 up to 3 times). Optional 6th arg `SEED` (default `20260922`, the incumbent seed) forwarded as `train_full_map.py --seed`; used by the step-8 seed-robustness probe.
 - **score_view.sh**: Score a completed fold-map experiment for one CV view.
 - **lofo_calibrate_view.py**: Leave-one-fold-out exact-threshold calibration. For fold k, finds the threshold that maximizes mean score over the other 4 folds, then evaluates once on fold k.
 - **endpoint_view.sh**: Apply endpoint extension to fold predictions.

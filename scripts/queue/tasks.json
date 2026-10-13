@@ -402,5 +402,23 @@
   "id": "s7-gate-loss_distance_tversky-b16",
   "step": 7,
   "cmd": "/workspace/gems/queue/gate.sh CAND-LOSS_DISTANCE_TVERSKY-B16 runs/gate/ref-b16 runs/gate/cand-loss_distance_tversky-b16 configs/candidates/cand_loss_distance_tversky.yaml \"Reference U-Net recipe with the P1 distance-aware Tversky training loss (blend weight 0.5, kernel radius 3 px, halo 0) beats the buffer-16 reference on pooled spatial OOF with fault/trace non-regression safeguards.\""
+ },
+ {
+  "id": "s8-train-seed20260923-spatial",
+  "step": 8,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/ref-cv-spatial-b16-seed20260923 configs/reference_unet.yaml spatial data/processed/cv-spatial-v1.tif 16 20260923",
+  "note": "Seed-robustness probe: spatial incumbent re-run at a second seed (20260923). Quantifies the seed variance behind every pooled-spatial gate decision. NOT a gate candidate: verify_candidate flags differing seeds as a training-protocol mismatch by design, so comparison is manual side-by-side of the pooled aggregates."
+ },
+ {
+  "id": "s8-score-seed20260923-spatial",
+  "step": 8,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-spatial-b16-seed20260923 spatial data/processed/cv-spatial-v1.tif runs/gate/ref-seed20260923-b16",
+  "note": "Score the seed probe with the schema-2 scorer (pooled spatial aggregate) into its own gate dir."
+ },
+ {
+  "id": "s8-record-seed20260923-spatial",
+  "step": 8,
+  "cmd": "/workspace/gems/queue/record.sh ref-cv-spatial-b16-seed20260923 runs/ref-cv-spatial-b16-seed20260923 configs/reference_unet.yaml \"Seed-robustness probe: reference U-Net under honest spatial CV at buffer 16, seed 20260923 (incumbent seed is 20260922).\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 16 --seed 20260923; protocol-identical to ref-cv-spatial-full except the seed. Manual aggregate comparison only; seed differs so the gate would (correctly) refuse comparability.\"",
+  "note": "Record the seed-probe run with manifest + data fingerprint."
  }
 ]
