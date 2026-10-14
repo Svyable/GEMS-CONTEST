@@ -54,6 +54,7 @@ against `src/gems/lineament.py` on 2026-10-10):
 |---|---|---|---|
 | `mumford_shah_log` | 5 | 16 | `ref-full` (spatial/fault @16) |
 | `steerable_filter` | 7 | 16 | `ref-full` (spatial/fault @16) |
+| `wavelet_entropy` | 8 | 16 | `ref-b16` (3 views @16) |
 | `structure_tensor_coherence` | 17 | 32 | `ref-b32` re-run @32 |
 | `ridge_valley_response` | 30 | 32 | `ref-b32` re-run @32 |
 

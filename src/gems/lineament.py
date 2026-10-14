@@ -88,6 +88,76 @@ def _symmetric_eigenvalues(
     return lambda_max, lambda_min
 
 
+def _uhaar_column_pass(band: np.ndarray, dilation: int) -> tuple[np.ndarray, np.ndarray]:
+    """One undecimated Haar column pass with the given dilation."""
+    height, width = band.shape
+    d = dilation
+    inv_sqrt2 = 1.0 / np.sqrt(2.0)
+    padded = np.pad(band, d, mode="reflect")
+    lo = (
+        padded[d : d + height, d : d + width] + padded[2 * d : 2 * d + height, d : d + width]
+    ) * inv_sqrt2
+    hi = (
+        padded[d : d + height, d : d + width] - padded[2 * d : 2 * d + height, d : d + width]
+    ) * inv_sqrt2
+    return lo, hi
+
+
+def _undecimated_haar_detail_energies(image: np.ndarray, levels: Sequence[int]) -> list[np.ndarray]:
+    """Per-pixel undecimated Haar detail energy at each requested level.
+
+    Level ``l`` uses dilation ``d = 2**(l-1)``. The separable 2D transform
+    yields LH/HL/HH subbands and the detail energy is their sum of squares.
+    Reflect padding (no wraparound) keeps the output full resolution; pixels
+    within ``d`` of a border see a mirrored neighborhood. ``image`` must be
+    finite; NaNs must be handled by the caller (e.g. via ``_masked_gaussian``).
+    """
+    img = np.asarray(image, dtype=np.float64)
+    if img.ndim != 2:
+        raise ValueError("image must be 2D")
+    height, width = img.shape
+    inv_sqrt2 = 1.0 / np.sqrt(2.0)
+    energies: list[np.ndarray] = []
+    for level in levels:
+        d = 2 ** (int(level) - 1)
+        # Row pass with dilation d.
+        padded = np.pad(img, d, mode="reflect")
+        row_lo = (
+            padded[d : d + height, d : d + width] + padded[d : d + height, 2 * d : 2 * d + width]
+        ) * inv_sqrt2
+        row_hi = (
+            padded[d : d + height, d : d + width] - padded[d : d + height, 2 * d : 2 * d + width]
+        ) * inv_sqrt2
+
+        _, lh = _uhaar_column_pass(row_lo, d)
+        hl, hh = _uhaar_column_pass(row_hi, d)
+        energies.append((lh * lh + hl * hl + hh * hh).astype(np.float32, copy=False))
+    return energies
+
+
+_DEFAULT_WAVELET_LEVELS = (1, 2, 3)
+
+
+def _validated_wavelet_levels(levels: object) -> tuple[int, ...]:
+    """Normalize the undecimated Haar level list; default is (1, 2, 3)."""
+    if levels is None:
+        return _DEFAULT_WAVELET_LEVELS
+    raw = list(levels)  # type: ignore[arg-type]
+    if not raw:
+        raise ValueError("wavelet_levels must be non-empty when given")
+    values: list[int] = []
+    for level in raw:
+        try:
+            as_float = float(level)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("wavelet_levels must be numeric") from exc
+        if not as_float.is_integer():
+            raise ValueError("wavelet_levels must be integer-valued")
+        values.append(int(as_float))
+    if any(level < 1 or level > 6 for level in values):
+        raise ValueError("wavelet_levels must each be between 1 and 6")
+    return tuple(values)
+
 
 def lineament_kwargs(config: Mapping[str, object]) -> dict:
     """Map the runnable trainer's YAML settings to derived-feature arguments."""
@@ -99,6 +169,7 @@ def lineament_kwargs(config: Mapping[str, object]) -> dict:
         "ridge_valley_scales": config.get("ridge_valley_scales"),
         "steerable_wavelength": float(config.get("steerable_wavelength", 8.0)),
         "steerable_orientations": int(config.get("steerable_orientations", 8)),
+        "wavelet_levels": config.get("wavelet_levels"),
     }
 
 
@@ -111,9 +182,7 @@ def required_lineament_buffer(kwargs: Mapping[str, object]) -> int:
         return smoothing + 1 + int(np.ceil(4 * float(kwargs["structure_tensor_window"])))
     if kind == "ridge_valley_response":
         scales = kwargs["ridge_valley_scales"]
-        max_scale = max(float(scale) for scale in (
-            scales if scales is not None else (sigma,)
-        ))
+        max_scale = max(float(scale) for scale in (scales if scales is not None else (sigma,)))
         return (
             int(np.ceil(4 * max_scale))
             + 2
@@ -125,6 +194,10 @@ def required_lineament_buffer(kwargs: Mapping[str, object]) -> int:
         if kernel_size % 2 == 0:
             kernel_size += 1
         return smoothing + kernel_size // 2
+    if kind == "wavelet_entropy":
+        levels = _validated_wavelet_levels(kwargs["wavelet_levels"])
+        max_dilation = 2 ** (max(levels) - 1)
+        return smoothing + max_dilation
     return smoothing + 1
 
 
@@ -142,6 +215,7 @@ def grouped_lineament_features(
     ridge_valley_scales: Sequence[float] | None = None,
     steerable_wavelength: float = 8.0,
     steerable_orientations: int = 8,
+    wavelet_levels: Sequence[int] | None = None,
 ) -> tuple[np.ndarray, dict]:
     """Create one derived lineament channel per physical feature family.
 
@@ -201,7 +275,20 @@ def grouped_lineament_features(
     normalized to [0,1] by the 99th percentile over the valid region
     (fold-pure). This completes roadmap priority #5 (multi-scale gradient
     and structure-tensor features).
-    
+
+    wavelet_entropy is the P2 hypothesis from
+    docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md: an adaptation (not a
+    reproduction) of Dwivedi (2026) wavelet-space entropy to potential-field
+    edge detection. Each smoothed band is decomposed with the undecimated
+    Haar transform at wavelet_levels (default (1, 2, 3), dilation
+    2**(level-1)); per-pixel detail energies E_s (LH^2+HL^2+HH^2) give
+    q_s = E_s / (sum_j E_j + eps) and H = -sum_s q_s log(q_s + eps), with
+    H = 0 defined explicitly where the total energy is ~0. H lies in
+    [0, log(L)]: it is low for single-scale structure and high where detail
+    energy spreads across scales. Per-band entropies are averaged across the
+    group, then normalized by the fold-pure 99th percentile and clipped to
+    [0, 1].
+
     norm_params: Optional precomputed normalization parameters from a previous
     pass (Pass A). When provided, these scale constants are reused instead of
     refitting. Required keys depend on kind:
@@ -209,6 +296,7 @@ def grouped_lineament_features(
       (p_low, p_high) tuples), 'grad_norm_max' (dict mapping group name to float)
     - ridge_valley_response: 'signed_p99' (dict mapping group name to float)
     - steerable_filter: 'response_p99' (dict mapping group name to float)
+    - wavelet_entropy: 'entropy_p99' (dict mapping group name to float)
     Returned metadata includes 'norm_params' for reuse in subsequent passes.
     """
     x = np.asarray(features, dtype=np.float32)
@@ -224,9 +312,14 @@ def grouped_lineament_features(
     if not fit.any():
         raise ValueError("normalization_mask must be nonempty")
     allowed_kinds = {
-        "gradient_energy", "phase_edge", "mumford_shah_log",
-        "structure_tensor_coherence", "structure_tensor_orientation",
-        "ridge_valley_response", "steerable_filter",
+        "gradient_energy",
+        "phase_edge",
+        "mumford_shah_log",
+        "structure_tensor_coherence",
+        "structure_tensor_orientation",
+        "ridge_valley_response",
+        "steerable_filter",
+        "wavelet_entropy",
     }
     if kind not in allowed_kinds:
         raise ValueError(f"kind must be one of {allowed_kinds}")
@@ -246,23 +339,31 @@ def grouped_lineament_features(
         raise ValueError("steerable_wavelength must be finite and positive")
     if steerable_orientations < 2 or steerable_orientations > 32:
         raise ValueError("steerable_orientations must be between 2 and 32")
+    if kind == "wavelet_entropy":
+        wavelet_levels = _validated_wavelet_levels(wavelet_levels)
     if not groups:
         raise ValueError("at least one feature group is required")
 
     outputs: list[np.ndarray] = []
     output_names: list[str] = []
     normalized_groups: dict[str, list[int]] = {}
-    
+
     # Initialize norm_params collection (will be populated if norm_params is None)
     collected_norm_params: dict = {}
     if norm_params is not None:
         # Validate that provided norm_params has expected structure for this kind
-        if kind == "mumford_shah_log" and ('band_percentiles' not in norm_params or 'grad_norm_max' not in norm_params):
-            raise ValueError("norm_params for mumford_shah_log must include 'band_percentiles' and 'grad_norm_max'")
-        if kind == "ridge_valley_response" and 'signed_p99' not in norm_params:
+        if kind == "mumford_shah_log" and (
+            "band_percentiles" not in norm_params or "grad_norm_max" not in norm_params
+        ):
+            raise ValueError(
+                "norm_params for mumford_shah_log must include 'band_percentiles' and 'grad_norm_max'"
+            )
+        if kind == "ridge_valley_response" and "signed_p99" not in norm_params:
             raise ValueError("norm_params for ridge_valley_response must include 'signed_p99'")
-        if kind == "steerable_filter" and 'response_p99' not in norm_params:
+        if kind == "steerable_filter" and "response_p99" not in norm_params:
             raise ValueError("norm_params for steerable_filter must include 'response_p99'")
+        if kind == "wavelet_entropy" and "entropy_p99" not in norm_params:
+            raise ValueError("norm_params for wavelet_entropy must include 'entropy_p99'")
 
     for name, raw_indices in groups.items():
         indices = tuple(int(index) for index in raw_indices)
@@ -276,10 +377,10 @@ def grouped_lineament_features(
         if kind == "mumford_shah_log":
             # Use Laplacian of Gaussian edge detection on normalized bands
             # First normalize each band to [0, 1] using training region stats
-            
+
             # Get or compute band percentiles
             if norm_params is not None:
-                band_percentiles = norm_params['band_percentiles'][name]
+                band_percentiles = norm_params["band_percentiles"][name]
             else:
                 band_percentiles = []
                 for index in indices:
@@ -292,10 +393,10 @@ def grouped_lineament_features(
                         p_low = p_high = 0.0
                     band_percentiles.append((p_low, p_high))
                 # Store for return
-                if 'band_percentiles' not in collected_norm_params:
-                    collected_norm_params['band_percentiles'] = {}
-                collected_norm_params['band_percentiles'][name] = band_percentiles
-            
+                if "band_percentiles" not in collected_norm_params:
+                    collected_norm_params["band_percentiles"] = {}
+                collected_norm_params["band_percentiles"][name] = band_percentiles
+
             # Normalize bands using percentiles
             normalized_stack = []
             for idx, index in enumerate(indices):
@@ -309,7 +410,7 @@ def grouped_lineament_features(
                 # Apply smoothing
                 smoothed = _masked_gaussian(normalized, valid, sigma_pixels)
                 normalized_stack.append(smoothed)
-            
+
             # Compute vector norm of gradients across all bands
             energy = np.zeros(x.shape[:2], dtype=np.float32)
             for smoothed in normalized_stack:
@@ -319,10 +420,10 @@ def grouped_lineament_features(
                     + grad_y.astype(np.float32, copy=False) ** 2
                 )
             grad_norm = np.sqrt(energy / len(indices))
-            
+
             # Get or compute gradient norm max
             if norm_params is not None:
-                fit_max = norm_params['grad_norm_max'][name]
+                fit_max = norm_params["grad_norm_max"][name]
             else:
                 # Compute from fit region
                 fit_valid = fit & valid
@@ -331,21 +432,21 @@ def grouped_lineament_features(
                 else:
                     fit_max = float(grad_norm[fit].max()) if fit.any() else 0.0
                 # Store for return
-                if 'grad_norm_max' not in collected_norm_params:
-                    collected_norm_params['grad_norm_max'] = {}
-                collected_norm_params['grad_norm_max'][name] = fit_max
-            
+                if "grad_norm_max" not in collected_norm_params:
+                    collected_norm_params["grad_norm_max"] = {}
+                collected_norm_params["grad_norm_max"][name] = fit_max
+
             # Apply normalization
             if fit_max > 0:
                 grad_norm = grad_norm / fit_max
-            
+
             # Apply LoG edge detection
             # Get or compute edge max for the LoG normalization
-            if norm_params is not None and 'edge_max' in norm_params:
-                edge_max_param = norm_params['edge_max'].get(name)
+            if norm_params is not None and "edge_max" in norm_params:
+                edge_max_param = norm_params["edge_max"].get(name)
             else:
                 edge_max_param = None
-            
+
             derived, edge_max_computed = compute_edge_strength(
                 grad_norm,
                 epsilon=phase_epsilon_pixels,
@@ -353,12 +454,12 @@ def grouped_lineament_features(
                 normalization_mask=fit,
                 edge_max=edge_max_param,
             )
-            
+
             # Store edge_max for reuse
             if norm_params is None:
-                if 'edge_max' not in collected_norm_params:
-                    collected_norm_params['edge_max'] = {}
-                collected_norm_params['edge_max'][name] = edge_max_computed
+                if "edge_max" not in collected_norm_params:
+                    collected_norm_params["edge_max"] = {}
+                collected_norm_params["edge_max"][name] = edge_max_computed
         elif kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
             # Compute structure tensor from smoothed gradients
             # J = [ Jxx Jxy ]  where J_ij = smooth(∂x_i * ∂x_j)
@@ -366,23 +467,23 @@ def grouped_lineament_features(
             jxx = np.zeros(x.shape[:2], dtype=np.float32)
             jyy = np.zeros(x.shape[:2], dtype=np.float32)
             jxy = np.zeros(x.shape[:2], dtype=np.float32)
-            
+
             for index in indices:
                 smoothed = _masked_gaussian(x[..., index], valid, sigma_pixels)
                 grad_y, grad_x = np.gradient(smoothed)
                 gx = grad_x.astype(np.float32, copy=False)
                 gy = grad_y.astype(np.float32, copy=False)
-                
+
                 # Smooth the gradient products with structure_tensor_window
                 jxx += _masked_gaussian(gx * gx, valid, structure_tensor_window)
                 jyy += _masked_gaussian(gy * gy, valid, structure_tensor_window)
                 jxy += _masked_gaussian(gx * gy, valid, structure_tensor_window)
-            
+
             # Average over channels
             jxx /= np.float32(len(indices))
             jyy /= np.float32(len(indices))
             jxy /= np.float32(len(indices))
-            
+
             # Eigenvalues of 2x2 symmetric matrix:
             # λ = (tr ± sqrt(tr² - 4*det)) / 2
             # where tr = Jxx + Jyy, det = Jxx*Jyy - Jxy²
@@ -390,10 +491,10 @@ def grouped_lineament_features(
             det = jxx * jyy - jxy * jxy
             discriminant = np.maximum(trace * trace - 4 * det, 0.0)
             sqrt_disc = np.sqrt(discriminant)
-            
+
             lambda1 = (trace + sqrt_disc) / 2.0  # larger eigenvalue
             lambda2 = (trace - sqrt_disc) / 2.0  # smaller eigenvalue
-            
+
             if kind == "structure_tensor_coherence":
                 # Coherence = (λ1 - λ2) / (λ1 + λ2 + ε)
                 # Range [0, 1]: 0 = isotropic, 1 = perfectly directional
@@ -446,10 +547,10 @@ def grouped_lineament_features(
                 max_ridge = np.maximum(max_ridge, ridge)
 
             signed = max_valley - max_ridge
-            
+
             # Get or compute 99th percentile for normalization
             if norm_params is not None:
-                denom = norm_params['signed_p99'][name]
+                denom = norm_params["signed_p99"][name]
             else:
                 # Compute from fit region
                 fit_valid = fit & valid
@@ -461,10 +562,10 @@ def grouped_lineament_features(
                     valid_signed = np.abs(signed[fit])
                     denom = float(np.percentile(valid_signed, 99.0)) if valid_signed.size else 0.0
                 # Store for return
-                if 'signed_p99' not in collected_norm_params:
-                    collected_norm_params['signed_p99'] = {}
-                collected_norm_params['signed_p99'][name] = denom
-            
+                if "signed_p99" not in collected_norm_params:
+                    collected_norm_params["signed_p99"] = {}
+                collected_norm_params["signed_p99"][name] = denom
+
             if denom > 0:
                 derived = np.clip(signed / denom, -1.0, 1.0).astype(np.float32, copy=False)
             else:
@@ -475,7 +576,7 @@ def grouped_lineament_features(
             wavelength = float(steerable_wavelength)
             n_orient = int(steerable_orientations)
             angles = np.linspace(0, np.pi, n_orient, endpoint=False)
-            
+
             # Gabor kernel parameters
             gamma = 0.5  # spatial aspect ratio
             sigma = wavelength / (2 * np.pi * 0.56)  # standard Gabor bandwidth
@@ -483,70 +584,118 @@ def grouped_lineament_features(
             if kernel_size % 2 == 0:
                 kernel_size += 1
             kernel_half = kernel_size // 2
-            
+
             # Generate coordinate grids for kernel
             y_k, x_k = np.meshgrid(
                 np.arange(-kernel_half, kernel_half + 1, dtype=np.float32),
                 np.arange(-kernel_half, kernel_half + 1, dtype=np.float32),
-                indexing='ij'
+                indexing="ij",
             )
-            
+
             # Accumulate max response across all orientations
             max_response = np.zeros(x.shape[:2], dtype=np.float32)
-            
+
             for angle in angles:
                 # Rotate coordinates
                 x_rot = x_k * np.cos(angle) + y_k * np.sin(angle)
                 y_rot = -x_k * np.sin(angle) + y_k * np.cos(angle)
-                
+
                 # Real Gabor kernel: Gaussian envelope × cosine carrier
-                gaussian_envelope = np.exp(
-                    -(x_rot**2 + (gamma * y_rot)**2) / (2 * sigma**2)
-                )
+                gaussian_envelope = np.exp(-(x_rot**2 + (gamma * y_rot) ** 2) / (2 * sigma**2))
                 carrier = np.cos(2 * np.pi * x_rot / wavelength)
                 gabor_kernel = (gaussian_envelope * carrier).astype(np.float32)
                 # Zero-mean normalization
                 gabor_kernel -= gabor_kernel.mean()
-                
+
                 # Convolve with each channel and accumulate
                 response = np.zeros(x.shape[:2], dtype=np.float32)
                 for index in indices:
                     smoothed = _masked_gaussian(x[..., index], valid, sigma_pixels)
                     # scipy.ndimage.convolve for consistency with other filters
                     from scipy.ndimage import convolve
+
                     band_response = convolve(
                         smoothed,
                         gabor_kernel,
-                        mode='nearest',
+                        mode="nearest",
                     )
                     response += np.abs(band_response)
                 response /= float(len(indices))
-                
+
                 # Max across orientations for orientation-invariant response
                 max_response = np.maximum(max_response, response)
-            
+
             # Get or compute 99th percentile for normalization
             if norm_params is not None:
-                denom = norm_params['response_p99'][name]
+                denom = norm_params["response_p99"][name]
             else:
                 # Compute from fit region
                 fit_valid = fit & valid
                 if fit_valid.any():
                     valid_responses = max_response[fit_valid]
-                    denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+                    denom = (
+                        float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+                    )
                 else:
                     # Fit and valid are disjoint; compute from fit directly
                     valid_responses = max_response[fit]
-                    denom = float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+                    denom = (
+                        float(np.percentile(valid_responses, 99.0)) if valid_responses.size else 0.0
+                    )
                 # Store for return
-                if 'response_p99' not in collected_norm_params:
-                    collected_norm_params['response_p99'] = {}
-                collected_norm_params['response_p99'][name] = denom
-            
+                if "response_p99" not in collected_norm_params:
+                    collected_norm_params["response_p99"] = {}
+                collected_norm_params["response_p99"][name] = denom
+
             if denom > 1e-6:
                 derived = np.clip(max_response / denom, 0.0, 1.0).astype(np.float32, copy=False)
             else:
                 # Constant or near-zero field: all responses below threshold, output zeros
+                derived = np.zeros(x.shape[:2], dtype=np.float32)
+        elif kind == "wavelet_entropy":
+            # P2 wavelet-space entropy (adaptation of Dwivedi 2026): undecimated
+            # Haar detail energies per level -> per-pixel energy-share entropy.
+            # levels is validated up front; zero total energy -> H = 0.
+            entropy_sum = np.zeros(x.shape[:2], dtype=np.float64)
+            eps = 1e-12
+            for index in indices:
+                smoothed = _masked_gaussian(x[..., index], valid, sigma_pixels)
+                energies = _undecimated_haar_detail_energies(smoothed, wavelet_levels)
+                stack = np.stack(energies, axis=0).astype(np.float64, copy=False)
+                total = stack.sum(axis=0)
+                q = stack / (total + eps)
+                band_entropy = -(q * np.log(q + eps)).sum(axis=0)
+                band_entropy[total <= 1e-12] = 0.0
+                # Entropy is mathematically >= 0; clamp float dust from
+                # log(1 + eps) when one scale owns all the energy.
+                np.maximum(band_entropy, 0.0, out=band_entropy)
+                entropy_sum += band_entropy
+            raw = (entropy_sum / float(len(indices))).astype(np.float32, copy=False)
+
+            # Get or compute 99th percentile for normalization (fold-pure)
+            if norm_params is not None:
+                denom = norm_params["entropy_p99"][name]
+            else:
+                fit_valid = fit & valid
+                if fit_valid.any():
+                    valid_entropies = raw[fit_valid]
+                    denom = (
+                        float(np.percentile(valid_entropies, 99.0)) if valid_entropies.size else 0.0
+                    )
+                else:
+                    # Fit and valid are disjoint; compute from fit directly
+                    valid_entropies = raw[fit]
+                    denom = (
+                        float(np.percentile(valid_entropies, 99.0)) if valid_entropies.size else 0.0
+                    )
+                if "entropy_p99" not in collected_norm_params:
+                    collected_norm_params["entropy_p99"] = {}
+                collected_norm_params["entropy_p99"][name] = denom
+
+            if denom > 1e-6:
+                derived = np.clip(raw / denom, 0.0, 1.0).astype(np.float32, copy=False)
+            else:
+                # Constant or near-zero field: no detail energy, output zeros
                 derived = np.zeros(x.shape[:2], dtype=np.float32)
         else:
             # Original gradient_energy and phase_edge implementations
@@ -572,7 +721,7 @@ def grouped_lineament_features(
         normalized_groups[str(name)] = list(indices)
 
     stacked = np.stack(outputs, axis=-1).astype(np.float32, copy=False)
-    
+
     # Set interpretation metadata
     if kind == "phase_edge":
         interpretation = "local_fixed_image_ambrosio_tortorelli_relation_without_phase_diffusion"
@@ -586,9 +735,11 @@ def grouped_lineament_features(
         interpretation = "signed_multiscale_hessian_eigenvalue_ridge_valley_response"
     elif kind == "steerable_filter":
         interpretation = "gabor_style_directional_filter_max_response_across_orientations"
+    elif kind == "wavelet_entropy":
+        interpretation = "undecimated_haar_detail_energy_entropy_across_scales"
     else:
         interpretation = None
-    
+
     metadata = {
         "method": "grouped_lineament_v1",
         "kind": kind,
@@ -599,7 +750,7 @@ def grouped_lineament_features(
         "phase_interpretation": interpretation,
         "normalization_pixels": int(fit.sum()),
     }
-    
+
     if kind in ("structure_tensor_coherence", "structure_tensor_orientation"):
         metadata["structure_tensor_window"] = float(structure_tensor_window)
 
@@ -614,6 +765,9 @@ def grouped_lineament_features(
     if kind == "steerable_filter":
         metadata["steerable_wavelength"] = float(steerable_wavelength)
         metadata["steerable_orientations"] = int(steerable_orientations)
+
+    if kind == "wavelet_entropy":
+        metadata["wavelet_levels"] = [int(level) for level in wavelet_levels]
 
     # Include collected norm_params for reuse in Pass B
     if collected_norm_params:

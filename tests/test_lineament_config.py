@@ -32,7 +32,7 @@ def test_ablation_configs_are_runnable_and_options_reach_features(filename, kind
     assert required_lineament_buffer(options) == buffer
 
     _, xx = np.indices((48, 48))
-    features = np.exp(-((xx - 24) / 3.0) ** 2).astype(np.float32)[..., None]
+    features = np.exp(-(((xx - 24) / 3.0) ** 2)).astype(np.float32)[..., None]
     derived, metadata = grouped_lineament_features(
         features,
         {"magnetic_data": (0,)},
@@ -53,7 +53,7 @@ def test_ablation_configs_are_runnable_and_options_reach_features(filename, kind
 
 @pytest.mark.parametrize(
     "kind",
-    ["mumford_shah_log", "ridge_valley_response", "steerable_filter"],
+    ["mumford_shah_log", "ridge_valley_response", "steerable_filter", "wavelet_entropy"],
 )
 def test_held_out_outlier_cannot_change_training_region_feature_scaling(kind):
     rng = np.random.default_rng(17)
@@ -72,16 +72,24 @@ def test_held_out_outlier_cannot_change_training_region_feature_scaling(kind):
         "ridge_valley_scales": (1.0, 2.0, 4.0),
     }
     baseline, meta = grouped_lineament_features(
-        features, {"signal": (0,)}, valid_mask=valid,
-        normalization_mask=training, **kwargs,
+        features,
+        {"signal": (0,)},
+        valid_mask=valid,
+        normalization_mask=training,
+        **kwargs,
     )
     poisoned, poisoned_meta = grouped_lineament_features(
-        modified, {"signal": (0,)}, valid_mask=valid,
-        normalization_mask=training, **kwargs,
+        modified,
+        {"signal": (0,)},
+        valid_mask=valid,
+        normalization_mask=training,
+        **kwargs,
     )
     np.testing.assert_allclose(
-        baseline[105:125, 105:125], poisoned[105:125, 105:125],
-        atol=1e-6, rtol=1e-6,
+        baseline[105:125, 105:125],
+        poisoned[105:125, 105:125],
+        atol=1e-6,
+        rtol=1e-6,
     )
     assert meta["normalization_pixels"] == 2500
     assert poisoned_meta["normalization_pixels"] == 2500
@@ -95,21 +103,27 @@ def test_lineament_rejects_invalid_normalization_mask():
     # Empty normalization_mask should fail
     with pytest.raises(ValueError, match="normalization_mask must be nonempty"):
         grouped_lineament_features(
-            features, {"signal": (0,)},
-            valid_mask=valid, normalization_mask=np.zeros((12, 12), dtype=bool),
+            features,
+            {"signal": (0,)},
+            valid_mask=valid,
+            normalization_mask=np.zeros((12, 12), dtype=bool),
         )
 
     # Wrong shape should fail
     with pytest.raises(ValueError, match="normalization_mask must match valid_mask shape"):
         grouped_lineament_features(
-            features, {"signal": (0,)},
-            valid_mask=valid, normalization_mask=np.ones((2, 2), dtype=bool),
+            features,
+            {"signal": (0,)},
+            valid_mask=valid,
+            normalization_mask=np.ones((2, 2), dtype=bool),
         )
 
     # Superset is now allowed (for two-pass CV where train and eval are disjoint)
     # This should not raise
     result, _ = grouped_lineament_features(
-        features, {"signal": (0,)},
-        valid_mask=valid, normalization_mask=np.ones((12, 12), dtype=bool),
+        features,
+        {"signal": (0,)},
+        valid_mask=valid,
+        normalization_mask=np.ones((12, 12), dtype=bool),
     )
     assert result.shape == (12, 12, 1)

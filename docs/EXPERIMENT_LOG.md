@@ -874,3 +874,51 @@ prediction rasters, which are (correctly) not committed.
 **Tests** (this VM): `351 → 357 passed, 10 skipped` — same skips as 10-12
 (`test_endpoint_extension.py` uncollectable: no skimage; 6 torch-half skips in
 the P1 suite).
+
+## 2026-10-14 — P2 wavelet-entropy lineament channel (step 9) queued
+
+**Rationale** (plan: lineament features; research execution order). The
+documented order in docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md is
+"P1 loss ablation; then P2 wavelet entropy; then P3 background loss." P1 is
+queued on the box (s7); P2 is the next CPU-buildable item and is independent
+of the s4–s6 verdicts, so it was implemented here and queued after step 8 —
+it never preempts live candidates.
+
+**What was built** (CPU-only, this VM; no training here):
+- `src/gems/lineament.py`: new `kind: wavelet_entropy`. Undecimated Haar
+  transform at `wavelet_levels` (default (1,2,3); dilation 2**(level-1)),
+  reflect padding (no wraparound), per-pixel detail energies
+  E_s = LH²+HL²+HH²; q_s = E_s/(ΣE+ε); H = −Σ q_s log(q_s+ε), H ≡ 0 where
+  total energy ~0, float-dust negatives clamped to 0. Per-band entropies
+  averaged across the group, fold-pure 99th-percentile normalization to
+  [0,1]. H ∈ [0, log L]: low for single-scale structure, high where detail
+  energy spreads across scales — the model learns the sign. Required buffer
+  = ceil(4σ) + max dilation = 8 px at defaults (fits buffer-16 protocol).
+  Two-pass norm reuse via `entropy_p99`; `wavelet_levels` validated
+  (integer-valued, 1–6, non-empty); metadata reports levels +
+  `undecimated_haar_detail_energy_entropy_across_scales`.
+- `configs/candidates/cand_wavelet_entropy.yaml`: protocol-equal to ref-b16
+  (buffer 16, seed 20260922, epochs 5, train_step 32); magnetic_data +
+  gravity_data only, per the P2 "start on raw magnetic/gravity bands" note.
+- `scripts/queue/tasks.json`: 78 → **88 tasks**. Step 9:
+  `s9-train/score/record-wavelet_entropy-{spatial,fault,trace}` (buffer 16,
+  fold maps cv-spatial-v1 / cv-fault-v1 / cv-trace-v1b) +
+  `s9-gate-wavelet_entropy-b16` → `CAND-WAVELET_ENTROPY-B16` vs
+  `runs/gate/ref-b16`. Hypothesis: pooled-spatial OOF gain with
+  fault/trace non-regression safeguards, per `verify_candidate` policy.
+- `tests/test_wavelet_entropy.py` (17 tests) + `wavelet_entropy` added to
+  the held-out-outlier leakage parametrize in `test_lineament_config.py` +
+  `test_wavelet_entropy_candidate_tasks_present` in `test_queue_tasks.py`.
+- `scripts/queue/README.md`: buffer table gains the wavelet_entropy row.
+
+**Tests** (this VM): `377 passed, 10 skipped` (up from 357/10 on 10-13;
+`test_endpoint_extension.py` still uncollectable — no skimage in VM venv,
+documented gap). `ruff check .` clean (CI gate); fixed one B023 (loop-bound
+closure) found during the run.
+
+**Scope notes**: no measured official-data scores — the verdict comes from
+the box queue's `verify_candidate` gate, not from this change. This is a
+candidate, not an incumbent. Next CPU items once box results land: read the
+s7 loss gate verdict (first live promotion candidate), the s8 seed-probe
+comparison, and the s4–s6 lineament rerun gates; P3 (background-loss
+treatment) is the following research item.

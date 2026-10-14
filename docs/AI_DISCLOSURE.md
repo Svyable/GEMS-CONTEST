@@ -707,3 +707,30 @@ are schema-1 and correctly not used for gating).
 No model training, raw data, checkpoints, submission artifacts, or leaderboard
 interaction involved; no competition data was read — analysis used only
 committed score JSONs and configs.
+
+## 2026-10-14 — P2 wavelet-entropy lineament channel (step 9) + queue tasks
+
+Cloud agent: implemented the P2 hypothesis from
+docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md as `kind: wavelet_entropy`
+in `src/gems/lineament.py` — an adaptation (not a reproduction) of Dwivedi
+(2026) wavelet-space entropy: undecimated Haar detail energies at
+wavelet_levels (default (1,2,3), dilation 2**(level-1)), per-pixel
+energy-share entropy H = -sum_s q_s log(q_s + eps) with H = 0 defined at
+zero total energy, fold-pure 99th-percentile normalization to [0,1], and a
+conservative required buffer of smoothing + max dilation (8 px at defaults,
+fits the buffer-16 protocol). Added `configs/candidates/cand_wavelet_entropy.yaml`
+(magnetic_data + gravity_data only, per the P2 "start on raw magnetic/gravity
+bands" instruction), `tests/test_wavelet_entropy.py` (17 tests: Haar energy
+properties, entropy bounds, step-edge localization, two-pass fold-pure reuse,
+invalid-pixel isolation, level/buffer/kwarg validation), extended the
+held-out-outlier leakage test to the new kind, appended 10 step-9 queue
+tasks (train/score/record × 3 views at buffer 16 + CAND-WAVELET_ENTROPY-B16
+gate vs runs/gate/ref-b16, queued after step 8 so live candidates are never
+preempted), added the step-9 integrity test, and updated the README buffer
+table. Full suite: 377 passed, 10 skipped (same documented skips as
+2026-10-13); `ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic rasters in the VM venv. Training/scoring/gating run on the box
+queue; the verdict will come from verify_candidate, not from this change.

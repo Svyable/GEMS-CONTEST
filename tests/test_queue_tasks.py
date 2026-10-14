@@ -4,6 +4,7 @@ Catches the classic queue-edit failure modes: typos in task ids/commands,
 configs that were renamed but not updated in the queue, and regressions in
 the train_folds.sh seed plumbing (the seed-robustness probe depends on it).
 """
+
 import json
 import re
 from pathlib import Path
@@ -50,8 +51,9 @@ def test_train_folds_forwards_seed():
     """
     text = (REPO / "scripts" / "queue" / "train_folds.sh").read_text()
     assert re.search(r"SEED=\$\{6:-20260922\}", text), "SEED default missing in train_folds.sh"
-    assert '--seed "$SEED"' in text or "--seed $SEED" in text, \
+    assert '--seed "$SEED"' in text or "--seed $SEED" in text, (
         "train_folds.sh does not forward SEED to train_full_map.py"
+    )
 
 
 def test_seed_probe_tasks_present():
@@ -63,3 +65,20 @@ def test_seed_probe_tasks_present():
     assert "configs/reference_unet.yaml" in train["cmd"], "probe must use the incumbent config"
     assert "s8-score-seed20260923-spatial" in by_id, "s8 score task missing"
     assert "s8-record-seed20260923-spatial" in by_id, "s8 record task missing"
+
+
+def test_wavelet_entropy_candidate_tasks_present():
+    """Step-9 P2 wavelet-entropy candidate: 3 views train/score/record + gate."""
+    by_id = {t["id"]: t for t in TASKS}
+    for view in ("spatial", "fault", "trace"):
+        for stage in ("train", "score", "record"):
+            task_id = f"s9-{stage}-wavelet_entropy-{view}"
+            assert task_id in by_id, f"{task_id} missing"
+        train = by_id[f"s9-train-wavelet_entropy-{view}"]
+        assert "configs/candidates/cand_wavelet_entropy.yaml" in train["cmd"]
+        assert " 16" in train["cmd"], "P2 candidate must run at buffer 16"
+        assert "20260923" not in train["cmd"], "P2 candidate keeps the incumbent seed"
+    gate = by_id.get("s9-gate-wavelet_entropy-b16")
+    assert gate is not None, "s9-gate-wavelet_entropy-b16 missing"
+    assert "CAND-WAVELET_ENTROPY-B16" in gate["cmd"]
+    assert "runs/gate/ref-b16" in gate["cmd"]
