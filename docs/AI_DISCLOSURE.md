@@ -734,3 +734,31 @@ No model training, raw data, checkpoints, submission artifacts, or leaderboard
 interaction involved; no competition data was read — all verification used
 synthetic rasters in the VM venv. Training/scoring/gating run on the box
 queue; the verdict will come from verify_candidate, not from this change.
+
+## 2026-10-15 — P3 background-softened Tversky loss (step 10) + queue tasks
+
+Cloud agent: implemented the P3 hypothesis from
+docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md as `loss: background_softened`
+in `src/gems/background_soften.py` — an adaptation (not a reproduction) of the
+incomplete-labels motivation in Needles in the Landscape (2025) and Zhao et al.
+ICCV 2023: an ambiguity band (Euclidean distance < `loss_ambiguity_radius_pixels`,
+default 3.0, matching the metric's ~3 px tolerance) around training-side truth
+only, where the false-positive penalty is downweighted by the fixed
+`loss_background_soften_factor` (default 0.5). TP/FN terms unchanged (no
+pseudolabeling), far background keeps full penalty (no flooding reward), truth
+outside the valid mask never defines the band, no wraparound at borders.
+Extended `build_training_loss` with the new dispatch, added
+`configs/candidates/cand_loss_background_soften.yaml` (protocol-equal to
+ref-b16), `tests/test_background_soften.py` (15 tests: band geometry,
+training-side-only band, param validation, factor=1.0 equals plain Tversky,
+softened-never-exceeds-control, torch/numpy agreement paths), the step-10
+queue-task integrity test, and appended 10 step-9-following queue tasks
+(train/score/record × 3 views at buffer 16 + CAND-LOSS_BACKGROUND_SOFTEN-B16
+gate vs runs/gate/ref-b16). Full suite: 390 passed, 13 skipped (same documented
+skips as 2026-10-14 plus 3 new torch tests skipped in the VM venv);
+`ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic rasters in the VM venv. Training/scoring/gating run on the box
+queue; the verdict will come from verify_candidate, not from this change.

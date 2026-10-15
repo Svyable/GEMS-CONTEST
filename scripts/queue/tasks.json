@@ -470,5 +470,55 @@
   "id": "s9-gate-wavelet_entropy-b16",
   "step": 9,
   "cmd": "/workspace/gems/queue/gate.sh CAND-WAVELET_ENTROPY-B16 runs/gate/ref-b16 runs/gate/cand-wavelet_entropy-b16 configs/candidates/cand_wavelet_entropy.yaml \"Incumbent + wavelet_entropy lineament channels (buffer 16, P2) beats the buffer-16 reference on pooled spatial with fault/trace non-regression.\""
+ },
+ {
+  "id": "s10-train-loss_background_soften-spatial",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_background_soften-spatial-b16 configs/candidates/cand_loss_background_soften.yaml spatial data/processed/cv-spatial-v1.tif 16"
+ },
+ {
+  "id": "s10-score-loss_background_soften-spatial",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_background_soften-spatial-b16 spatial data/processed/cv-spatial-v1.tif runs/gate/cand-loss_background_soften-b16"
+ },
+ {
+  "id": "s10-record-loss_background_soften-spatial",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_background_soften-spatial-b16 runs/cand-loss_background_soften-spatial-b16 configs/candidates/cand_loss_background_soften.yaml \"Reference U-Net recipe with P3 background-softened Tversky training loss (protocol-equal gate candidate, honest spatial CV at buffer 16).\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 16 --seed 20260922; loss: background_softened, ambiguity radius 3px, soften factor 0.5; fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s10-train-loss_background_soften-fault",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_background_soften-fault-b16 configs/candidates/cand_loss_background_soften.yaml fault data/processed/cv-fault-v1.tif 16"
+ },
+ {
+  "id": "s10-score-loss_background_soften-fault",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_background_soften-fault-b16 fault data/processed/cv-fault-v1.tif runs/gate/cand-loss_background_soften-b16"
+ },
+ {
+  "id": "s10-record-loss_background_soften-fault",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_background_soften-fault-b16 runs/cand-loss_background_soften-fault-b16 configs/candidates/cand_loss_background_soften.yaml \"Reference U-Net recipe with P3 background-softened Tversky training loss (protocol-equal gate candidate, honest spatial CV at buffer 16).\" \"train_full_map.py --cv-scheme fault --buffer-pixels 16 --seed 20260922; loss: background_softened, ambiguity radius 3px, soften factor 0.5; fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s10-train-loss_background_soften-trace",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_background_soften-trace-b16 configs/candidates/cand_loss_background_soften.yaml trace data/processed/cv-trace-v1b.tif 16"
+ },
+ {
+  "id": "s10-score-loss_background_soften-trace",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_background_soften-trace-b16 trace data/processed/cv-trace-v1b.tif runs/gate/cand-loss_background_soften-b16"
+ },
+ {
+  "id": "s10-record-loss_background_soften-trace",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_background_soften-trace-b16 runs/cand-loss_background_soften-trace-b16 configs/candidates/cand_loss_background_soften.yaml \"Reference U-Net recipe with P3 background-softened Tversky training loss (protocol-equal gate candidate, honest spatial CV at buffer 16).\" \"train_full_map.py --cv-scheme trace --buffer-pixels 16 --seed 20260922; loss: background_softened, ambiguity radius 3px, soften factor 0.5; fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s10-gate-loss_background_soften-b16",
+  "step": 10,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-LOSS_BACKGROUND_SOFTEN-B16 runs/gate/ref-b16 runs/gate/cand-loss_background_soften-b16 configs/candidates/cand_loss_background_soften.yaml \\\"Reference U-Net recipe with the P3 background-softened Tversky training loss (ambiguity radius 3 px, soften factor 0.5) beats the buffer-16 reference on pooled spatial OOF with fault/trace non-regression safeguards.\\\""
  }
 ]

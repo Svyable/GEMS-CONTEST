@@ -922,3 +922,61 @@ candidate, not an incumbent. Next CPU items once box results land: read the
 s7 loss gate verdict (first live promotion candidate), the s8 seed-probe
 comparison, and the s4–s6 lineament rerun gates; P3 (background-loss
 treatment) is the following research item.
+
+## 2026-10-15 — P3 background-softened Tversky loss (step 10) queued
+
+**Rationale** (plan: stronger segmentation via loss ablations; research execution
+order). The documented order in docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md
+is "P1 loss ablation; then P2 wavelet entropy; then P3 background loss." P1 is
+queued on the box (s7), P2 was built and queued 10-14 (s9); P3 is the next
+CPU-buildable item and is independent of the s4–s9 verdicts, so it was
+implemented here and queued after step 9 — it never preempts live candidates.
+
+**Motivation**: known fault labels are incomplete (unknown-fault discovery;
+geologist selection is not uniform), so plain Tversky treats every non-labeled
+pixel as hard background and over-penalizes plausible unmapped faults near
+known traces. The competition metric itself forgives near-truth predictions
+(300 m ≈ 3 px tolerance). P3 extends a milder version of that tolerance to
+training: background pixels within 3 px of *training-side* truth get their FP
+penalty downweighted x0.5; TP/FN terms unchanged (no pseudolabeling, nothing
+rewarded); background outside the band keeps full penalty (no flooding reward).
+
+**What was built** (CPU-only, this VM; no training here):
+- `src/gems/background_soften.py`: `ambiguity_weights` (per-pixel FP weight
+  map: 1.0 valid, `soften_factor` on the band, 0.0 invalid; truth outside the
+  valid mask never defines the band; Euclidean distance transform, no
+  wraparound), `softened_tversky_components` / `softened_tversky_loss_value`
+  NumPy references, `build_background_softened_loss` torch module
+  (`needs_spatial=True`, band built per-patch from `truth & valid` on CPU,
+  mirroring the P1 pattern). `soften_factor=1.0` reduces exactly to standard
+  soft Tversky; `soften_factor<1.0` can only lower the loss vs control.
+- `build_training_loss` (in `src/gems/distance_tversky.py`) dispatches the
+  new `loss: background_softened` with config keys `loss_ambiguity_radius_pixels`
+  (default 3.0) and `loss_background_soften_factor` (default 0.5), validated
+  at build time (radius > 0, factor in (0, 1]).
+- `configs/candidates/cand_loss_background_soften.yaml`: protocol-equal to
+  ref-b16 (buffer 16, seed 20260922, epochs 5, train_step 32); only the loss
+  differs, so the gate compares the background treatment, not budgets.
+- `scripts/queue/tasks.json`: 88 → **98 tasks**. Step 10:
+  `s10-train/score/record-loss_background_soften-{spatial,fault,trace}` +
+  `s10-gate-loss_background_soften-b16` → `CAND-LOSS_BACKGROUND_SOFTEN-B16` vs
+  `runs/gate/ref-b16`. Hypothesis: pooled-spatial OOF gain with fault/trace
+  non-regression safeguards, per `verify_candidate` policy.
+- `tests/test_background_soften.py` (15 tests: band geometry, training-side-only
+  band, empty-truth, invalid-zero weights, no wraparound, param validation,
+  factor=1.0 equals plain Tversky, softened ≤ control, monotone in factor,
+  far-background keeps full penalty, band-not-rewarded ordering, dispatcher
+  config flow + build-time validation, 3 torch tests skipped here) +
+  `test_background_soften_candidate_tasks_present` in `test_queue_tasks.py`.
+
+**Tests** (this VM): `390 passed, 13 skipped` (up from 377/10 on 10-14;
+`test_endpoint_extension.py` still uncollectable — no skimage in VM venv,
+documented gap; the 3 new torch tests skip here). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — the verdict comes from
+the box queue's `verify_candidate` gate, not from this change. This is a
+candidate, not an incumbent. When the gate verdict lands, run the P3 analysis
+the research doc asks for: report probability mass, FP cost, and class-prior
+sensitivity of the accepted/rejected candidate. Next CPU items once box
+results land: s7 loss gate verdict (first live promotion candidate), s8
+seed-probe comparison, s4–s6 lineament rerun gates, s9 wavelet-entropy gate.

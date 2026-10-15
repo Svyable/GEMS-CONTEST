@@ -280,6 +280,9 @@ def build_training_loss(config: dict):
     ``loss: tversky`` keeps the existing segmentation-models-pytorch Tversky
     loss. ``loss: distance_tversky`` returns the blended distance-aware loss,
     which requires the spatial batch structure (``needs_spatial=True``).
+    ``loss: background_softened`` returns the P3 background-softened Tversky
+    (FP penalty downweighted in the ambiguity band around training-side
+    truth), which also requires the spatial batch structure.
     """
     training = config.get("training", {})
     name = str(training.get("loss", "tversky")).lower()
@@ -297,6 +300,18 @@ def build_training_loss(config: dict):
                 radius_pixels=float(training.get("loss_radius_pixels", 3.0)),
                 blend_weight=float(training.get("loss_distance_weight", 0.5)),
                 halo_pixels=int(training.get("loss_halo_pixels", 0)),
+            ),
+            True,
+        )
+    if name == "background_softened":
+        from gems.background_soften import build_background_softened_loss
+
+        return (
+            build_background_softened_loss(
+                alpha=alpha,
+                beta=beta,
+                ambiguity_radius_pixels=float(training.get("loss_ambiguity_radius_pixels", 3.0)),
+                background_soften_factor=float(training.get("loss_background_soften_factor", 0.5)),
             ),
             True,
         )
