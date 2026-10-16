@@ -283,6 +283,9 @@ def build_training_loss(config: dict):
     ``loss: background_softened`` returns the P3 background-softened Tversky
     (FP penalty downweighted in the ambiguity band around training-side
     truth), which also requires the spatial batch structure.
+    ``loss: skeleton_recall`` returns the P5 skeleton-recall auxiliary loss
+    (control masked soft-Tversky plus a fixed-weight skeleton-recall term),
+    which also requires the spatial batch structure.
     """
     training = config.get("training", {})
     name = str(training.get("loss", "tversky")).lower()
@@ -312,6 +315,18 @@ def build_training_loss(config: dict):
                 beta=beta,
                 ambiguity_radius_pixels=float(training.get("loss_ambiguity_radius_pixels", 3.0)),
                 background_soften_factor=float(training.get("loss_background_soften_factor", 0.5)),
+            ),
+            True,
+        )
+    if name == "skeleton_recall":
+        from gems.skeleton_recall import build_skeleton_recall_loss
+
+        return (
+            build_skeleton_recall_loss(
+                alpha=alpha,
+                beta=beta,
+                skeleton_weight=float(training.get("loss_skeleton_weight", 0.25)),
+                skeleton_iterations=int(training.get("loss_skeleton_iterations", 5)),
             ),
             True,
         )

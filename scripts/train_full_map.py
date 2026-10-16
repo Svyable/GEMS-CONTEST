@@ -318,6 +318,10 @@ def main() -> int:
         "distance_weight": float(config["training"].get("loss_distance_weight", 0.5)),
         "radius_pixels": float(config["training"].get("loss_radius_pixels", 3.0)),
         "halo_pixels": int(config["training"].get("loss_halo_pixels", 0)),
+        "background_soften_factor": float(config["training"].get("loss_background_soften_factor", 0.5)),
+        "ambiguity_radius_pixels": float(config["training"].get("loss_ambiguity_radius_pixels", 3.0)),
+        "skeleton_weight": float(config["training"].get("loss_skeleton_weight", 0.25)),
+        "skeleton_iterations": int(config["training"].get("loss_skeleton_iterations", 5)),
     }
     transform = v2.Compose(
         [

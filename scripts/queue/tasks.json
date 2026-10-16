@@ -520,5 +520,55 @@
   "id": "s10-gate-loss_background_soften-b16",
   "step": 10,
   "cmd": "/workspace/gems/queue/gate.sh CAND-LOSS_BACKGROUND_SOFTEN-B16 runs/gate/ref-b16 runs/gate/cand-loss_background_soften-b16 configs/candidates/cand_loss_background_soften.yaml \\\"Reference U-Net recipe with the P3 background-softened Tversky training loss (ambiguity radius 3 px, soften factor 0.5) beats the buffer-16 reference on pooled spatial OOF with fault/trace non-regression safeguards.\\\""
+ },
+ {
+  "id": "s11-train-loss_skeleton_recall-spatial",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_skeleton_recall-spatial-b16 configs/candidates/cand_loss_skeleton_recall.yaml spatial data/processed/cv-spatial-v1.tif 16"
+ },
+ {
+  "id": "s11-score-loss_skeleton_recall-spatial",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_skeleton_recall-spatial-b16 spatial data/processed/cv-spatial-v1.tif runs/gate/cand-loss_skeleton_recall-b16"
+ },
+ {
+  "id": "s11-record-loss_skeleton_recall-spatial",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_skeleton_recall-spatial-b16 runs/cand-loss_skeleton_recall-spatial-b16 configs/candidates/cand_loss_skeleton_recall.yaml \"Reference U-Net recipe with P5 skeleton-recall auxiliary training loss (protocol-equal gate candidate, honest spatial CV at buffer 16).\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 16 --seed 20260922; loss: skeleton_recall (control masked soft-Tversky + 0.25 skeleton-recall aux, 5 skeleton iterations); fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s11-train-loss_skeleton_recall-fault",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_skeleton_recall-fault-b16 configs/candidates/cand_loss_skeleton_recall.yaml fault data/processed/cv-fault-v1.tif 16"
+ },
+ {
+  "id": "s11-score-loss_skeleton_recall-fault",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_skeleton_recall-fault-b16 fault data/processed/cv-fault-v1.tif runs/gate/cand-loss_skeleton_recall-b16"
+ },
+ {
+  "id": "s11-record-loss_skeleton_recall-fault",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_skeleton_recall-fault-b16 runs/cand-loss_skeleton_recall-fault-b16 configs/candidates/cand_loss_skeleton_recall.yaml \"Reference U-Net recipe with P5 skeleton-recall auxiliary training loss (protocol-equal gate candidate, honest spatial CV at buffer 16).\" \"train_full_map.py --cv-scheme fault --buffer-pixels 16 --seed 20260922; loss: skeleton_recall (control masked soft-Tversky + 0.25 skeleton-recall aux, 5 skeleton iterations); fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s11-train-loss_skeleton_recall-trace",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-loss_skeleton_recall-trace-b16 configs/candidates/cand_loss_skeleton_recall.yaml trace data/processed/cv-trace-v1.tif 16"
+ },
+ {
+  "id": "s11-score-loss_skeleton_recall-trace",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/score_view.sh runs/cand-loss_skeleton_recall-trace-b16 trace data/processed/cv-trace-v1.tif runs/gate/cand-loss_skeleton_recall-b16"
+ },
+ {
+  "id": "s11-record-loss_skeleton_recall-trace",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/record.sh cand-loss_skeleton_recall-trace-b16 runs/cand-loss_skeleton_recall-trace-b16 configs/candidates/cand_loss_skeleton_recall.yaml \"Reference U-Net recipe with P5 skeleton-recall auxiliary training loss (protocol-equal gate candidate, honest spatial CV at buffer 16).\" \"train_full_map.py --cv-scheme trace --buffer-pixels 16 --seed 20260922; loss: skeleton_recall (control masked soft-Tversky + 0.25 skeleton-recall aux, 5 skeleton iterations); fold-pure normalization; LOFO: queue/lofo_calibrate_view.py.\""
+ },
+ {
+  "id": "s11-gate-skeleton_recall-b16",
+  "step": 11,
+  "cmd": "/workspace/gems/queue/gate.sh CAND-SKELETON_RECALL-B16 runs/gate/ref-b16 runs/gate/cand-loss_skeleton_recall-b16 configs/candidates/cand_loss_skeleton_recall.yaml \\\"Reference U-Net recipe with the P5 skeleton-recall auxiliary training loss (control soft-Tversky + 0.25 skeleton-recall, 5 iterations) beats the buffer-16 reference on pooled spatial OOF with fault/trace non-regression safeguards.\\\""
  }
 ]

@@ -980,3 +980,81 @@ the research doc asks for: report probability mass, FP cost, and class-prior
 sensitivity of the accepted/rejected candidate. Next CPU items once box
 results land: s7 loss gate verdict (first live promotion candidate), s8
 seed-probe comparison, s4–s6 lineament rerun gates, s9 wavelet-entropy gate.
+
+## 2026-10-16 — P5 skeleton-recall auxiliary loss (step 11) queued
+
+**Rationale** (plan: stronger segmentation via loss ablations; research execution
+order). The documented order in docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md
+is "P1 loss ablation; then P2 wavelet entropy; then P3 background loss. Try
+P4/P5 only after their controls are measured." P1 is queued on the box (s7),
+P2 was built and queued 10-14 (s9), P3 was built and queued 10-15 (s10); the
+P4 control (straight endpoint extension) was measured and REJECTED 10-10
+(ENDPOINT-EXT-02, deltas ~1e-8 on all views -- the 300 m metric kernel
+saturates near-truth coverage, so post-hoc extension adds nothing). P5 is the
+next CPU-buildable item: it attacks the model itself rather than
+post-processing, and the plan prioritizes modeling improvements over lineament
+features. It was implemented here and queued after step 10 -- it never
+preempts live candidates.
+
+**Motivation**: Kirchhoff et al. Skeleton Recall Loss (2024) and the skeptical
+2025 follow-up ("Does the Skeleton-Recall Loss Really Work?") give conflicting
+empirical evidence on thin-structure segmentation; neither settles GEMS. Fault
+traces are 1-3 px thin structures and the metric is recall-heavy (beta=0.8),
+so a small matched auxiliary term rewarding skeleton recall along
+training-side traces is the honest way to test whether connectivity
+supervision helps. Connectivity stays a diagnostic: the gate still decides on
+pooled distance-weighted Tversky with fault/trace non-regression safeguards.
+
+**What was built** (CPU-only, this VM; no training here):
+- `src/gems/skeleton_recall.py`: `soft_skeletonize` -- white top-hat
+  `x - open(x)` plus Lantuejoul opening residues over K erosions, 3x3
+  min/max pooling, zero padding (no wraparound); exactly the morphological
+  skeleton on binary input, differentiable on soft predictions. The top-hat
+  term is load-bearing: pure Lantuejoul erosion annihilates sub-SE thin
+  structures, leaving zero gradient on exactly the pixels the recall term
+  samples; the top-hat preserves the thin-structure gradient path (a 1 px
+  predicted line skeletonizes to itself). `target_skeleton` from
+  `truth & valid` only (held-out fault/trace pixels never define the
+  target); recall term is 0.0 on patches with no truth skeleton (the
+  auxiliary must not invent signal). `build_skeleton_recall_loss` torch
+  module (`needs_spatial=True`): control masked soft-Tversky (alpha=0.2 /
+  beta=0.8, supervised pixels only) + `skeleton_weight` * skeleton recall.
+  With `skeleton_weight=0.0` it reduces exactly to the incumbent's training
+  objective. Note: unlike P1's module, the supervision mask is honored in
+  *both* terms here (P1's smp base term sees unmasked targets), keeping the
+  ablation matched to `loss: tversky`.
+- `build_training_loss` (in `src/gems/distance_tversky.py`) dispatches the
+  new `loss: skeleton_recall` with config keys `loss_skeleton_weight`
+  (default 0.25, validated in [0, 1]) and `loss_skeleton_iterations`
+  (default 5, validated integer in [1, 12]).
+- `configs/candidates/cand_loss_skeleton_recall.yaml`: protocol-equal to
+  ref-b16 (buffer 16, seed 20260922, epochs 5, train_step 32); only the loss
+  differs, so the gate compares the auxiliary loss, not budgets.
+- `scripts/queue/tasks.json`: 98 -> **108 tasks**. Step 11:
+  `s11-train/score/record-loss_skeleton_recall-{spatial,fault,trace}` +
+  `s11-gate-skeleton_recall-b16` -> `CAND-SKELETON_RECALL-B16` vs
+  `runs/gate/ref-b16`. Hypothesis: pooled-spatial OOF gain with
+  fault/trace non-regression safeguards, per `verify_candidate` policy.
+- `scripts/train_full_map.py`: `loss_descriptor` now records the
+  skeleton (and previously unrecorded P3 background-soften) loss params
+  for run-manifest reproducibility.
+- `tests/test_skeleton_recall.py` (15 tests: thin-line/thick-bar/empty/soft
+  skeleton geometry, no wraparound, monotonicity, binary training-side-only
+  target, perfect/broken/empty recall behavior, invalid-mask isolation,
+  weight=0 reduction to control, param validation, dispatcher routing, 5
+  torch tests skipped here: numpy/torch agreement, aux-term agreement,
+  gradient flow on thin structures, held-out exclusion) +
+  `test_skeleton_recall_candidate_tasks_present` in `test_queue_tasks.py`.
+
+**Tests** (this VM): `401 passed, 18 skipped` (up from 390/13 on 10-15;
+`test_endpoint_extension.py` still uncollectable -- no skimage in VM venv,
+documented gap; the 5 new torch tests skip here). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores -- the verdict comes from
+the box queue's `verify_candidate` gate, not from this change. This is a
+candidate, not an incumbent. When the gate verdict lands, run the P5 analysis
+the research doc implies: report connectivity/diagnostic behavior of the
+accepted/rejected candidate alongside the pending P3 probability-mass/FP-cost
+analysis. Next CPU items once box results land: s7 loss gate verdict (first
+live promotion candidate), s8 seed-probe comparison, s4-s6 lineament rerun
+gates, s9 wavelet-entropy gate, s10 background-soften gate.

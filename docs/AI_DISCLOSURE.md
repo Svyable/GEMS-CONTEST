@@ -762,3 +762,33 @@ No model training, raw data, checkpoints, submission artifacts, or leaderboard
 interaction involved; no competition data was read — all verification used
 synthetic rasters in the VM venv. Training/scoring/gating run on the box
 queue; the verdict will come from verify_candidate, not from this change.
+
+## 2026-10-16 — P5 skeleton-recall auxiliary loss (step 11) + queue tasks
+
+Cloud agent: implemented the P5 hypothesis from
+docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md as `loss: skeleton_recall`
+in `src/gems/skeleton_recall.py` — an adaptation (not a reproduction) of the
+conflicting 2024 Skeleton Recall Loss / skeptical 2025 follow-up literature:
+a soft morphological skeleton (white top-hat plus Lantuejoul opening residues,
+3x3 min/max pooling, zero padding, no wraparound; the top-hat term preserves
+the thin-structure gradient path that pure erosion would annihilate) with a
+fixed-weight recall term against the training-side truth skeleton, added to
+the control masked soft-Tversky (alpha=0.2/beta=0.8, supervised pixels only;
+weight=0.0 reduces exactly to the incumbent objective). Truth outside the
+valid mask never defines the target; the auxiliary contributes nothing on
+patches with no truth skeleton. Extended `build_training_loss` with the new
+dispatch, added `configs/candidates/cand_loss_skeleton_recall.yaml`
+(protocol-equal to ref-b16), `tests/test_skeleton_recall.py` (15 tests: thin
+skeleton geometry, training-side-only target, recall behavior, invalid-mask
+isolation, weight-0 reduction, torch/numpy agreement paths), the step-11
+queue-task integrity test, appended 10 step-11 queue tasks
+(train/score/record × 3 views at buffer 16 + CAND-SKELETON_RECALL-B16 gate vs
+runs/gate/ref-b16), and recorded the skeleton/P3 loss params in the
+train_full_map run manifest. Full suite: 401 passed, 18 skipped (same
+documented skips as 2026-10-15 plus 5 new torch tests skipped in the VM venv);
+`ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic rasters in the VM venv. Training/scoring/gating run on the box
+queue; the verdict will come from verify_candidate, not from this change.

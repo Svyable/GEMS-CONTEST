@@ -100,3 +100,21 @@ def test_background_soften_candidate_tasks_present():
     assert gate is not None, "s10-gate-loss_background_soften-b16 missing"
     assert "CAND-LOSS_BACKGROUND_SOFTEN-B16" in gate["cmd"]
     assert "runs/gate/ref-b16" in gate["cmd"]
+
+
+def test_skeleton_recall_candidate_tasks_present():
+    """Step-11 P5 skeleton-recall auxiliary loss candidate: 3 views train/score/record + gate."""
+    by_id = {t["id"] for t in TASKS}
+    ids = {t["id"]: t for t in TASKS}
+    for view in ("spatial", "fault", "trace"):
+        for stage in ("train", "score", "record"):
+            task_id = f"s11-{stage}-loss_skeleton_recall-{view}"
+            assert task_id in by_id, f"{task_id} missing"
+        train = ids[f"s11-train-loss_skeleton_recall-{view}"]
+        assert "configs/candidates/cand_loss_skeleton_recall.yaml" in train["cmd"]
+        assert " 16" in train["cmd"], "P5 candidate must run at buffer 16"
+        assert "20260923" not in train["cmd"], "P5 candidate keeps the incumbent seed"
+    gate = ids.get("s11-gate-skeleton_recall-b16")
+    assert gate is not None, "s11-gate-skeleton_recall-b16 missing"
+    assert "CAND-SKELETON_RECALL-B16" in gate["cmd"]
+    assert "runs/gate/ref-b16" in gate["cmd"]

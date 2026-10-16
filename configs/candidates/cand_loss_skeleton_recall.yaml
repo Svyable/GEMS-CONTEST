@@ -1,0 +1,66 @@
+# LOCAL CANDIDATE: configs/reference_unet.yaml (incumbent, unchanged) with the training
+# loss replaced by the P5 skeleton-recall auxiliary loss (docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md).
+# Everything else (model, seed, epochs, train_step, buffer, augmentation) is identical to the
+# incumbent so the gate compares the auxiliary loss, not budgets.
+# Parameters transcribed from the organizer's public reference notebook.
+# This is the reproduction target, not our preferred validation design.
+seed_sequence: [0, 10, 20, 30, 40]
+monte_carlo_iterations: 5
+data:
+  organizer_reference_feature_filename: numeric_features.tif
+  competition_page_feature_filename: training_features.tif
+  labels_filename: labels.tif
+  # Actual DrivenData download names. Do not rename the files.
+  local_feature_filename: gems-geodawn-numerical-features.tif
+  local_labels_filename: existing_faults.tif
+  local_submission_template_filename: example_submission.tif
+  local_dem_links_filename: tnm_items.json
+  normalization: per_channel_minmax_over_full_raster
+  use_all_channels: true
+patches:
+  patch_size: 128
+  train_step: 32
+  test_proportion: 0.5
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
+training:
+  epochs: 5
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: skeleton_recall
+  alpha: 0.2
+  beta: 0.8
+  # Both parameters are FIXED before evaluation (P5 acceptance experiment).
+  # Tune only inside training folds if a follow-up experiment justifies it.
+  # The weight is modest: the auxiliary term is a connectivity diagnostic,
+  # not a replacement for the control soft-Tversky (the base term is the
+  # incumbent loss restricted to supervised pixels; weight=0.0 reduces
+  # exactly to it). 5 iterations skeletonize structures up to ~11 px wide;
+  # fault traces are 1-3 px, and the top-hat term preserves sub-SE thin
+  # structures with a live gradient path.
+  loss_skeleton_weight: 0.25
+  loss_skeleton_iterations: 5
+augmentation:
+  random_resized_crop:
+    scale: [0.5, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30
+notes:
+  - The organizer baseline randomly holds out non-overlapping positive patches.
+  - Its full-raster min/max normalization leaks global feature statistics across folds.
+  - Reproduce it first, then use spatial/fault-discovery CV for model selection.
+  - P5 hypothesis (docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md): the
+    2024 Skeleton Recall Loss and the skeptical 2025 follow-up give
+    conflicting evidence on thin-structure segmentation; neither settles
+    GEMS. This candidate adds a small matched auxiliary term rewarding
+    skeleton recall along training-side fault traces, promoting
+    connectivity the recall-heavy (beta=0.8) metric rewards. The gate
+    decides on pooled distance-weighted Tversky with fault/trace
+    non-regression safeguards.
