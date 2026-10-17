@@ -1,0 +1,60 @@
+# LOCAL CANDIDATE: configs/reference_unet.yaml (incumbent recipe) with the
+# training schedule doubled from 5 to 10 epochs
+# (docs/STRATEGY.md Phase 1 "longer schedules"; research doc P0 "finish the
+# adequately trained baseline").
+# Everything else (model, loss, seed, train_step, buffer, augmentation) is
+# identical to the incumbent so the comparison tests schedule length, not
+# budgets or losses.
+# NOTE: scripts/verify_candidate.py deliberately refuses epoch mismatches
+# ("training protocol differs: epochs"), so this candidate is compared with
+# scripts/compare_schedule.py (paired fold-by-fold, raw + LOFO-calibrated)
+# instead of gate.sh. If 10 epochs win, the 10-epoch reference becomes the
+# incumbent and future loss candidates get re-baselined at 10 epochs.
+seed_sequence: [0, 10, 20, 30, 40]
+monte_carlo_iterations: 5
+data:
+  organizer_reference_feature_filename: numeric_features.tif
+  competition_page_feature_filename: training_features.tif
+  labels_filename: labels.tif
+  # Actual DrivenData download names. Do not rename the files.
+  local_feature_filename: gems-geodawn-numerical-features.tif
+  local_labels_filename: existing_faults.tif
+  local_submission_template_filename: example_submission.tif
+  local_dem_links_filename: tnm_items.json
+  normalization: per_channel_minmax_over_full_raster
+  use_all_channels: true
+patches:
+  patch_size: 128
+  train_step: 32
+  test_proportion: 0.5
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
+training:
+  epochs: 10
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.5, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30
+notes:
+  - The organizer baseline randomly holds out non-overlapping positive patches.
+  - Its full-raster min/max normalization leaks global feature statistics across folds.
+  - Reproduce it first, then use spatial/fault-discovery CV for model selection.
+  - "Schedule hypothesis: 5 epochs may underfit the fault signal (research doc
+    P0 item 1 flags the baseline as not yet adequately trained). Doubling the
+    schedule to 10 epochs with the incumbent loss tests whether training
+    budget alone moves the pooled spatial OOF score, with fault/trace
+    non-regression safeguards. Paired folds, identical seed (20260922),
+    so fold-by-fold deltas are directly comparable."

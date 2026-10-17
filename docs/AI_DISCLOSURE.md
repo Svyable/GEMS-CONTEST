@@ -792,3 +792,33 @@ No model training, raw data, checkpoints, submission artifacts, or leaderboard
 interaction involved; no competition data was read — all verification used
 synthetic rasters in the VM venv. Training/scoring/gating run on the box
 queue; the verdict will come from verify_candidate, not from this change.
+
+## 2026-10-17 — 10-epoch longer-schedule reference (step 12) + manual compare script
+
+Cloud agent: built the "longer schedules" item from docs/STRATEGY.md Phase 1
+(research doc P0 "finish the adequately trained baseline"): added
+`configs/candidates/cand_longer_schedule.yaml` — the incumbent reference
+recipe with training epochs doubled 5 -> 10, everything else
+(data/patches/model/augmentation/seed) identical so the comparison isolates
+schedule length. The acceptance gate refuses epoch mismatches by design, so
+also wrote `scripts/compare_schedule.py` (CPU-only paired comparison of two
+gate dirs: requires identical evaluation protocol and identical
+seed/buffer/train_step/fold map with exactly the epochs field differing;
+reports paired fold-by-fold raw deltas plus LOFO-calibrated deltas from
+lofo-*.json summaries; writes nothing, no ledger, no verdict) and
+`scripts/queue/compare_schedule.sh` (assembles raw + LOFO dirs from the
+per-view run dirs on the box). Added `tests/test_longer_schedule.py` (8
+tests: config epochs/loss, protocol-equality modulo epochs, compare script
+delta reporting, refusal of equal epochs / seed mismatch / fold mismatch,
+missing-view tolerance), the step-12 queue-task integrity test, and appended
+10 step-12 queue tasks (train/score/record x 3 views at buffer 16 +
+s12-compare-longer_schedule-b16 vs runs/gate/ref-b16). Full suite: 409
+passed, 18 skipped (same documented skips as 2026-10-16; the
+test_endpoint_extension.py skimage import remains a VM-venv gap); `ruff
+check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic JSONs/rasters in the VM venv. Training/scoring run on the box
+queue; the schedule verdict comes from the manual compare task, not from
+this change.

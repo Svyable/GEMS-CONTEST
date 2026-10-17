@@ -118,3 +118,28 @@ def test_skeleton_recall_candidate_tasks_present():
     assert gate is not None, "s11-gate-skeleton_recall-b16 missing"
     assert "CAND-SKELETON_RECALL-B16" in gate["cmd"]
     assert "runs/gate/ref-b16" in gate["cmd"]
+
+
+def test_longer_schedule_candidate_tasks_present():
+    """Step-12 longer-schedule reference: 3 views train/score/record + manual compare.
+
+    The acceptance gate refuses epoch mismatches by design, so step 12 ends
+    with scripts/compare_schedule.py instead of gate.sh.
+    """
+    by_id = {t["id"] for t in TASKS}
+    ids = {t["id"]: t for t in TASKS}
+    for view in ("spatial", "fault", "trace"):
+        for stage in ("train", "score", "record"):
+            task_id = f"s12-{stage}-longer_schedule-{view}"
+            assert task_id in by_id, f"{task_id} missing"
+        train = ids[f"s12-train-longer_schedule-{view}"]
+        assert "configs/candidates/cand_longer_schedule.yaml" in train["cmd"]
+        assert " 16" in train["cmd"], "schedule candidate must run at buffer 16"
+        assert "20260923" not in train["cmd"], "schedule candidate keeps the incumbent seed"
+    compare = ids.get("s12-compare-longer_schedule-b16")
+    assert compare is not None, "s12-compare-longer_schedule-b16 missing"
+    assert "/workspace/gems/queue/compare_schedule.sh" in compare["cmd"]
+    assert "runs/gate/ref-b16" in compare["cmd"]
+    assert "runs/gate/cand-longer_schedule-b16" in compare["cmd"]
+    assert "gate.sh" not in compare["cmd"], "epoch-mismatched runs must not go through gate.sh"
+    assert sum(1 for t in TASKS if t.get("step") == 12) == 10

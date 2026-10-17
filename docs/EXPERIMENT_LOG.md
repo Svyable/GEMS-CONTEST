@@ -1058,3 +1058,45 @@ accepted/rejected candidate alongside the pending P3 probability-mass/FP-cost
 analysis. Next CPU items once box results land: s7 loss gate verdict (first
 live promotion candidate), s8 seed-probe comparison, s4-s6 lineament rerun
 gates, s9 wavelet-entropy gate, s10 background-soften gate.
+
+## 2026-10-17 — 10-epoch longer-schedule reference (step 12) queued
+
+**Rationale** (plan: stronger segmentation via "longer schedules",
+STRATEGY.md Phase 1; research doc P0 item 1 flags the baseline as not yet
+adequately trained). The incumbent reference ran 5 epochs; no evidence yet
+whether that schedule underfits. All loss candidates (s7 P1, s10 P3, s11 P5)
+were queued protocol-equal at 5 epochs, so if a longer schedule wins, future
+gates re-baseline at 10 epochs.
+
+**What was built** (CPU-only, this VM; no training here):
+- `configs/candidates/cand_longer_schedule.yaml`: incumbent reference recipe
+  with `training.epochs: 5 -> 10`; data/patches/model/augmentation/seed
+  identical to `configs/reference_unet.yaml`, `loss: tversky` (alpha=0.2 /
+  beta=0.8). The comparison isolates schedule length, not budget or loss.
+- `scripts/compare_schedule.py` + `scripts/queue/compare_schedule.sh`: the
+  acceptance gate refuses epoch mismatches by design ("training protocol
+  differs: epochs"), so this performs the paired manual comparison — raw
+  fold-by-fold deltas from the gate JSONs plus LOFO-calibrated deltas from
+  `lofo-*.json` summaries, requiring identical evaluation protocol and
+  identical seed/buffer/train_step/fold map with exactly the epochs field
+  differing; writes nothing, no ledger, no verdict.
+- `scripts/queue/tasks.json`: 108 -> **118 tasks**. Step 12:
+  `s12-train/score/record-longer_schedule-{spatial,fault,trace}` +
+  `s12-compare-longer_schedule-b16` (manual paired compare vs
+  `runs/gate/ref-b16`, raw + LOFO).
+- `tests/test_longer_schedule.py` (8 tests: config epochs/loss,
+  protocol-equality modulo epochs, compare delta reporting, refusal of
+  equal epochs / seed mismatch / fold mismatch, missing-view tolerance) +
+  `test_longer_schedule_candidate_tasks_present` in `test_queue_tasks.py`.
+
+**Tests** (this VM): `409 passed, 18 skipped` (up from 401/18 on 10-16;
+`test_endpoint_extension.py` still uncollectable — no skimage in VM venv,
+documented gap). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — the schedule verdict
+comes from the box queue's manual compare task, not from this change. If the
+10-epoch reference wins the paired comparison, it becomes the incumbent and
+the loss candidates (s7/s10/s11) are candidates for 10-epoch re-baselining.
+Next CPU items once box results land: s7 loss gate verdict, s8 seed-probe
+comparison, s4–s6 lineament rerun gates, s9–s11 candidate gates, s12 schedule
+comparison.
