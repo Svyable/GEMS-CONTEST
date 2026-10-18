@@ -822,3 +822,27 @@ interaction involved; no competition data was read — all verification used
 synthetic JSONs/rasters in the VM venv. Training/scoring run on the box
 queue; the schedule verdict comes from the manual compare task, not from
 this change.
+
+## 2026-10-18 — P4 curved continuation candidate (step 13)
+
+Authored `src/gems/curved_continuation.py` (numpy-only: Zhang–Suen thinning,
+skeleton endpoint finding, PCA endpoint orientation, curvature-prior beam-search
+path growth with a per-pixel support floor, and decaying painting anchored at
+the skeleton threshold), `scripts/extend_endpoints_curved.py` (rasterio CLI),
+`scripts/queue/curved_view.sh` (per-fold application with LOFO thresholds,
+mirroring endpoint_view.sh), and `configs/candidates/cand_curved_continuation.yaml`
+(incumbent recipe + fixed post-processing budgets: 300 m, curvature penalty
+0.5, beam 3, min_prob 0.3, support_threshold 0.4, max 200 paths). Added
+`tests/test_curved_continuation.py` (37 tests: thinning/endpoint/orientation
+behavior, path growth along corridors, support-gap stopping, curvature-penalty
+effect, valid-mask respect, unsupported-bridge rejection, paint decay bounds,
+param validation), the --help smoke test, the step-13 queue-task integrity
+test, and appended 4 step-13 queue tasks (curved post-process + score x 3 views
+at buffer 16 + s13-gate-curved_continuation-b16 vs runs/gate/ref-b16). Full
+suite: 448 passed, 18 skipped (same documented skips; test_endpoint_extension.py
+skimage import remains a VM-venv gap); `ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic rasters in the VM venv. Training/scoring run on the box queue; the
+P4 verdict comes from the gate task, not from this change.

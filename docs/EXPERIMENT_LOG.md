@@ -1100,3 +1100,71 @@ the loss candidates (s7/s10/s11) are candidates for 10-epoch re-baselining.
 Next CPU items once box results land: s7 loss gate verdict, s8 seed-probe
 comparison, s4–s6 lineament rerun gates, s9–s11 candidate gates, s12 schedule
 comparison.
+
+## 2026-10-18 — P4 curved continuation candidate (step 13) queued
+
+**Rationale** (plan: stronger segmentation via post-processing ablations;
+research execution order). The documented order in
+docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md is "P1 loss ablation; then
+P2 wavelet entropy; then P3 background loss" and "Try P4/P5 only after their
+controls are measured." P1 is queued on the box (s7), P2 was built and queued
+10-14 (s9), P3 on 10-15 (s10), P5 on 10-16 (s11), and the P4 control —
+straight endpoint extension (ENDPOINT-EXT-02) — was measured and REJECTED on
+10-10 (deltas ~1e-7–1e-8 vs the 1.5x promotion margin), so P4 is the next
+CPU-buildable item and is independent of the s7–s12 verdicts. It never
+preempts live candidates.
+
+**Motivation**: beta=0.8 is recall-heavy, so recovering missed continuations
+is cheap IF the added pixels are support-backed. Straight extension added
+nothing; curvature-prior geodesic paths (Chen et al., 2023) bend toward
+probability support, testing whether continuations the straight version
+missed recover under a curvature prior instead of a straight-line prior.
+
+**What was built** (CPU-only, this VM; no training here):
+- `src/gems/curved_continuation.py`: numpy-only (no skimage, so its tests run
+  on this VM — unlike test_endpoint_extension.py). Zhang–Suen thinning,
+  skeleton endpoint finding, PCA endpoint orientation pointed away from the
+  body, and a beam-search path grower: per-step cost
+  `-log(p) + curvature_penalty * turn²`, turns limited to ±45°/step (the
+  curvature prior), growth stops at `p < min_prob` (unsupported bridges are
+  never grown), longest-then-cheapest accepted path. Fixed budgets per the
+  research doc ("fix endpoint/path budgets and penalize unsupported
+  bridges"): `max_paths` (200), `max_extension_m` (300 m = the metric's own
+  tolerance radius), `support_threshold` (finished-path mean must clear it or
+  the whole path is discarded), `min_path_length`. Painted values are
+  anchored at the skeleton threshold with exponential decay and never exceed
+  it or overwrite higher model probability — the candidate promotes weak
+  continuations to the skeleton level only, it cannot erase predictions.
+- `scripts/extend_endpoints_curved.py`: rasterio CLI mirroring
+  `extend_endpoints.py` (all budgets as flags).
+- `scripts/queue/curved_view.sh`: per-fold application with that fold's LOFO
+  skeleton threshold (fit without its labels), mirroring endpoint_view.sh.
+- `configs/candidates/cand_curved_continuation.yaml`: incumbent recipe +
+  fixed postprocessing budgets (curvature_penalty 0.5, beam 3, min_prob 0.3,
+  support_threshold 0.4, min_path_length 3, max_paths 200, decay 0.15).
+- `scripts/queue/tasks.json`: 118 -> **122 tasks**. Step 13 (mirrors the
+  proven step-3 post-processing shape, 4 tasks):
+  `s13-curved-{spatial,fault,trace}` (curved_view.sh on the b16 incumbent
+  fold maps `runs/ref-cv-*-full` + score_view.sh into
+  `runs/gate/cand-curved_continuation-b16`) +
+  `s13-gate-curved_continuation-b16` -> `CAND-CURVED_CONTINUATION-B16` vs
+  `runs/gate/ref-b16`.
+- Tests: `tests/test_curved_continuation.py` (37: thinning/endpoint/
+  orientation, corridor growth, support-gap stopping, curvature-penalty
+  effect on bend-following, valid-mask respect, unsupported-bridge rejection,
+  paint decay bounds, param validation) + `--help` smoke test +
+  `test_curved_continuation_candidate_tasks_present` in test_queue_tasks.py +
+  curved_view.sh row in the queue README.
+
+**Tests** (this VM): `448 passed, 18 skipped` (up from 409/18 on 10-17;
+`test_endpoint_extension.py` still uncollectable — no skimage in VM venv,
+documented gap). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — the verdict comes from
+the box queue's `verify_candidate` gate, not from this change. This is a
+candidate, not an incumbent. Next CPU items once box results land: s7 loss
+gate verdict (first live promotion candidate), s8 seed-probe comparison,
+s4–s6 lineament rerun gates, s9–s12 candidate gates/schedule comparison, and
+now the s13 P4 gate. Remaining research-doc items after this: none queued —
+the doc's P1–P5 execution order is fully built out; the next CPU step after
+box verdicts is interpreting gates, not new candidates.

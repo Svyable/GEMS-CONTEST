@@ -143,3 +143,28 @@ def test_longer_schedule_candidate_tasks_present():
     assert "runs/gate/cand-longer_schedule-b16" in compare["cmd"]
     assert "gate.sh" not in compare["cmd"], "epoch-mismatched runs must not go through gate.sh"
     assert sum(1 for t in TASKS if t.get("step") == 12) == 10
+
+
+def test_curved_continuation_candidate_tasks_present():
+    """Step-13 P4 curved-continuation candidate: post-process × 3 views + gate.
+
+    Post-processing candidates (like the straight-extension control in step 3)
+    need no train/record tasks: they apply curved_view.sh to the incumbent's
+    buffer-16 fold maps, score them, then run the standard gate.
+    """
+    by_id = {t["id"] for t in TASKS}
+    ids = {t["id"]: t for t in TASKS}
+    for view in ("spatial", "fault", "trace"):
+        task_id = f"s13-curved-{view}"
+        assert task_id in by_id, f"{task_id} missing"
+        cmd = ids[task_id]["cmd"]
+        assert "/workspace/gems/queue/curved_view.sh" in cmd
+        assert f"runs/ref-cv-{view}-full" in cmd, "must post-process the b16 incumbent maps"
+        assert f"runs/curved-cv-{view}-full" in cmd
+        assert "runs/gate/cand-curved_continuation-b16" in cmd
+    gate = ids.get("s13-gate-curved_continuation-b16")
+    assert gate is not None, "s13-gate-curved_continuation-b16 missing"
+    assert "CAND-CURVED_CONTINUATION-B16" in gate["cmd"]
+    assert "runs/gate/ref-b16" in gate["cmd"]
+    assert "configs/candidates/cand_curved_continuation.yaml" in gate["cmd"]
+    assert sum(1 for t in TASKS if t.get("step") == 13) == 4

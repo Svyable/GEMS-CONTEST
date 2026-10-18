@@ -1,0 +1,67 @@
+# CANDIDATE: configs/reference_unet.yaml (incumbent recipe, unchanged) +
+# P4 orientation-aware curved-continuation post-processing applied to the
+# incumbent's fold prediction rasters (no retraining). Research:
+# docs/research/METRIC_AWARE_RESEARCH_2026-10-10.md §P4-P5 (Chen et al.,
+# curvature-prior geodesic paths, 2023). The straight endpoint-extension
+# control (ENDPOINT-EXT-02) was measured and REJECTED, so this is the
+# curvature-prior successor candidate, gated against the same incumbent.
+seed_sequence: [0, 10, 20, 30, 40]
+monte_carlo_iterations: 5
+data:
+  organizer_reference_feature_filename: numeric_features.tif
+  competition_page_feature_filename: training_features.tif
+  labels_filename: labels.tif
+  # Actual DrivenData download names. Do not rename the files.
+  local_feature_filename: gems-geodawn-numerical-features.tif
+  local_labels_filename: existing_faults.tif
+  local_submission_template_filename: example_submission.tif
+  local_dem_links_filename: tnm_items.json
+  normalization: per_channel_minmax_over_full_raster
+  use_all_channels: true
+patches:
+  patch_size: 128
+  train_step: 32
+  test_proportion: 0.5
+model:
+  family: unet
+  library: segmentation_models_pytorch
+  encoder: resnet18
+  encoder_weights: imagenet
+  classes: 1
+training:
+  epochs: 5
+  batch_size: 32
+  optimizer: adamw
+  learning_rate: 0.0001
+  loss: tversky
+  alpha: 0.2
+  beta: 0.8
+augmentation:
+  random_resized_crop:
+    scale: [0.5, 1.0]
+    ratio: [0.75, 1.33]
+  horizontal_flip_probability: 0.5
+  vertical_flip_probability: 0.5
+  random_rotation_degrees: 30
+postprocessing:
+  curved_continuation:
+    enabled: true
+    # Fixed budgets (research doc: fix endpoint/path budgets, penalize
+    # unsupported bridges). Defaults mirror src/gems/curved_continuation.py.
+    max_extension_m: 300.0
+    curvature_penalty: 0.5
+    beam_width: 3
+    min_prob: 0.3
+    support_threshold: 0.4
+    min_path_length: 3
+    max_paths: 200
+    decay_rate: 0.15
+    # Skeleton threshold per fold = that fold's LOFO threshold (fit without
+    # its labels), same as the straight-extension control.
+    threshold_source: lofo_per_fold
+notes:
+  - Applied as post-processing to the buffer-16 incumbent fold maps
+    (runs/ref-cv-{spatial,fault,trace}-full), same base as ENDPOINT-EXT-02.
+  - Painted values never exceed the skeleton threshold and never overwrite
+    higher model probability: the candidate promotes weak continuations to
+    the skeleton level only.

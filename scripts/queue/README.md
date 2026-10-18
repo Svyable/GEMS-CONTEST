@@ -11,6 +11,8 @@ Resumable CPU-based experiment queue runner and helper scripts for GEMS competit
 - **score_view.sh**: Score a completed fold-map experiment for one CV view.
 - **lofo_calibrate_view.py**: Leave-one-fold-out exact-threshold calibration. For fold k, finds the threshold that maximizes mean score over the other 4 folds, then evaluates once on fold k.
 - **endpoint_view.sh**: Apply endpoint extension to fold predictions.
+- **curved_view.sh**: Apply P4 curved continuation to fold predictions (same
+  per-fold LOFO skeleton thresholds as endpoint_view.sh).
 - **gate.sh**: Apply the propose-and-verify gate to a candidate.
 - **record.sh**: Create a run manifest with provenance metadata.
 

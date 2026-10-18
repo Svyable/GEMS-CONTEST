@@ -72,3 +72,17 @@ def test_script_help_lofo_calibrate():
     assert result.returncode != 0, "lofo_calibrate.py should fail without args"
     # Should show traceback or usage (checks it's importable)
     assert len(result.stderr) > 0 or "IndexError" in result.stderr
+
+
+def test_script_help_extend_endpoints_curved():
+    """extend_endpoints_curved.py --help should succeed (catches import errors)."""
+    script = Path(__file__).parent.parent / "scripts" / "extend_endpoints_curved.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    assert result.returncode == 0, f"--help failed:\n{result.stderr}"
+    assert "curved" in result.stdout.lower()
