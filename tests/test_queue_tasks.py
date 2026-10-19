@@ -67,6 +67,19 @@ def test_seed_probe_tasks_present():
     assert "s8-record-seed20260923-spatial" in by_id, "s8 record task missing"
 
 
+def test_seed_compare_task_present():
+    """Step-14 seed-probe paired comparison: seed is the only tolerated
+    protocol difference, so the probe never passes through gate.sh."""
+    by_id = {t["id"]: t for t in TASKS}
+    compare = by_id.get("s14-compare-seed20260923-b16")
+    assert compare is not None, "s14-compare-seed20260923-b16 missing"
+    assert "/workspace/gems/queue/compare_seed.sh" in compare["cmd"]
+    assert "runs/gate/ref-b16" in compare["cmd"], "incumbent side is ref-b16"
+    assert "runs/gate/ref-seed20260923-b16" in compare["cmd"], "candidate side is the probe gate dir"
+    assert "gate.sh" not in compare["cmd"], "seed-mismatched runs must not go through gate.sh"
+    assert compare.get("step") == 14
+
+
 def test_wavelet_entropy_candidate_tasks_present():
     """Step-9 P2 wavelet-entropy candidate: 3 views train/score/record + gate."""
     by_id = {t["id"]: t for t in TASKS}

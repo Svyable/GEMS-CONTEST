@@ -640,5 +640,11 @@
     "id": "s13-gate-curved_continuation-b16",
     "step": 13,
     "cmd": "/workspace/gems/queue/gate.sh CAND-CURVED_CONTINUATION-B16 runs/gate/ref-b16 runs/gate/cand-curved_continuation-b16 configs/candidates/cand_curved_continuation.yaml \"P4 orientation-aware curved continuation (curvature-prior beam search, 300 m budget, support floor 0.3, unsupported-bridge rejection) on buffer-16 reference OOF maps improves pooled spatial distance-weighted Tversky vs ref-b16 with fault/trace non-regression safeguards.\""
+  },
+  {
+    "id": "s14-compare-seed20260923-b16",
+    "step": 14,
+    "cmd": "/workspace/gems/queue/compare_seed.sh runs/gate/ref-b16 runs/gate/ref-seed20260923-b16 runs/ref-cv runs/ref-cv-spatial-b16-seed20260923 \"Seed-robustness probe: reference U-Net at seed 20260923 vs incumbent seed 20260922, paired fold-by-fold (manual: verify_candidate refuses seed mismatches). Quantifies the training-seed noise behind the pooled-spatial gate's fold-std promotion margin.\"",
+    "note": "Paired manual comparison for the step-8 seed probe: requires every evaluation + training protocol field to match except seed, reports raw and LOFO-calibrated paired deltas with the seed-effect std. Spatial only (step 8 ran spatial only); other views skipped. Writes nothing, no ledger, no verdict -- human decides whether the single-seed watch item can be retired."
   }
 ]

@@ -846,3 +846,24 @@ No model training, raw data, checkpoints, submission artifacts, or leaderboard
 interaction involved; no competition data was read — all verification used
 synthetic rasters in the VM venv. Training/scoring run on the box queue; the
 P4 verdict comes from the gate task, not from this change.
+
+## 2026-10-19 — Seed-probe comparison tooling (step 14) + paired manual compare script
+
+Authored `scripts/compare_seed.py` and `scripts/queue/compare_seed.sh`
+(specifying the comparison the gate refuses by design: seed is the ONLY
+tolerated training-protocol difference). Added `tests/test_compare_seed.py`
+(8 tests: paired delta reporting + seed-effect std, spatial-only probe with
+missing-view skip, refusal of equal seeds / a second differing field / fold
+mismatch / invalid scores / missing protocol fields, no-LOFO skip, shell
+executable check) and the s14 queue-task presence test in
+`tests/test_queue_tasks.py`. Appended step-14 queue task
+`s14-compare-seed20260923-b16` (script compares runs/gate/ref-b16 against
+runs/gate/ref-seed20260923-b16 with both LOFO summaries; writes nothing, no
+ledger, no verdict -- a human decides whether the single-seed watch item can
+be retired). Queue 122 -> 123 tasks.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read -- all verification used
+synthetic JSON fixtures in the VM venv. Training/scoring run on the box
+queue; the seed-variance answer comes from the step-14 task once the step-8
+probe trains, not from this change.

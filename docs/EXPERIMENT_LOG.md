@@ -1168,3 +1168,49 @@ s4–s6 lineament rerun gates, s9–s12 candidate gates/schedule comparison, and
 now the s13 P4 gate. Remaining research-doc items after this: none queued —
 the doc's P1–P5 execution order is fully built out; the next CPU step after
 box verdicts is interpreting gates, not new candidates.
+
+## 2026-10-19 — Seed-probe paired comparison tooling (step 14)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md). The 10-13 seed-robustness
+probe (step 8) retrains the incumbent reference at seed 20260923, but its
+comparison was left as an ad-hoc "manual side-by-side" — the propose-and-verify
+gate refuses seed mismatches by design, so the probe had no standardized,
+tested interpretation. The pooled-spatial gate's promotion margin is
+fold-std-based; the seed probe quantifies the training-seed noise sitting
+behind every gate decision, so the comparison format matters as much as the
+probe itself. Step 14 builds the tooling *before* the box verdict lands, same
+as step 12 did for the schedule comparison.
+
+**What was built** (CPU-only, this VM; no training here):
+- `scripts/compare_seed.py`: mirror of `compare_schedule.py`, but
+  `_check_comparable` tolerates exactly `["seed"]` (not `["epochs"]`) as the
+  training-protocol difference; every evaluation-protocol field, epochs,
+  buffer, train_step, fold map, and fold-id coverage must match exactly.
+  Reports paired fold-by-fold raw deltas plus LOFO-calibrated deltas, with the
+  fold-delta std labeled as the seed-effect std. Views missing on either side
+  (the probe is spatial-only) are skipped. Writes nothing, exit 2 on
+  incomparable input.
+- `scripts/queue/compare_seed.sh`: assembles raw gate JSONs + LOFO summaries
+  from the box run dirs into `runs/compare/seed20260923-b16` and runs the
+  comparison (incumbent `runs/gate/ref-b16` + `runs/ref-cv-{view}-b16/scores/`
+  vs probe `runs/gate/ref-seed20260923-b16` +
+  `runs/ref-cv-spatial-b16-seed20260923/scores/`).
+- `scripts/queue/tasks.json`: 122 -> **123 tasks**. Step 14:
+  `s14-compare-seed20260923-b16` — the paired compare runs after the s8
+  train/score/record probe tasks. No gate.sh involvement (seed-mismatched
+  runs are gate territory by policy refusal).
+- Tests: `tests/test_compare_seed.py` (8 tests: paired deltas + seed-effect
+  std magnitude, equal-seed/extra-field/fold-mismatch/invalid-score/missing-
+  field refusals, no-LOFO skip, missing-view skip, shell executable check) +
+  `test_seed_compare_task_present` in `tests/test_queue_tasks.py`.
+
+**Tests** (this VM): full suite passes (10 tests added this run;
+`test_endpoint_extension.py` still uncollectable — no skimage in VM venv,
+documented gap). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — the seed-variance answer
+comes from the box queue's step-14 task after step 8 trains, not from this
+change. This is interpretation tooling, not a candidate and not an incumbent.
+Next CPU items once box results land: s7 loss gate verdict (first live
+promotion candidate), s8/s14 seed-probe comparison, s4–s6 lineament rerun
+gates, s9–s11 and s13 candidate gates, s12 schedule comparison.
