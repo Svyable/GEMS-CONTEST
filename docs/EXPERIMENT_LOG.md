@@ -1214,3 +1214,41 @@ change. This is interpretation tooling, not a candidate and not an incumbent.
 Next CPU items once box results land: s7 loss gate verdict (first live
 promotion candidate), s8/s14 seed-probe comparison, s4–s6 lineament rerun
 gates, s9–s11 and s13 candidate gates, s12 schedule comparison.
+
+## 2026-10-20 — Queue provenance fix: missing record task for the buffer-32 trace reference (step 6)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule — every experiment reproducible from commit + config +
+data fingerprint). Queue audit (123 -> 124 tasks) found the step-6 block had a
+`train`/`score` pair for `ref-trace-b32` but no `record` task, while every
+other queued reference run (s2, s5b, the s8 seed probe) carries the full
+train/score/record triple. `record.sh` is what writes the provenance manifest
+and exports the commit-safe artifacts for committing back; without it the
+buffer-32 trace baseline — the incumbent half of
+`CAND-STRUCTURE_TENSOR_COHERENCE-B32` and `CAND-RIDGE_VALLEY_RESPONSE-B32` —
+leaves no manifest. The committed `results/runs/ref-cv-fault-b32/` already
+shows this failure mode: fold JSONs and scores arrived, `manifest.json` did
+not. The gate tasks do not read manifests (they consume the score JSONs'
+`evaluation_protocol`), so this is a provenance hole, not a functional block.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/queue/tasks.json`: 123 -> **124 tasks**. Added
+  `s6-record-ref-trace-b32` immediately after `s6-score-ref-trace-b32`
+  (buffer 32, `configs/reference_unet.yaml`, incumbent seed 20260922,
+  hypothesis records the b32-trace baseline role for the two b32 lineament
+  gates). The runner keys on task ids, not list positions, and `record.sh`
+  only reads the run dir — safe to run even if the box already finished the
+  s6 gates.
+- Tests: `test_s6_ref_trace_b32_record_task_present` in
+  `tests/test_queue_tasks.py` (train/score/record triple present, incumbent
+  config, buffer 32, incumbent seed; score task targets `runs/gate/ref-b32`).
+
+**Tests** (this VM): `459 passed, 18 skipped` (up from 458/18 on 10-19; the one
+new test; `test_endpoint_extension.py` still uncollectable — no skimage in VM
+venv, documented gap). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — nothing ran here. Box
+queue state unknown from this VM (no new box commits since the 10-12 b32
+baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed probe,
+s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule compare)
+remain the next CPU items once the box produces results.

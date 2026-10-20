@@ -867,3 +867,14 @@ interaction involved; no competition data was read -- all verification used
 synthetic JSON fixtures in the VM venv. Training/scoring run on the box
 queue; the seed-variance answer comes from the step-14 task once the step-8
 probe trains, not from this change.
+
+## 2026-10-20 — Queue provenance fix: s6-record-ref-trace-b32 + integrity test
+
+Authored the missing `s6-record-ref-trace-b32` queue task in
+`scripts/queue/tasks.json` (buffer-32 trace reference now has the full
+train/score/record triple like every other queued reference run) and
+`test_s6_ref_trace_b32_record_task_present` in `tests/test_queue_tasks.py`
+(regression test pinning the triple: incumbent config, buffer 32, incumbent
+seed, gate-dir score target). Queue 123 -> 124 tasks. Runner keys on task ids
+and `record.sh` only reads the run dir, so the task is safe to execute
+regardless of box progress.

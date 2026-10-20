@@ -181,3 +181,28 @@ def test_curved_continuation_candidate_tasks_present():
     assert "runs/gate/ref-b16" in gate["cmd"]
     assert "configs/candidates/cand_curved_continuation.yaml" in gate["cmd"]
     assert sum(1 for t in TASKS if t.get("step") == 13) == 4
+
+
+def test_s6_ref_trace_b32_record_task_present():
+    """Step-6 buffer-32 trace reference needs the full train/score/record
+    triple like every other queued reference run (s2, s5b): the record step
+    writes the provenance manifest and exports the commit-safe artifacts, and
+    ref-b32/trace.json is the incumbent input for both b32 lineament gates.
+
+    Regression: the s6 block was committed with train+score but no record, and
+    the committed ref-cv-fault-b32 results arrived with no manifest.json.
+    """
+    by_id = {t["id"]: t for t in TASKS}
+    for stage in ("train", "score", "record"):
+        task_id = f"s6-{stage}-ref-trace-b32"
+        assert task_id in by_id, f"{task_id} missing"
+    train = by_id["s6-train-ref-trace-b32"]["cmd"]
+    assert "configs/reference_unet.yaml" in train, "b32 trace ref uses the incumbent config"
+    assert " 32" in train, "b32 trace ref must run at buffer 32"
+    assert "20260923" not in train, "b32 trace ref keeps the incumbent seed"
+    score = by_id["s6-score-ref-trace-b32"]["cmd"]
+    assert "runs/gate/ref-b32" in score, "ref trace@32 scores into the b32 gate dir"
+    record = by_id["s6-record-ref-trace-b32"]["cmd"]
+    assert "/workspace/gems/queue/record.sh" in record
+    assert "ref-cv-trace-b32" in record
+    assert "configs/reference_unet.yaml" in record

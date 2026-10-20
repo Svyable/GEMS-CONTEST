@@ -300,6 +300,12 @@
     "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
   },
   {
+    "id": "s6-record-ref-trace-b32",
+    "step": 6,
+    "cmd": "/workspace/gems/queue/record.sh ref-cv-trace-b32 runs/ref-cv-trace-b32 configs/reference_unet.yaml \"Organizer reference U-Net recipe under honest trace CV at buffer 32 (cv-trace-v1b, all 5 folds); buffer-32 incumbent for the CAND-STRUCTURE_TENSOR_COHERENCE-B32 and CAND-RIDGE_VALLEY_RESPONSE-B32 gates. Closes the provenance gap: every other queued reference run has a record task (the committed ref-cv-fault-b32 results arrived with no manifest.json).\" \"train_full_map.py --cv-scheme trace --buffer-pixels 32 --seed 20260922; same config/epochs/train_step as the spatial/fault b32 incumbents.\"",
+    "note": "record.sh only reads the run dir, so this is safe to run after the s6 gates as well; the runner picks it up by task id regardless of box progress."
+  },
+  {
     "id": "s6-train-structure_tensor_coherence-trace",
     "step": 6,
     "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-trace-b32 configs/candidates/cand_structure_tensor_coherence.yaml trace data/processed/cv-trace-v1b.tif 32",
