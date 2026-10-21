@@ -204,6 +204,12 @@
     "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
   },
   {
+    "id": "s4-record-ref-spatial-b32",
+    "step": 4,
+    "cmd": "/workspace/gems/queue/record.sh ref-cv-spatial-b32 runs/ref-cv-spatial-b32 configs/reference_unet.yaml \"Organizer reference U-Net recipe under honest spatial CV at buffer 32 (cv-spatial-v1, all 5 folds); buffer-32 spatial incumbent for the CAND-STRUCTURE_TENSOR_COHERENCE-B32 and CAND-RIDGE_VALLEY_RESPONSE-B32 gates. Closes the provenance gap: the s4 block shipped train+score with no record, unlike every other queued reference run.\" \"train_full_map.py --cv-scheme spatial --buffer-pixels 32 --seed 20260922; same config/epochs/train_step as the other b32 incumbents.\"",
+    "note": "record.sh only reads the run dir, so this is safe to run even if the box already recorded this baseline ad hoc; the runner picks it up by task id regardless of box progress."
+  },
+  {
     "id": "s4-train-structure_tensor_coherence-spatial",
     "step": 4,
     "cmd": "/workspace/gems/queue/train_folds.sh runs/cand-structure_tensor_coherence-spatial-b32 configs/candidates/cand_structure_tensor_coherence.yaml spatial data/processed/cv-spatial-v1.tif 32",
@@ -250,6 +256,12 @@
     "step": 5,
     "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-fault-b32 fault data/processed/cv-fault-v1.tif runs/gate/ref-b32",
     "note": "buffer-32 kind/incumbent-rerun block; runs after b16 candidates (needs ref-b32 incumbent first)"
+  },
+  {
+    "id": "s5-record-ref-fault-b32",
+    "step": 5,
+    "cmd": "/workspace/gems/queue/record.sh ref-cv-fault-b32 runs/ref-cv-fault-b32 configs/reference_unet.yaml \"Organizer reference U-Net recipe under honest fault CV at buffer 32 (cv-fault-v1, all 5 folds); buffer-32 fault incumbent for the CAND-STRUCTURE_TENSOR_COHERENCE-B32 and CAND-RIDGE_VALLEY_RESPONSE-B32 gates. Closes the provenance gap: the s5 block shipped train+score with no record, unlike every other queued reference run (the committed ref-cv-fault-b32 results arrived with no manifest.json).\" \"train_full_map.py --cv-scheme fault --buffer-pixels 32 --seed 20260922; same config/epochs/train_step as the other b32 incumbents.\"",
+    "note": "record.sh only reads the run dir, so this is safe to run whatever the box state is; the runner picks it up by task id regardless of box progress."
   },
   {
     "id": "s5-train-structure_tensor_coherence-fault",

@@ -1252,3 +1252,45 @@ queue state unknown from this VM (no new box commits since the 10-12 b32
 baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed probe,
 s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule compare)
 remain the next CPU items once the box produces results.
+
+## 2026-10-21 — Queue provenance fix, generalized: s4/s5 missing record tasks + triple invariant test (step 16)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule — every experiment reproducible from commit + config +
+data fingerprint). A queue-wide audit with the step-15 regex (every
+`<step>-train-<target>` must have matching `<step>-score-<target>` and
+`<step>-record-<target>`) caught two more instances of the same failure mode
+the step-15 fix closed for s6: `s4 ref-spatial-b32` and `s5 ref-fault-b32`
+both shipped train+score with no record, while every other queued train
+target carries the full triple. Both are buffer-32 incumbents feeding the
+`CAND-STRUCTURE_TENSOR_COHERENCE-B32` and `CAND-RIDGE_VALLEY_RESPONSE-B32`
+gates. `record.sh` writes the provenance manifest and exports the commit-safe
+artifacts; the committed `ref-cv-fault-b32` arriving with no `manifest.json`
+is the live proof of the hole.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/queue/tasks.json`: 124 -> **126 tasks**. Added
+  `s4-record-ref-spatial-b32` after `s4-score-ref-spatial-b32` and
+  `s5-record-ref-fault-b32` after `s5-score-ref-fault-b32`, mirroring the
+  s6-record format (record.sh RUN_ID RUN_DIR CONFIG "HYPOTHESIS" "NOTES",
+  incumbent `configs/reference_unet.yaml`, buffer 32, incumbent seed
+  20260922). The runner keys on task ids and record.sh only reads the run
+  dir, so both are safe to execute regardless of box progress (the s4
+  spatial-b32 baseline already has a manifest — presumably recorded ad hoc —
+  and record.sh re-running is idempotent).
+- Tests: `test_train_score_record_triple_invariant` in
+  `tests/test_queue_tasks.py` — queue-wide regression that fails first the
+  next time a train task ships without its score/record companions (this is
+  the test that would have caught s4, s5, and s6 at authoring time) +
+  `test_s4_s5_ref_b32_record_tasks_present` (triple presence, record.sh,
+  incumbent config).
+
+**Tests** (this VM): `461 passed, 18 skipped` (up from 459/18 on 10-20; the
+two new tests; `test_endpoint_extension.py` still uncollectable — no skimage
+in VM venv, documented gap). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — nothing ran here. Box
+queue state unknown from this VM (no new box commits since the 10-12 b32
+baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed
+probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results.

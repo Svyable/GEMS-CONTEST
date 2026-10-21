@@ -183,6 +183,54 @@ def test_curved_continuation_candidate_tasks_present():
     assert sum(1 for t in TASKS if t.get("step") == 13) == 4
 
 
+def test_train_score_record_triple_invariant():
+    """Queue-wide invariant: every train task id of the form
+    `<step>-train-<target>` must have matching `<step>-score-<target>` and
+    `<step>-record-<target>` tasks.
+
+    Generalizes the step-15 regression (s6-record-ref-trace-b32): the audit
+    that caught the s6 gap caught two more — s4-ref-spatial-b32 and
+    s5-ref-fault-b32 both shipped train+score with no record. record.sh is
+    what writes the provenance manifest and exports the commit-safe artifacts,
+    so an untripled train leaves its baseline unrecorded. New train tasks
+    must ship with their score/record companions; this test fails first.
+    """
+    triple_pat = re.compile(r"^(s\d+[a-z]?)-(train|score|record)-(.+)$")
+    groups = {}
+    for t in TASKS:
+        m = triple_pat.match(t["id"])
+        if m:
+            step, op, target = m.groups()
+            groups.setdefault((step, target), set()).add(op)
+    incomplete = {
+        f"{step}-{op}-{target} missing": sorted({"train", "score", "record"} - ops)
+        for (step, target), ops in groups.items()
+        for op in ("train",)
+        if {"train", "score", "record"} - ops
+    }
+    assert not incomplete, (
+        "train tasks without a full train/score/record triple: "
+        + "; ".join(f"{k} lacks {v}" for k, v in incomplete.items())
+    )
+
+
+def test_s4_s5_ref_b32_record_tasks_present():
+    """Step-16 provenance fix: s4-ref-spatial-b32 and s5-ref-fault-b32 had
+    train+score but no record, the same failure mode as the step-15 s6 gap.
+    Both are buffer-32 incumbents feeding the CAND-STRUCTURE_TENSOR_COHERENCE-B32
+    and CAND-RIDGE_VALLEY_RESPONSE-B32 gates.
+    """
+    by_id = {t["id"]: t for t in TASKS}
+    for step, view in (("s4", "spatial"), ("s5", "fault")):
+        for stage in ("train", "score", "record"):
+            task_id = f"{step}-{stage}-ref-{view}-b32"
+            assert task_id in by_id, f"{task_id} missing"
+        record = by_id[f"{step}-record-ref-{view}-b32"]["cmd"]
+        assert "/workspace/gems/queue/record.sh" in record
+        assert f"ref-cv-{view}-b32" in record
+        assert "configs/reference_unet.yaml" in record, "b32 refs use the incumbent config"
+
+
 def test_s6_ref_trace_b32_record_task_present():
     """Step-6 buffer-32 trace reference needs the full train/score/record
     triple like every other queued reference run (s2, s5b): the record step

@@ -878,3 +878,23 @@ train/score/record triple like every other queued reference run) and
 seed, gate-dir score target). Queue 123 -> 124 tasks. Runner keys on task ids
 and `record.sh` only reads the run dir, so the task is safe to execute
 regardless of box progress.
+
+## 2026-10-21 — Queue provenance fix, generalized (step 16): s4/s5 record tasks + triple-invariant test
+
+Authored the missing `s4-record-ref-spatial-b32` and `s5-record-ref-fault-b32`
+queue tasks in `scripts/queue/tasks.json` (both buffer-32 incumbent reference
+runs shipped train+score with no record, the same failure mode the 10-20 fix
+closed for s6), plus `test_train_score_record_triple_invariant` in
+`tests/test_queue_tasks.py` (queue-wide regression: every `<step>-train-<target>`
+must have matching score and record tasks) and
+`test_s4_s5_ref_b32_record_tasks_present`. Queue 124 -> 126 tasks. Runner
+keys on task ids and `record.sh` only reads the run dir, so both tasks are
+safe to execute regardless of box progress. Full suite: 461 passed, 18
+skipped (same documented skips; test_endpoint_extension.py skimage import
+remains a VM-venv gap); `ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic fixtures and the queue JSON in the VM venv. Training/scoring run on
+the box queue; the s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates still
+await box results.
