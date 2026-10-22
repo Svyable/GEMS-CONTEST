@@ -1294,3 +1294,45 @@ queue state unknown from this VM (no new box commits since the 10-12 b32
 baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed
 probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
 compare) remain the next CPU items once the box produces results.
+
+## 2026-10-22 — Queue integrity, generalized to the interpretation layer: gate/compare candidate-prerequisite invariant (step 17)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule). Steps 15/16 closed the train/score/record provenance
+hole and pinned it with `test_train_score_record_triple_invariant`. The same
+authoring-time failure class exists one layer up: a `gate.sh` or
+`compare_*.sh` task shipping without the score/train tasks that feed its
+*candidate* side would fail only on the box, after the training it was meant
+to judge. A manual audit of all 126 queued tasks (2026-10-22) found the
+candidate-side wiring clean — every gate/compare candidate input is produced
+in-queue — with one subtlety worth encoding: `compare_schedule.sh` takes a
+CAND_RUN_BASE *prefix* (`runs/cand-longer_schedule` -> per-view
+`{prefix}-{view}-b16`), while `compare_seed.sh` takes a *literal* run dir
+(the seed probe is spatial-only). The audit also re-verified the s7 loss gate
+will be comparable when box results land: the candidate config
+(`cand_loss_distance_tversky.yaml`) matches the incumbent on every training-
+protocol equality key (`verification.TRAINING_PROTOCOL_FIELDS` = buffer,
+seed, epochs, train_step — all 16/20260922/5/32), and `config_sha256` is
+provenance-only by design ("candidate configs may differ"), so the loss
+difference cannot trigger a policy refusal.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `tests/test_queue_tasks.py`: `test_gate_candidate_dirs_produced_in_queue`
+  (every gate.sh candidate dir must be written by an in-queue score/assemble
+  task) and `test_compare_candidate_inputs_produced_in_queue` (schedule
+  compare: candidate gate dir + `{prefix}-{view}-bN` train outputs for all
+  three views; seed compare: candidate gate dir + literal candidate run dir).
+  Incumbent inputs are grandfathered (predate the queue; verified manually
+  this run). Both tests were mutation-checked: pointing the s14 compare at a
+  never-trained run dir fails the test as intended.
+- `docs/AI_DISCLOSURE.md`: step-17 entry (this change).
+
+**Tests** (this VM): `463 passed, 18 skipped` (up from 461/18 on 10-21; the
+two new tests; `test_endpoint_extension.py` still uncollectable — no skimage
+in VM venv, documented gap). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — nothing ran here. Box
+queue state unknown from this VM (no new box commits since the 10-12 b32
+baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed
+probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results.

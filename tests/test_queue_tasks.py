@@ -231,6 +231,111 @@ def test_s4_s5_ref_b32_record_tasks_present():
         assert "configs/reference_unet.yaml" in record, "b32 refs use the incumbent config"
 
 
+def _queue_produced_gate_dirs():
+    """Gate dirs written by in-queue score_view.sh or assemble (mkdir) tasks."""
+    produced = set()
+    for task in TASKS:
+        cmd = task["cmd"]
+        m = re.search(r"score_view\.sh \S+ \S+ \S+ (\S+)", cmd)
+        if m:
+            produced.add(m.group(1))
+        m = re.search(r"mkdir -p (runs/gate/\S+)", cmd)
+        if m:
+            produced.add(m.group(1))
+    return produced
+
+
+def _queue_produced_run_dirs():
+    """Run dirs written by in-queue train_folds.sh tasks."""
+    produced = set()
+    for task in TASKS:
+        m = re.search(r"train_folds\.sh (runs/\S+)", task["cmd"])
+        if m:
+            produced.add(m.group(1))
+    return produced
+
+
+def _queue_script_args(cmd, script, n):
+    """First n positional args after the /workspace/gems/queue/<script> token."""
+    parts = cmd.split()
+    token = f"/workspace/gems/queue/{script}"
+    idx = parts.index(token)
+    return parts[idx + 1: idx + 1 + n]
+
+
+def test_gate_candidate_dirs_produced_in_queue():
+    """Candidate-side prerequisite invariant for gate.sh tasks.
+
+    Every gate's candidate dir must be written by an in-queue score (or
+    assemble) task. Incumbent dirs are grandfathered: they predate the queue
+    and were verified manually on 2026-10-22 (s7/s9-s11/s12/s13 gates all
+    resolve). Catches the authoring-time hole the s15/s16 fixes closed for
+    the train/score/record triple, one layer up: a gate task shipping
+    without the score tasks that feed its candidate side would fail only on
+    the box, after the training it was meant to judge.
+    """
+    produced = _queue_produced_gate_dirs()
+    missing = []
+    for task in TASKS:
+        if "/workspace/gems/queue/gate.sh" not in task["cmd"]:
+            continue
+        _name, _incumbent, candidate = _queue_script_args(task["cmd"], "gate.sh", 3)
+        if candidate not in produced:
+            missing.append(
+                f"{task['id']}: candidate gate dir {candidate} has no producing "
+                "score/assemble task in the queue"
+            )
+    assert not missing, "gate tasks with unproduced candidate dirs: " + "; ".join(missing)
+
+
+def test_compare_candidate_inputs_produced_in_queue():
+    """Candidate-side prerequisite invariant for compare_*.sh tasks.
+
+    compare_schedule.sh takes a CAND_RUN_BASE prefix and builds
+    {prefix}-{view}-bN paths literally, so each view must resolve to a queued
+    train output. compare_seed.sh takes a literal CAND_RUN_DIR (the seed
+    probe is spatial-only). Both take a candidate gate dir written by
+    in-queue score tasks. Same rationale as the gate invariant: fail at
+    authoring time, not on the box after training.
+    """
+    gate_dirs = _queue_produced_gate_dirs()
+    run_dirs = _queue_produced_run_dirs()
+    missing = []
+    for task in TASKS:
+        cmd = task["cmd"]
+        if "/workspace/gems/queue/compare_schedule.sh" in cmd:
+            _inc_gate, cand_gate, _inc_base, cand_base = _queue_script_args(
+                cmd, "compare_schedule.sh", 4
+            )
+            if cand_gate not in gate_dirs:
+                missing.append(
+                    f"{task['id']}: candidate gate dir {cand_gate} has no producing "
+                    "score/assemble task in the queue"
+                )
+            for view in ("spatial", "fault", "trace"):
+                pattern = re.compile(re.escape(cand_base) + r"-" + view + r"-b\d+")
+                if not any(pattern.fullmatch(d) for d in run_dirs):
+                    missing.append(
+                        f"{task['id']}: compare_schedule.sh builds "
+                        f"{cand_base}-{view}-bN but no queued train task produces it"
+                    )
+        elif "/workspace/gems/queue/compare_seed.sh" in cmd:
+            _inc_gate, cand_gate, _inc_base, cand_run = _queue_script_args(
+                cmd, "compare_seed.sh", 4
+            )
+            if cand_gate not in gate_dirs:
+                missing.append(
+                    f"{task['id']}: candidate gate dir {cand_gate} has no producing "
+                    "score/assemble task in the queue"
+                )
+            if cand_run not in run_dirs:
+                missing.append(
+                    f"{task['id']}: candidate run dir {cand_run} has no producing "
+                    "train task in the queue"
+                )
+    assert not missing, "compare tasks with unproduced candidate inputs: " + "; ".join(missing)
+
+
 def test_s6_ref_trace_b32_record_task_present():
     """Step-6 buffer-32 trace reference needs the full train/score/record
     triple like every other queued reference run (s2, s5b): the record step

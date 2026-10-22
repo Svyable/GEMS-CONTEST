@@ -898,3 +898,21 @@ interaction involved; no competition data was read — all verification used
 synthetic fixtures and the queue JSON in the VM venv. Training/scoring run on
 the box queue; the s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates still
 await box results.
+
+## 2026-10-22 — Queue integrity, generalized (step 17): gate/compare candidate-prerequisite invariant tests
+
+Authored `test_gate_candidate_dirs_produced_in_queue` and
+`test_compare_candidate_inputs_produced_in_queue` in
+`tests/test_queue_tasks.py` (queue-wide regression: every gate.sh/compare
+task's candidate-side inputs — gate dirs, run dirs/prefixes — must be
+produced by in-queue score/train tasks; incumbent inputs grandfathered and
+verified manually), plus the manual 126-task wiring audit and the s7
+training-protocol comparability re-verification that motivated them. Full
+suite: 463 passed, 18 skipped (same documented skips; test_endpoint_extension.py
+skimage import remains a VM-venv gap); `ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic fixtures and the queue JSON in the VM venv. Training/scoring run on
+the box queue; the s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates still
+await box results.
