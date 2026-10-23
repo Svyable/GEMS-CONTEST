@@ -1336,3 +1336,50 @@ queue state unknown from this VM (no new box commits since the 10-12 b32
 baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed
 probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
 compare) remain the next CPU items once the box produces results.
+
+## 2026-10-23 — Verdict-interpretation tooling: scripts/render_gate_verdict.py (step 18)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule). Steps 15–17 hardened the queue so that whatever the box
+produces arrives with provenance intact (train/score/record triples, candidate-
+prerequisite wiring). The next CPU item once box results land is interpreting
+the gates (s7 loss gate, s8/s14 seed probe, s4–s6 lineament rerun gates,
+s9–s11/s13 candidate gates, s12 schedule compare) — and that step was previously
+hand-written prose, as the 2026-10-10 ENDPOINT-EXT-02 entry shows (its ad-hoc
+margin rounding — 0.0067/0.0026 for 0.006706/0.002632 — already drifts from the
+source JSON). A renderer makes verdict drafting mechanical and
+content-preserving, so the first ACCEPT/REJECT of the live candidates can be
+logged without transcription drift.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/render_gate_verdict.py` (executable, repo convention): reads a
+  committed `results/gates/<NAME>.json` in the `verify_candidate.py` schema
+  and prints the markdown verdict block in the 2026-10-10 entry style —
+  `## <date from timestamp_utc> — Gate decision: <candidate> (<verdict>)`,
+  hypothesis/config lines, per-view `delta X (above/below required margin Y),
+  won n/m views`, ACCEPT/REJECT/INCONCLUSIVE verdict lines, and the
+  `**Results committed**: <repo-relative path>, appended to
+  docs/candidate-trials.jsonl` checklist line. Non-comparable views (delta
+  null, e.g. the ENDPOINT-EXT-01-style missing-fault-score failure) are listed
+  with their reason and excluded from the win denominator; unknown verdicts,
+  missing keys, and malformed JSON fail with an explanatory message. Formatting
+  is consistent (delta %.2g, margin %.4g) instead of the 10-10 entry's ad-hoc
+  rounding.
+- Tests: `tests/test_gate_verdict.py` (6 tests) — a golden test against the
+  real committed `results/gates/ENDPOINT-EXT-02.json` asserting the renderer
+  reproduces the 10-10 entry's content (candidate/config lines, exact view
+  deltas, verdict line); synthetic ACCEPT (2/3 won, mixed above/below margin),
+  INCONCLUSIVE with a non-comparable view (reason shown, denominator excludes
+  it); and error-path tests for missing keys, unknown verdicts, malformed
+  JSON.
+
+**Tests** (this VM): `469 passed, 18 skipped` (up from 463/18 on 10-22; the
+six new tests; `test_endpoint_extension.py` still uncollectable — no skimage
+in VM venv, documented gap). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — nothing ran here. Box
+queue state unknown from this VM (no new box commits since the 10-12 b32
+baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed probe,
+s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule compare)
+remain the next CPU items once the box produces results, and this step is the
+tooling for them.

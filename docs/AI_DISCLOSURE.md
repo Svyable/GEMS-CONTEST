@@ -916,3 +916,28 @@ interaction involved; no competition data was read — all verification used
 synthetic fixtures and the queue JSON in the VM venv. Training/scoring run on
 the box queue; the s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates still
 await box results.
+
+## 2026-10-23 — Verdict-interpretation tooling (step 18): render_gate_verdict.py
+
+Authored `scripts/render_gate_verdict.py` (reads a committed
+`results/gates/<NAME>.json` in the verify_candidate schema and prints the
+docs/EXPERIMENT_LOG.md verdict block in the 2026-10-10 ENDPOINT-EXT-02 entry
+style: date from `timestamp_utc`, hypothesis/config lines, per-view delta vs
+required margin with consistent %.2g/%.4g formatting, ACCEPT/REJECT/
+INCONCLUSIVE verdict lines, non-comparable views listed with their reason and
+excluded from the win denominator, plus the committed-results checklist line)
+and `tests/test_gate_verdict.py` (6 tests, including a golden test against
+the real `results/gates/ENDPOINT-EXT-02.json` asserting the renderer
+reproduces the hand-written 10-10 entry's content). Motivation: the step-17
+note pins verdict interpretation (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule compare) as
+the next CPU item once the box produces results; this makes that step
+mechanical instead of hand-written. Full suite: 469 passed, 18 skipped (same
+documented skips; test_endpoint_extension.py skimage import remains a VM-venv
+gap); `ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic fixtures and the committed ENDPOINT-EXT-02 gate JSON. Training/scoring
+run on the box queue; the s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates
+still await box results (no new box commits since the 10-12 b32 baselines).
