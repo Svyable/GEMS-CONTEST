@@ -1383,3 +1383,62 @@ baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed probe,
 s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule compare)
 remain the next CPU items once the box produces results, and this step is the
 tooling for them.
+
+## 2026-10-24 — Gate-status inventory: scripts/gate_status.py (step 19)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule). Step 18 made interpreting a landed gate verdict
+mechanical, but nothing answered in one place which queued decisions are
+already decided and which are still waiting — the daily run hand-grepped
+tasks.json against results/gates/. Worse, the first version of this
+inventory misreported the one partially-arrived candidate, because queue
+commands name box-relative dirs (runs/gate/...) while the box commits them
+under results/ (results/runs/gate/...); the inventory now checks the
+results/-prefixed path first and falls back to the bare queue path.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/gate_status.py` (executable, repo convention): parses
+  scripts/queue/tasks.json for gate.sh tasks (NAME + incumbent/candidate
+  gate dirs) and compare_seed.sh/compare_schedule.sh tasks (CMP= output
+  dir read from the compare script itself, single source of truth) and
+  prints one row per decision plus a summary line. Gate status is DECIDED
+  (with verdict) when results/gates/<NAME>.json parses with a known
+  verdict, BROKEN when it exists but is unparseable or carries an unknown
+  verdict, and PENDING otherwise — with per-view candidate-input coverage
+  (which of spatial/fault/trace score files already sit in the candidate
+  gate dir). Compare status is RAN when its compare.log exists, PENDING
+  otherwise. Gate JSONs with no queued gate task are listed as ORPHANs.
+  Exit code is 0 whenever the inventory could be produced; a missing or
+  malformed tasks.json is a hard error (exit 2).
+- Tests: `tests/test_gate_status.py` (4 tests) — a real-repo golden test
+  (10 gates queued, 1 decided, 9 pending; 2 compares, 0 ran; 0 orphans;
+  mumford_shah_log-b16 pending with spatial present, fault/trace missing),
+  a synthetic decided/pending/ran/orphan case, BROKEN-path tests
+  (malformed JSON, unknown verdict), and a missing-tasks.json hard error.
+
+**Today's inventory** (this VM, from committed state — no new box commits
+since the 10-12 b32 baselines):
+- 10 gate decisions queued, 1 decided (ENDPOINT-EXT-02, REJECT), 9 pending
+  (s5b mumford_shah_log-b16 + steerable_filter-b16, s6
+  structure_tensor_coherence-b32 + ridge_valley_response-b32, s7
+  loss_distance_tversky-b16, s9 wavelet_entropy-b16, s10
+  loss_background_soften-b16, s11 skeleton_recall-b16, s13
+  curved_continuation-b16); 2 manual compares pending (s12 longer
+  schedule, s14 seed probe); 0 orphan gate JSONs.
+- The only partial progress toward any pending gate is
+  cand-mumford_shah_log-b16's spatial score (macro 0.0914, already logged
+  10-12); fault and trace reruns for it, and every other candidate, have
+  no committed gate inputs yet.
+- `docs/AI_DISCLOSURE.md`: step-19 entry (this change).
+
+**Tests** (this VM): `473 passed, 18 skipped` (up from 469/18 on 10-23; the
+four new tests; `test_endpoint_extension.py` still uncollectable — no
+skimage in VM venv, documented gap; full suite run with that file ignored,
+as in prior runs). `ruff check .` clean (CI gate).
+
+**Scope notes**: no measured official-data scores — nothing ran here. Box
+queue state unknown from this VM (no new box commits since the 10-12 b32
+baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed
+probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results, and this
+step is the inventory that shows the moment any of them lands.

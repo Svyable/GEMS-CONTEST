@@ -941,3 +941,27 @@ interaction involved; no competition data was read — all verification used
 synthetic fixtures and the committed ENDPOINT-EXT-02 gate JSON. Training/scoring
 run on the box queue; the s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates
 still await box results (no new box commits since the 10-12 b32 baselines).
+
+## 2026-10-24 — Gate-status inventory (step 19): scripts/gate_status.py
+
+Authored `scripts/gate_status.py` (parses scripts/queue/tasks.json for
+gate.sh and compare_*.sh tasks and prints one row per queued decision:
+DECIDED with verdict when results/gates/<NAME>.json parses, BROKEN when it
+exists but is unparseable or carries an unknown verdict, PENDING otherwise
+with per-view candidate-input coverage; RAN/PENDING for manual compares via
+their compare.log; gate JSONs with no queued task listed as orphans; the
+box-relative runs/gate/... and runs/compare/... dirs resolve to their
+committed results/... locations first) and `tests/test_gate_status.py`
+(4 tests, including a real-repo golden test: 10 gates queued, 1 decided,
+9 pending; 2 compares, 0 ran; 0 orphans). Motivation: step 18 made verdict
+interpretation mechanical, but no single command showed which queued
+decisions had landed — the daily run hand-grepped tasks.json against
+results/gates/. Full suite: 473 passed, 18 skipped (same documented skips;
+test_endpoint_extension.py skimage import remains a VM-venv gap);
+`ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — all verification used
+synthetic fixtures and the committed queue/gate state. Training/scoring run
+on the box queue; the s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates
+still await box results (no new box commits since the 10-12 b32 baselines).
