@@ -965,3 +965,28 @@ interaction involved; no competition data was read — all verification used
 synthetic fixtures and the committed queue/gate state. Training/scoring run
 on the box queue; the s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates
 still await box results (no new box commits since the 10-12 b32 baselines).
+
+## 2026-10-25 — LOFO threshold audit (step 20): scripts/lofo_threshold_audit.py
+
+Authored `scripts/lofo_threshold_audit.py` (discovers every committed
+LOFO file in both committed layouts, validates self-consistency of the
+top-level means against fold means, and reports per-run threshold
+mean/range, raw -> calibrated gain, and gain share, with CEILING /
+UNSTABLE / CALIBRATION_DOMINATED tripwire flags) and
+`tests/test_lofo_threshold_audit.py` (6 tests, including a real-repo
+golden test over all 7 committed LOFO runs). Motivation: the standing
+watch item that LOFO thresholds are unusually high had no quantification
+from committed numbers alone. Findings: trace thresholds pin at ~1.0
+with 42–58% of the headline trace score from fitting; spatial
+thresholds are stable but ~21% of the headline is fitting; fault
+thresholds do not reproduce across folds. Full suite: 479 passed, 18
+skipped (same documented skips; test_endpoint_extension.py skimage
+import remains a VM-venv gap); `ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or leaderboard
+interaction involved; no competition data was read — the audit reads only
+committed LOFO summary JSONs (thresholds and per-fold scores), never rasters
+or predictions. All verification used synthetic fixtures and the committed
+LOFO state. Training/scoring run on the box queue; the s7/s8/s12/s14 verdicts
+and the s4–s6/s9–s11/s13 gates still await box results (no new box commits
+since the 10-12 b32 baselines).

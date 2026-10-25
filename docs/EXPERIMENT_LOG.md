@@ -1442,3 +1442,82 @@ baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed
 probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
 compare) remain the next CPU items once the box produces results, and this
 step is the inventory that shows the moment any of them lands.
+
+## 2026-10-25 — LOFO threshold audit: scripts/lofo_threshold_audit.py (step 20)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule). Every headline number the repo reports is a
+LOFO-calibrated mean, and the standing watch item is that the LOFO
+thresholds (0.94–0.96 spatial) are unusually high — calibration, not
+discrimination, may be doing the lifting. Steps 18–19 made interpreting
+landed gates mechanical and inventoried which decisions are still
+pending, but nothing quantified, from the committed LOFO files alone,
+how much of each headline score is threshold fitting and how stable the
+fitted thresholds are. This audit is that quantification, and it is the
+evidence base for the open threshold-experiment question (whether the
+calibrated 0.85–0.96 cutoffs are too strict) — analysis of committed
+numbers only, not the experiment itself, which still needs Sven's
+go-ahead.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/lofo_threshold_audit.py` (executable, repo convention):
+  discovers every committed `results/runs/*/lofo-*.json` and
+  `*/scores/lofo-*.json` (both committed layouts), validates each file
+  (non-empty folds, numeric threshold/raw/calibrated per fold,
+  top-level means consistent with fold means within 1e-6 — a
+  self-inconsistent committed record is a hard error, exit 2), and
+  prints one row per run: threshold mean [min, max] and range, raw ->
+  calibrated gain, and gain share (gain / calibrated mean — the fraction
+  of the headline score that is threshold fitting). Three documented
+  policy tripwires, not calibrated bounds: CEILING (a fold threshold
+  >= 0.999, operating point pinned at the probability ceiling),
+  UNSTABLE (threshold range across folds > 0.05), CALIBRATION_DOMINATED
+  (gain share > 0.20).
+- Tests: `tests/test_lofo_threshold_audit.py` (6 tests) — a real-repo
+  golden test asserting all 7 committed runs and their exact rows/flags,
+  a synthetic clean run (no flags, both LOFO layouts covered), synthetic
+  CEILING/UNSTABLE fixtures, and hard-error paths (malformed JSON,
+  mean mismatch, no LOFO files).
+
+**Today's audit** (this VM, from committed state — no new box commits
+since the 10-12 b32 baselines):
+- 7 LOFO runs audited, 7 flagged (2 ceiling, 3 unstable, 5
+  calibration-dominated) — every committed headline trips at least one
+  tripwire, so the flags are a tripwire inventory, not a verdict; the
+  magnitudes are what matter.
+- Trace is the sharp finding: both b16 trace runs pin their thresholds
+  at the ceiling (0.9999–1.0 in every fold) and most of the headline is
+  fitting — trace-b16 gain share 57.8% (raw 0.00783 -> cal 0.01856),
+  trace-full 42.5% (0.00932 -> 0.01620). A threshold of ~1.0 keeps only
+  a handful of ultra-confident pixels; the trace calibrated score is a
+  knife-edge operating point, not a robust one. Any gate that promotes
+  on trace calibration alone is promoting a threshold artifact.
+- Spatial is stable but calibration-heavy: thresholds reproduce across
+  folds (b16 range 0.023, b32 0.037) yet ~21% of the headline is
+  fitting (b16 21.7%, b32 20.7%, mumford_shah_log 20.2% — all just over
+  the 0.20 line, so the flag there is a nudge, not an alarm).
+- Fault thresholds do not reproduce across folds (b16 range 0.115 with
+  one fold at 0.997, b32 range 0.103) even though their gain shares sit
+  under the line (16.8%, 18.7%) — the fault operating point is the least
+  stable of the three views.
+- Buffer comparison: spatial thresholds are buffer-insensitive in the
+  same way the scores are (b16 0.936–0.959 vs b32 0.941–0.978); fault
+  thresholds are not (b16 mean 0.944 vs b32 0.890, and the b16 run has
+  the near-ceiling fold) — consistent with the known fault-view
+  buffer sensitivity, now visible in the calibration itself.
+- `docs/AI_DISCLOSURE.md`: step-20 entry (this change).
+
+**Tests** (this VM): `479 passed, 18 skipped` (up from 473/18 on 10-24; the
+six new tests; `test_endpoint_extension.py` still uncollectable — no skimage
+in VM venv, documented gap). `ruff check .` clean (CI gate); `ruff format`
+applied to the two new files.
+
+**Scope notes**: no measured official-data scores — nothing ran here. No
+competition data was read — the audit reads only committed LOFO summary
+JSONs (thresholds and per-fold scores), never rasters or predictions.
+Box queue state unknown from this VM (no new box commits since the 10-12
+b32 baselines); the verdict-interpretation items (s7 loss gate, s8/s14 seed
+probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results. The
+threshold experiment (rival closed-form rule vs calibrated cutoffs) is
+still unapproved — this audit is its evidence base, not its execution.
