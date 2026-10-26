@@ -1521,3 +1521,81 @@ probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
 compare) remain the next CPU items once the box produces results. The
 threshold experiment (rival closed-form rule vs calibrated cutoffs) is
 still unapproved — this audit is its evidence base, not its execution.
+
+## 2026-10-26 — Threshold experiment, ready to run on approval: scripts/rival_threshold.py + parked s21 tasks (step 21)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule). Step 20 quantified the standing watch item — the
+LOFO-calibrated cutoffs (0.94–0.96 spatial, 1.0 trace) carry 21–58% of
+each headline score as threshold fitting — but quantified it from
+committed numbers alone. The open question since the October 20 briefing
+letter is whether a rival's published closed-form rule (mark a pixel when
+p > 0.2 x expected score; worked example 0.08 vs habitual 0.5) beats those
+cutoffs on the same fold predictions. That comparison needs box-side
+scoring of the ref-b16 fold rasters, and it needs Sven's go-ahead; this
+step makes it ready to run the moment he gives it, instead of stalling
+on the approval. Nothing here executes the experiment: the queue tasks
+are parked, not live.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/rival_threshold.py` (executable, repo convention): scores a
+  completed CV run's fold predictions at one fixed rival threshold
+  (`--expected-score`, `--factor` default 0.2), mirroring
+  `scripts/queue/lofo_calibrate_view.py` exactly — same fold predictions
+  (`RUN_DIR/fold-{k}.tif`), same truth raster, same per-fold regions
+  (spatial: fold-k block; fault/trace: the gems.cv fold spec), same
+  distance-weighted Tversky metric — so the only difference from the
+  incumbent is the operating point. The paired baseline comes from the
+  run's own LOFO file (both committed layouts), so each fold reports
+  rival_score, lofo_calibrated_score, and delta = rival − lofo_cal.
+  Hard errors (exit 2) on a missing LOFO file, a LOFO fold-set mismatch,
+  a LOFO file whose top-level calibrated mean disagrees with its fold
+  mean (> 1e-6, the audit's convention), a non-positive expected score
+  or factor, or a threshold above 1. Writes
+  `RUN_DIR/scores/rival_threshold-<scheme>.json`.
+- `scripts/queue/rival_threshold.sh`: box wrapper (same pattern as
+  `compare_seed.sh`), taking RUN_DIR SCHEME FOLD_MAP EXPECTED_SCORE
+  [FACTOR].
+- Three parked queue tasks (`scripts/queue/tasks.parked.json`, step 21),
+  one per view, all against the ref-b16 incumbent runs with the committed
+  LOFO-calibrated means as the expected scores (5 decimals; the rounding
+  moves each threshold by < 1e-6): spatial 0.12296 -> threshold 0.024592,
+  fault 0.05469 -> 0.010938, trace 0.01856 -> 0.003712. No gate — this is
+  a comparison, not a promotion candidate; a human decides whether the
+  rival rule is worth adopting.
+- Operationalization note, documented in the script: "expected score"
+  has no canonical value, so the experiment pins it to the reference
+  run's LOFO-calibrated mean for that view. The rival's math remains
+  unverified; the experiment tests it, it does not endorse it.
+- Tests: `tests/test_rival_threshold.py` (8 tests) — the formula and
+  factor plumbing, a synthetic two-fold spatial end-to-end run (rival
+  scores recomputed independently from the metric), a LOFO fold-mismatch
+  hard error, CLI rejections (non-positive expected score/factor,
+  threshold > 1, missing LOFO file), a real-repo golden test (each
+  parked task's expected score equals its view's committed LOFO mean
+  rounded to 5 decimals, and its fold map is the one the live score task
+  used for that run), and the parked-not-live invariant (no s21 task in
+  `tasks.json`, no id collisions).
+
+**Handoff** (for Sven, when he green-lights the experiment): move the
+three `s21-rival-threshold-*-b16` tasks from `tasks.parked.json` to
+`tasks.json` (or run the three `rival_threshold.sh` commands directly on
+the box), then read the three `rival_threshold-<view>.json` summaries —
+mean_delta per view is the verdict. Trace is the view to watch: its LOFO
+thresholds pin at 1.0 while the rival rule would mark at 0.0037, the
+widest operating-point gap of the three views.
+
+**Tests** (this VM): `487 passed, 18 skipped` (up from 479/18 on 10-25;
+the eight new tests; `test_endpoint_extension.py` still uncollectable —
+no skimage in VM venv, documented gap). `ruff check .` clean (CI gate);
+`ruff format` applied to the two new Python files.
+
+**Scope notes**: no measured official-data scores — nothing ran here. No
+competition data was read — the parked tasks reference box-side fold
+maps and rasters that are never committed. Box queue state unknown from
+this VM (no new box commits since the 10-12 b32 baselines); the
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results. The
+threshold experiment itself is still unapproved — this step is its
+ready-to-run handoff, not its execution.

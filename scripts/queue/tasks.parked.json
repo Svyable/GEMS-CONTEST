@@ -10,5 +10,23 @@
   "step": 6,
   "cmd": "/workspace/gems/queue/gate.sh CAND-STEERABLE_FILTER-TRACE runs/gate/ref-b32 runs/gate/cand-steerable_filter-b32 configs/candidates/cand_steerable_filter.yaml \"steerable_filter (buffer 32) beats the buffer-32 reference U-Net on the trace view. Informational only: single view.\"",
   "note": "PARKED (user decision 2026-10-10): trace-only b32 gates for b16 kinds stay parked unless those kinds also get spatial+fault @32. b16 gates restored as s5b-gate-*-b16 (3 views @16)."
+ },
+ {
+  "id": "s21-rival-threshold-spatial-b16",
+  "step": 21,
+  "cmd": "/workspace/gems/queue/rival_threshold.sh runs/ref-cv-spatial-full spatial data/processed/cv-spatial-v1.tif 0.12296",
+  "note": "PARKED (threshold experiment, unapproved): score the ref-b16 spatial fold predictions at the rival's closed-form rule (p > 0.2 x expected score; expected score = committed LOFO-calibrated mean 0.12296, 5 decimals), paired per fold against LOFO calibration. Unpark only on Sven's go-ahead; no gate — a human decides whether the rival rule is worth adopting."
+ },
+ {
+  "id": "s21-rival-threshold-fault-b16",
+  "step": 21,
+  "cmd": "/workspace/gems/queue/rival_threshold.sh runs/ref-cv-fault-full fault data/processed/cv-fault-v1.tif 0.05469",
+  "note": "PARKED (threshold experiment, unapproved): score the ref-b16 fault fold predictions at the rival's closed-form rule (p > 0.2 x expected score; expected score = committed LOFO-calibrated mean 0.05469, 5 decimals), paired per fold against LOFO calibration. Unpark only on Sven's go-ahead; no gate — a human decides whether the rival rule is worth adopting."
+ },
+ {
+  "id": "s21-rival-threshold-trace-b16",
+  "step": 21,
+  "cmd": "/workspace/gems/queue/rival_threshold.sh runs/ref-cv-trace-b16 trace data/processed/cv-trace-v1b.tif 0.01856",
+  "note": "PARKED (threshold experiment, unapproved): score the ref-b16 trace fold predictions at the rival's closed-form rule (p > 0.2 x expected score; expected score = committed LOFO-calibrated mean 0.01856, 5 decimals), paired per fold against LOFO calibration. Unpark only on Sven's go-ahead; no gate — a human decides whether the rival rule is worth adopting."
  }
 ]

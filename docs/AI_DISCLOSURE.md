@@ -990,3 +990,33 @@ or predictions. All verification used synthetic fixtures and the committed
 LOFO state. Training/scoring run on the box queue; the s7/s8/s12/s14 verdicts
 and the s4–s6/s9–s11/s13 gates still await box results (no new box commits
 since the 10-12 b32 baselines).
+
+## 2026-10-26 — Threshold experiment handoff (step 21): scripts/rival_threshold.py + parked s21 tasks
+
+Authored `scripts/rival_threshold.py` (scores a completed CV run's fold
+predictions at the rival's closed-form threshold rule, p > 0.2 x expected
+score, mirroring `scripts/queue/lofo_calibrate_view.py` exactly — same
+predictions, truth, per-fold regions, and metric — and pairs each fold
+against the run's own LOFO-calibrated score with hard errors on a missing
+or self-inconsistent LOFO file), `scripts/queue/rival_threshold.sh` (box
+wrapper), and three parked queue tasks (`s21-rival-threshold-*-b16`,
+spatial/fault/trace vs the ref-b16 incumbent; expected scores pinned to
+the committed LOFO-calibrated means: 0.12296 / 0.05469 / 0.01856), plus
+`tests/test_rival_threshold.py` (8 tests, including a synthetic end-to-end
+run and a real-repo golden test tying each parked task to its committed
+LOFO mean). Motivation: step 20 showed 21–58% of each headline score is
+threshold fitting, and the October 20 briefing's open question — whether
+the rival's rule beats the calibrated cutoffs — had no runnable form.
+The experiment is still unapproved: the tasks are parked, not live, and
+this step is the handoff (unpark on Sven's go-ahead), not execution. Full
+suite: 487 passed, 18 skipped (same documented skips;
+test_endpoint_extension.py skimage import remains a VM-venv gap); `ruff
+check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or
+leaderboard interaction involved; no competition data was read — the
+parked tasks reference box-side rasters and fold maps that are never
+committed, and all verification used synthetic fixtures and the committed
+LOFO state. Training/scoring run on the box queue; the s7/s8/s12/s14
+verdicts and the s4–s6/s9–s11/s13 gates still await box results (no new
+box commits since the 10-12 b32 baselines).
