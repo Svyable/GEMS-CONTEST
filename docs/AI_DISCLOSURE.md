@@ -1020,3 +1020,33 @@ committed, and all verification used synthetic fixtures and the committed
 LOFO state. Training/scoring run on the box queue; the s7/s8/s12/s14
 verdicts and the s4–s6/s9–s11/s13 gates still await box results (no new
 box commits since the 10-12 b32 baselines).
+
+## 2026-10-27 — Committed-results integrity audit (step 22): scripts/audit_results.py + tests
+
+Authored `scripts/audit_results.py` (one audit over the committed
+results record: score-file shape and protocol constants, LOFO mean and
+raw-score cross-checks, run-manifest artifact existence with bytes and
+SHA256 verification including relocated-content detection, gate-report
+arithmetic against the required_margin formula in
+src/gems/verification.py, and ledger-vs-gate-report consistency) and
+`tests/test_audit_results.py` (11 tests, including a real-repo golden
+test asserting the exact finding counts and synthetic clean / hard-error
+/ finding-only fixtures). Motivation: no tool had ever verified the
+committed record itself, and with the box silent since 10-12 the
+committed numbers are the only evidence available. Findings on the real
+repo: 33 findings, 0 hard errors — all scored numbers verify, but 25
+per-fold detail files recorded in manifests were never committed, 6
+score files were committed at a different path than recorded (content
+verified by SHA256), ref-cv-fault-b32 still has no manifest, and the
+ENDPOINT-EXT-01 ledger entry has no gate report. Full suite: 519
+passed, 18 skipped (measured 508/18 baseline without this step);
+`ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or
+leaderboard interaction involved; no competition data was read — the
+audit reads only committed JSONs, never rasters or predictions. The
+fold files it flags as missing live only on the box (if the box run
+dirs still hold them); recovering them needs a box-side commit. The
+s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates still await box
+results (no new box commits since the 10-12 b32 baselines); the
+threshold experiment is still unapproved.

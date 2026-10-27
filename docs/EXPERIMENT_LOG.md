@@ -1599,3 +1599,85 @@ lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
 compare) remain the next CPU items once the box produces results. The
 threshold experiment itself is still unapproved — this step is its
 ready-to-run handoff, not its execution.
+
+## 2026-10-27 — Committed-results integrity audit: scripts/audit_results.py (step 22)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule). Every headline number and gate verdict in this
+repo rests on the committed record under results/ — but no tool had ever
+verified the record itself: step 20 audited LOFO thresholds only, and
+nothing checked score files, manifests, gate arithmetic, or the ledger
+against each other. With the box silent 15 days and the committed
+numbers the only evidence available, the record needs to be trustworthy
+before any verdict is interpreted from it.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/audit_results.py` (executable, repo convention): one audit
+  over the whole committed record. Score files (18, incl. 7 LOFO and
+  the gate-view copies): 5 folds 0–4, scores in [0, 1], protocol
+  constants (alpha 0.2, beta 0.8, distance_weighted_tversky) where
+  present, aggregate_score in [0, 1], macro_mean/macro_std equal to the
+  fold mean/population std. LOFO files: top-level means equal the fold
+  means (the 1e-6 convention from step 20) and each fold's raw_score
+  equals the matching raw score file. Manifests: every recorded
+  artifact exists at its recorded path with matching bytes and SHA256;
+  content found under another name in the same run dir is reported
+  RELOCATED (verified, path chain broken), content found nowhere is
+  MISSING. Gate reports: escalation_multiplier equals
+  1 + 0.5*log2(1 + trials_before); per comparable view, delta equals
+  candidate − incumbent and required_margin equals
+  max(incumbent_std, candidate_std) × escalation (the formula in
+  src/gems/verification.py); won equals delta > required_margin; REJECT
+  implies no view won, ACCEPT implies the spatial view won. Ledger
+  (docs/candidate-trials.jsonl): every entry matches a gate report's
+  verdict and per-view numbers; gate reports with no ledger entry, and
+  ledger entries with no gate report, are reported. Exit 0 with
+  findings; exit 2 only on a malformed file, a self-inconsistent
+  number, a manifest hash mismatch, or a gate/ledger disagreement.
+- Tests: `tests/test_audit_results.py` (11 tests) — a real-repo golden
+  test asserting the exact finding counts below, a clean synthetic
+  repo, and synthetic hard-error cases (hash mismatch, LOFO/raw
+  mismatch, gate margin mismatch, gate/ledger verdict mismatch,
+  malformed JSON) plus finding-only cases (relocated artifact, missing
+  raw counterpart, missing manifest, orphan gate).
+
+**Findings on the committed record: 33 findings, 0 hard errors — the
+numbers check out.**
+- All scored numbers verify: every fold score, protocol constant,
+  macro mean/std, LOFO mean, and LOFO/raw cross-check passes; all 4
+  gate-view files mirror a committed run score exactly; the
+  ENDPOINT-EXT-02 gate arithmetic is exact (delta, margin, won flags,
+  REJECT consistent); the ledger entry matches the gate report.
+- 25 MISSING_ARTIFACT: the per-fold detail files (fold-0..4.json,
+  normalization and per-fold metadata) are recorded in the manifests
+  of 5 of the 6 manifested runs but were never committed — only
+  ref-cv-spatial-b32 has its fold files. The scored numbers for those
+  runs are intact and verified; the per-fold detail record is
+  unverifiable from the repo. Recovery needs a box-side commit of the
+  fold files from the box run dirs, or an explicit acceptance of the
+  loss — they cannot be reconstructed here.
+- 6 RELOCATED: the three "-full" runs' score files were committed at
+  the run top level while their manifests record scores/<scheme>.json;
+  content verified by SHA256, only the path chain is broken.
+- 1 MISSING_MANIFEST: ref-cv-fault-b32 still has none (known since
+  step 15; the s6 record task exists in the queue).
+- 1 ORPHAN_LEDGER_ENTRY: ENDPOINT-EXT-01 has a ledger entry but no
+  gate report in results/gates/.
+- ref-cv-spatial-b32 is the only fully clean run: manifest complete,
+  every artifact hash matches, all config SHAs match.
+
+**Tests** (this VM): `519 passed, 18 skipped` (up from a measured
+508/18 baseline without this step; the 11 new tests;
+`test_endpoint_extension.py` still uncollectable — no skimage in VM
+venv, documented gap). `ruff check .` clean (CI gate); `ruff format`
+applied. The step-21 log entry's 487 figure does not reproduce on this
+venv; the measured pre-step baseline is 508.
+
+**Scope notes**: no measured official-data scores — nothing ran here. No
+competition data was read — the audit reads only committed JSONs, never
+rasters or predictions. Box queue state unknown from this VM (no new box
+commits since the 10-12 b32 baselines; 126 live queue tasks, 37 days to
+the 2026-12-03 close); the verdict-interpretation items (s7 loss gate,
+s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate
+gates, s12 schedule compare) remain the next CPU items once the box
+produces results. The threshold experiment itself is still unapproved.
