@@ -1,13 +1,15 @@
 # Primary sources and technical references
 
-_Last checked: 2026-09-23._
+_Core source index checked: 2026-10-28 for eligibility and deadlines; other entries retain their original review dates._
 
 ## Competition
 
 - DrivenData overview: https://www.drivendata.org/competitions/306/competition-doe-gems/page/966/
 - DrivenData problem description / metric / submission format: https://www.drivendata.org/competitions/306/competition-doe-gems/page/967/
 - DrivenData about page: https://www.drivendata.org/competitions/306/competition-doe-gems/page/968/
-- Official rules (September 2026 PDF): https://docs.nlr.gov/docs/fy26osti/96647.pdf
+- Official rules (September 2026 PDF, current NLR host): https://www.nlr.gov/docs/fy26osti/96647.pdf
+- 2026-10-28 eligibility, commercialization, IP and deadline discrepancy preflight: [PRIZE_ELIGIBILITY_COMMERCIALIZATION_PREFLIGHT_2026-10-28.md](PRIZE_ELIGIBILITY_COMMERCIALIZATION_PREFLIGHT_2026-10-28.md)
+- Public October 13 eligibility clarification question (no organizer answer visible as checked): https://community.drivendata.org/t/eligibility-majority-of-activities-performed-in-the-u-s-rules-1-4-and-participating-without-prize-eligibility/11565
 - Organizer reference solution: https://github.com/drivendataorg/gems-prize-reference-solution
 - Public scoring clarification — known USGS/INGENIOUS pixels are masked in both rounds: https://community.drivendata.org/t/scoring-clarification-are-known-usgs-ingenious-faults-masked-when-scoring-and-are-they-in-the-final-round-label-set/11516
 - Public target clarification — “new fault” can include newly mapped continuation/geometry of an existing fault system: https://community.drivendata.org/t/where-do-you-draw-the-line/11536
