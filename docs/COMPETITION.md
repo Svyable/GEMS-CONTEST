@@ -53,7 +53,7 @@ Run `scripts/validate_submission.py` against the official sample submission befo
 
 ## Competition mechanics
 
-- Deadline: **2026-12-03 23:59 UTC**.
+- **Deadline conflict (2026-10-28 primary-rules check):** live DrivenData page lists **2026-12-03 23:59 UTC**; DOE/NLR official rules Appendix A.1 says **5:00 p.m. ET = 22:00 UTC** on Dec 3. Use the earlier 22:00 UTC as a planning cutoff pending clarification, not as an asserted organizer resolution. See [eligibility/cutoff preflight](PRIZE_ELIGIBILITY_COMMERCIALIZATION_PREFLIGHT_2026-10-28.md).
 - Prize pool: $300,000.
 - Initial round: top five private-test submissions receive $10,000 each.
 - Final round: same selected final submission is rescored after expert review revises the new-fault label set; prizes are $100k / $70k / $40k / $25k / $15k.
@@ -62,6 +62,9 @@ Run `scripts/validate_submission.py` against the official sample submission befo
 - Finalists must provide complete code assets and documentation sufficient to reproduce results and run predictions on new data.
 
 ## What this means for us
+
+**Cash-award qualification remains unverified.** DOE/NLR §1.3 requires a U.S.-eligible individual, team captain or private entity; §1.4 additionally requires majority U.S.-performed activity and genuine U.S.-based commercial intent beyond IP licensing. GitHub project existence, technical scores and clicking "agree" do not prove these facts. No prize registration or certification is authorized here.
+
 
 1. Treat public leaderboard score as noisy evidence, not the optimization target.
 2. Use spatial holdouts, whole-fault holdouts, and trace-completion/endpoint withholding rather than random pixels.
