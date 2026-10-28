@@ -1681,3 +1681,82 @@ the 2026-12-03 close); the verdict-interpretation items (s7 loss gate,
 s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate
 gates, s12 schedule compare) remain the next CPU items once the box
 produces results. The threshold experiment itself is still unapproved.
+
+## 2026-10-28 — Queued-production inventory: scripts/queue_status.py (step 23)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule). Step 19 (`gate_status.py`) answers which queued
+*decisions* are decided, but nothing answered, in one place, which of
+the 126 queued *production* tasks (train/score/record/view) have
+actually landed in the committed tree — the daily run hand-grepped
+tasks.json against results/runs/. With the box silent 16 days and no
+new results since the 10-12 b32 baselines, the exact outstanding-results
+list is the prerequisite for any verdict interpretation. Sven was active
+in the repo today (6 docs commits, 2fa650d..1348968): a prize-eligibility
+and commercialization preflight against the DOE/NLR September 2026
+official rules — decision **WATCH for cash eligibility, not an
+authorized entry**; it also surfaced a deadline conflict (live
+DrivenData page 2026-12-03 23:59 UTC vs rules Appendix A.1 5:00 p.m. ET
+= 22:00 UTC; plan to the earlier cutoff). No new training results
+arrived with those commits.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/queue_status.py` (executable, repo convention): one inventory
+  over all 126 live queue tasks against the committed tree. Production
+  tasks (train/score/record/view) report the furthest pipeline stage
+  with committed evidence — RECORDED (manifest.json present) > SCORED
+  (a score file present, no manifest) > TRAINED (fold files present, no
+  score) > PENDING (no committed evidence) — checking the
+  results/-prefixed path first with a bare-path fallback, and both the
+  scores/<scheme>.json and run-top-level <scheme>.json locations (the
+  step-22 RELOCATED cases). Assemble tasks report DONE/PARTIAL/PENDING
+  per copied file; gate/compare rows reuse the gate_status.py checks
+  (that script remains the authoritative gate detail). A per-run rollup
+  groups the train/score/record/view triples by run dir; orphan run
+  dirs and gate JSONs are listed, and parked tasks
+  (tasks.parked.json) are counted. Exit 0 when the inventory could be
+  produced; a missing or malformed tasks.json is a hard error.
+- Tests: `tests/test_queue_status.py` (4 tests) — a real-repo golden
+  test asserting the exact counts below, a synthetic repo covering
+  every stage (recorded, scored, trained, pending, relocated score,
+  partial assemble, decided gate, ran compare, housekeeping) plus
+  orphan gate/run detection, and hard-error cases (broken gate JSON,
+  compare script without CMP=, malformed/missing tasks.json).
+
+**Findings on the committed record: 126 queued tasks, 41 queued runs.**
+- Production: 111 tasks — 18 recorded, 3 scored, 0 trained, 90 pending.
+  Runs: 6 recorded, 1 scored, 34 pending. The 6 recorded runs are the
+  three "-full" references, ref-cv-trace-b16, ref-cv-spatial-b32, and
+  cand-mumford_shah_log-spatial-b16; ref-cv-fault-b32 is the one scored
+  run (score present, manifest still missing — the s5 record task is
+  queued). 0 orphan gate JSONs, 0 orphan run dirs; 5 parked tasks
+  (2 s6 trace-only b32 gates, 3 s21 rival-threshold).
+- **New precise blocker:** both ref-b16 assemble tasks (s5b, s7) are
+  still pending — runs/gate/ref-b16 holds only trace.json, so the
+  incumbent side of every b16 gate is missing spatial.json and
+  fault.json; ref-b32 likewise lacks trace.json (trace-b32 never ran).
+  The 9 pending b16 gates are therefore blocked on the incumbent side
+  as well as the candidate side, and the 2 pending b32 gates on the
+  trace side. Assembling ref-b16 needs the box-side
+  runs/gate/ref-full/spatial.json + fault.json from the s1/s2 score
+  tasks; nothing here can reconstruct them from the committed tree.
+- Re-ran `scripts/audit_results.py` and `scripts/gate_status.py` on the
+  new HEAD: unchanged — 33 findings, 0 hard errors; 10 gates queued,
+  1 decided (ENDPOINT-EXT-02 REJECT), 9 pending; 2 compares pending.
+
+**Tests** (this VM): `523 passed, 18 skipped` (up from 519/18; the 4
+new tests; `test_endpoint_extension.py` still uncollectable — no
+skimage in VM venv, documented gap). `ruff check .` clean (CI gate);
+`ruff format` applied.
+
+**Scope notes**: no measured official-data scores — nothing ran here. No
+competition data was read — the inventory reads only tasks.json and the
+committed results tree, never rasters or predictions. Box queue state:
+126 live tasks, 5 parked, no new box results since 10-12 (16 days);
+36 days to the 2026-12-03 close (safe planning cutoff 22:00 UTC per
+today's preflight, pending organizer clarification). The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results. The
+threshold experiment is still unapproved; cash-eligibility gates are
+Sven's private call.

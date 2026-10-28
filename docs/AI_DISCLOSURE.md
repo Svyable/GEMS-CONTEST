@@ -1050,3 +1050,23 @@ dirs still hold them); recovering them needs a box-side commit. The
 s7/s8/s12/s14 verdicts and the s4–s6/s9–s11/s13 gates still await box
 results (no new box commits since the 10-12 b32 baselines); the
 threshold experiment is still unapproved.
+
+Step 23 (2026-10-28, VM): `scripts/queue_status.py` + 4 tests — a
+queue-production inventory that reads only `scripts/queue/tasks.json`,
+`tasks.parked.json`, and the committed results tree, reporting the
+furthest landed pipeline stage per queued task and per run (126 tasks:
+18 recorded, 3 scored, 0 trained, 90 pending production tasks; 41
+runs: 6 recorded, 1 scored, 34 pending). It surfaced that both ref-b16
+assemble tasks are still pending, so the incumbent gate dir holds only
+trace.json and every b16 gate is blocked on the incumbent side as well
+as the candidate side. Full suite: 523 passed, 18 skipped;
+`ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or
+leaderboard interaction involved; no competition data was read — the
+inventory never opens rasters or predictions. Sven's own 2026-10-28
+docs commits (prize-eligibility/commercialization preflight, deadline
+conflict, WATCH decision) were reviewed, not authored here. The box
+remains silent on training results since 10-12; the s7/s8/s12/s14
+verdicts and the s4–s6/s9–s11/s13 gates still await box results; the
+threshold experiment is still unapproved.
