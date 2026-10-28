@@ -4,8 +4,13 @@ This is an engineering checklist, not a substitute for the official rules.
 
 ## Before competing
 
+**Cash eligibility is NOT established by registration alone.** Read [the 2026-10-28 primary-rules eligibility and commercialization preflight](PRIZE_ELIGIBILITY_COMMERCIALIZATION_PREFLIGHT_2026-10-28.md) before accepting any rules or certifying eligibility. Section 1.3 requires a qualifying U.S. individual/team captain/entity, and Section 1.4 requires U.S.-performed work and genuine U.S. commercial intent. These are applicant-controlled facts, not public-repo inferences.
+
+
 - [ ] Register on DrivenData and accept the GEMS rules/data terms.
-- [ ] Confirm the competing individual/team/entity satisfies the eligibility requirements.
+- [ ] Verify §1.3 eligibility privately: U.S. citizen/permanent-resident individual or captain, or U.S.-incorporated entity with primary U.S. business; age, exclusions, team work authorization, and registered payee.
+- [ ] Verify §1.4: majority of submission-supporting activities performed in the U.S., U.S. market benefit, and genuine U.S.-business commercialization intent beyond IP licensing.
+- [ ] Confirm W-9/ACH award-payee readiness and understand that registration/submission involves a certification under penalty of perjury; only applicant may accept.
 - [ ] Decide the official participating entity/team early enough to avoid final-submission ambiguity.
 - [ ] Keep the official rules URL and competition/forum clarification pages in `docs/SOURCES.md` under version control.
 
@@ -19,6 +24,9 @@ This is an engineering checklist, not a substitute for the official rules.
 - [ ] Keep code/assets reproducible and free of malware.
 
 ## Submission
+
+**Deadline conflict:** DrivenData lists **2026-12-03 23:59 UTC**; official DOE/NLR rules Appendix A.1 says **5:00 p.m. ET = 22:00 UTC** that day. Plan to finish before the **earlier** time pending organizer clarification; this is an internal safety cutoff, not an official resolution.
+
 
 - [ ] Run the template-based GeoTIFF validator.
 - [ ] Confirm EPSG:32611, 100 m, one band, float32, values in [0,1].
