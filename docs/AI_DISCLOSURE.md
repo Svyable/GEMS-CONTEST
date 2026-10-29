@@ -1070,3 +1070,22 @@ conflict, WATCH decision) were reviewed, not authored here. The box
 remains silent on training results since 10-12; the s7/s8/s12/s14
 verdicts and the s4–s6/s9–s11/s13 gates still await box results; the
 threshold experiment is still unapproved.
+
+Step 24 (2026-10-29, VM): `scripts/queue_critical_path.py` + 7 tests — a
+resume-order ranking over the 126 queued tasks by pending decisions
+unblocked (9 gates, 2 compares pending; 1 decided), with transitive
+train → score edges, assemble prerequisites, and EVIDENCE-ELSEWHERE /
+NO-PRODUCER flags for inputs no queued task can produce. It surfaced
+that both ref-b16 assemble tasks unblock 9 decisions each but are
+blocked on gate-dir copies of the s1/s2 scores that already landed in
+the run dirs (a box-side commit, not queue progress), and that the s12
+schedule compare cannot run as scripted — its incumbent LOFO inputs
+for spatial/fault have no queued producer. Full suite: 530 passed, 18
+skipped; `ruff check .` clean per CI.
+
+No model training, raw data, checkpoints, submission artifacts, or
+leaderboard interaction involved; no competition data was read — the
+ranking never opens rasters or predictions. The box remains silent on
+training results since 10-12; the s7/s8/s12/s14 verdicts and the
+s4–s6/s9–s11/s13 gates still await box results; the threshold
+experiment is still unapproved.

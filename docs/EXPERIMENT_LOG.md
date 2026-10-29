@@ -1760,3 +1760,86 @@ lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
 compare) remain the next CPU items once the box produces results. The
 threshold experiment is still unapproved; cash-eligibility gates are
 Sven's private call.
+
+## 2026-10-29 — Queue critical path: scripts/queue_critical_path.py (step 24)
+
+**Rationale** (plan: validation gaps first, STRATEGY.md; repo AGENTS.md
+reproducibility rule). Step 23 inventoried which queued tasks have
+landed, but nothing ranked what the box should run first after 17
+silent days — with 35 days to the close, the resume order is the
+prerequisite for any verdict interpretation. This tool ranks every
+pending task by the number of pending decisions (gates + compares) it
+feeds, following train → score chains, assemble prerequisites, and
+compare LOFO inputs, and flags missing inputs no queued task can
+produce.
+
+**What was changed** (CPU-only, this VM; no training here):
+- `scripts/queue_critical_path.py` (executable, repo convention): one
+  ranking over the 126 queued tasks against the committed tree
+  (results/-prefixed paths first, bare fallback, as in queue_status).
+  A gate needs one JSON per view in both gate dirs; a compare needs
+  the same gate JSONs plus LOFO summaries from the run dirs its script
+  names (schedule compares hard-copy every input, so those are
+  required; seed-compare inputs are best-effort and the probe is
+  spatial-only on the candidate side). Missing gate JSONs resolve to
+  pending score/view tasks, pending assemble tasks, or two flags:
+  EVIDENCE-ELSEWHERE (a producer already ran but the gate-dir copy was
+  never committed — no queued task re-creates it) and NO-PRODUCER (no
+  queued task makes it). Pending train tasks inherit the decisions of
+  their score tasks (transitive edge); record tasks rank at zero by
+  construction, since gates read gate-dir JSONs, not manifests.
+  Readiness notes name the prerequisite ("after s6-train-…", "blocked:
+  runs/gate/ref-full/spatial.json") instead of a bare runnable flag —
+  a view task's prerequisite is its INPUT run's training, not its
+  output run's folds (caught during development: the s13 curved tasks
+  were first misreported as blocked, and now correctly report
+  runnable now off the recorded full runs).
+- Tests: `tests/test_queue_critical_path.py` (7 tests) — synthetic
+  train → score → assemble → gate chains, EVIDENCE-ELSEWHERE /
+  NO-PRODUCER cases, decided-gate exclusion, view-task input-run
+  readiness, compare LOFO with no producer, hard-error cases, and a
+  real-repo golden test pinning the counts below.
+
+**Findings on the committed record: 9 pending gates, 2 pending
+compares, 1 decided.**
+- **Resume order, top:** both ref-b16 assemble tasks (s5b, s7) unblock
+  9 decisions each (7 b16 gates + both compares) — duplicate
+  producers, running one suffices. But both are blocked on
+  runs/gate/ref-full/spatial.json + fault.json, flagged
+  EVIDENCE-ELSEWHERE: the s1/s2 scores already landed in the run dirs
+  (results/runs/ref-cv-spatial-full/spatial.json and
+  ref-cv-fault-full/fault.json, manifests present) while the gate-dir
+  copies were never committed. The unblock is a box-side commit, not
+  queue progress — sharper than step 23's "needs the box-side files".
+- **Next:** s6-train-ref-trace-b32 unblocks 2 (both b32 gates, via the
+  s6 trace score); every other ranked task unblocks exactly 1.
+- **New gap:** the s12 schedule compare cannot run as scripted — its
+  incumbent LOFO inputs (runs/ref-cv-spatial-b16 and
+  runs/ref-cv-fault-b16/scores/lofo-*.json) are REQUIRED (hard `cp`
+  in compare_schedule.sh) and have NO queued producer; only the trace
+  LOFO exists (s5b trace run). Closing it needs new queue tasks for
+  the b16 incumbent LOFO or a compare-script path fix. The seed
+  compare's fault/trace candidate inputs are also NO-PRODUCER, but
+  they are best-effort skips for a spatial-only probe, not blockers.
+- 31 pending tasks have no decision impact (mostly record tasks, plus
+  the decided-gate endpoint views).
+- Re-ran `scripts/queue_status.py` and `scripts/gate_status.py`: unchanged
+  (126 tasks; 10 gates queued, 1 decided, 9 pending; 2 compares pending).
+
+**Tests** (this VM): `530 passed, 18 skipped` (up from 523/18; the 7
+new tests; `test_endpoint_extension.py` still uncollectable — no
+skimage in VM venv, documented gap). `ruff check .` clean (CI gate);
+`ruff format` applied.
+
+**Scope notes**: no measured official-data scores — nothing ran here. No
+competition data was read — the ranking reads only tasks.json and the
+committed results tree, never rasters or predictions. Box queue state:
+126 live tasks, 5 parked, no new box results since 10-12 (17 days);
+35 days to the 2026-12-03 close (safe planning cutoff 22:00 UTC per
+the 10-28 preflight, pending organizer clarification). The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results, and
+the s12 compare now has a known scripted-input gap on top of that.
+The threshold experiment is still unapproved; cash-eligibility gates
+are Sven's private call.
