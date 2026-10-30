@@ -1843,3 +1843,63 @@ compare) remain the next CPU items once the box produces results, and
 the s12 compare now has a known scripted-input gap on top of that.
 The threshold experiment is still unapproved; cash-eligibility gates
 are Sven's private call.
+
+## 2026-10-30 — Gate-input validity audit: scripts/gate_readiness.py (step 25)
+
+Step 24 ranked the resume order by which tasks unblock decisions, but it
+treated a gate input as satisfied once the file exists. That is not
+sufficient: `scripts/verify_candidate.py` parses every gate-dir JSON
+through `gems.verification._parse_view_result`, which enforces the
+schema-2 protocol (all PROTOCOL_FIELDS present, schema_version == 2,
+stitched `aggregate_components` on the spatial view, digest formats,
+fold/macro consistency). `scripts/gate_readiness.py` + 6 tests closes
+the gap: for each of the 9 pending gates it classifies every
+incumbent/candidate view input as VALID, INVALID (with the parser's
+exact reason), or MISSING (with queued producer task ids), and it
+lists committed same-view scores outside gate dirs with their own
+validity, so a copy-vs-rescore decision is visible.
+
+**Findings on the committed record: 12 VALID, 0 INVALID, 42 MISSING
+gate inputs (9 pending gates, 1 decided).** The present gate files
+(ref-b16 trace, ref-b32 spatial/fault, cand-mumford_shah_log-b16
+spatial) are all schema-2 VALID. The correction to step 24's resume
+order: the s1/s2 full-run scores are NOT a copy away from unblocking
+the 7 b16 gates. Their only committed copies
+(`results/runs/ref-cv-spatial-full/spatial.json`,
+`results/runs/ref-cv-fault-full/fault.json`, and the trace-full file)
+are schema-1 and INVALID under the gate parser
+("evaluation_protocol missing aggregation"). Proven end-to-end: a
+gate dir built from a copied schema-1 spatial file does not crash,
+but `compare_view` marks spatial non-comparable with that reason, the
+pooled spatial gain (mandatory for ACCEPT) can never be computed, and
+the verdict comes out INCONCLUSIVE — while a real gate.sh run would
+still append a ledger trial, escalating every future margin. The true
+unblock for the b16 gates is a box-side schema-2 re-score of the s1/s2
+full runs (re-run `score_view.sh` on the existing full-run predictions;
+buffer comes from the fold metrics files, so the re-score is
+protocol-faithful), THEN the s5b/s7 assemble tasks, then the gates.
+No queue task does this today, and none was added here: the runner
+executes in list order and stops on the first failure, so appended
+re-score tasks would land after the assemble tasks they must precede
+(s5b `cp` would fail or copy schema-1; s7 `cp -n` would then never
+repair it). The ordered handoff is: insert re-score tasks immediately
+before `s5b-assemble-ref-b16`, or re-run the two score commands
+manually on the box, then assemble, then gates.
+
+**Tests** (this VM): `536 passed, 18 skipped` (up from 530/18; the 6
+new tests; `test_endpoint_extension.py` still uncollectable — no
+skimage in VM venv, documented gap). `ruff check .` clean (CI gate);
+`ruff format` applied.
+
+**Scope notes**: no measured official-data scores — nothing ran here.
+No competition data was read — the audit reads only tasks.json and
+committed JSONs, never rasters or predictions. Box queue state: 126
+live tasks, 5 parked, no new box results since 10-12 (18 days); 34
+days to the 2026-12-03 close (safe planning cutoff 22:00 UTC per the
+10-28 preflight, pending organizer clarification). The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results, and
+the b16 gates now have a known re-score prerequisite on top of the
+assemble prerequisite. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call.

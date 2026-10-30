@@ -1089,3 +1089,9 @@ ranking never opens rasters or predictions. The box remains silent on
 training results since 10-12; the s7/s8/s12/s14 verdicts and the
 s4–s6/s9–s11/s13 gates still await box results; the threshold
 experiment is still unapproved.
+
+Step 25 (2026-10-30, VM): `scripts/gate_readiness.py` + 6 tests — a
+gate-input validity audit over the 9 pending gates, classifying each
+input with the real gate parser (VALID / INVALID / MISSING) and
+surfacing the schema-1 re-score prerequisite behind the b16 gates.
+No competition data was read; no model trained; no submission made.
