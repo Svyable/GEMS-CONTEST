@@ -63,8 +63,8 @@ def test_real_repo_inventory():
     assert result.returncode == 0, result.stderr
     out = result.stdout
     assert (
-        "Summary: 126 queued tasks (111 production, 10 gates, 2 compares); "
-        "production 18 recorded, 3 scored, 0 trained, 90 pending; "
+        "Summary: 129 queued tasks (113 production, 10 gates, 2 compares); "
+        "production 20 recorded, 3 scored, 0 trained, 90 pending; "
         "41 queued runs — 6 recorded, 1 scored, 0 trained, 34 pending." in out
     )
     assert (

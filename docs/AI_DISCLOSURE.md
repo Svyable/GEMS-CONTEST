@@ -1095,3 +1095,12 @@ gate-input validity audit over the 9 pending gates, classifying each
 input with the real gate parser (VALID / INVALID / MISSING) and
 surfacing the schema-1 re-score prerequisite behind the b16 gates.
 No competition data was read; no model trained; no submission made.
+
+Step 26 (2026-10-31, VM): `scripts/queue_insert.py` + 7 tests and the
+three step-26 queue tasks (schema-2 re-scores of the s1/s2 full runs
+plus an unconditional re-assemble into ref-b16) were AI-generated with
+human-direction from the step-25 finding; the queue edit was applied
+through the new tool's own validation (anchor uniqueness, id
+uniqueness, non-empty cmds) and verified against the queue-status,
+gate-readiness, and critical-path inventories before commit.
+No competition data was read; no model trained; no submission made.

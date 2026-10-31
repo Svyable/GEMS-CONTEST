@@ -146,6 +146,24 @@
     "cmd": "/workspace/gems/queue/record.sh ref-cv-trace-b16 runs/ref-cv-trace-b16 configs/reference_unet.yaml \"Organizer reference U-Net recipe under honest trace CV at buffer 16 (cv-trace-v1b, all 5 folds); supersedes ref-cv-trace-full (buffer 3, fold 0 on pre-repair v1 map).\" \"train_full_map.py --cv-scheme trace --buffer-pixels 16 --seed 20260922; same config/epochs/train_step as spatial/fault incumbent.\""
   },
   {
+    "id": "s26-rescore-ref-spatial-full",
+    "step": 26,
+    "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-spatial-full spatial data/processed/cv-spatial-v1.tif runs/gate/ref-full",
+    "note": "Step-25 prerequisite: the committed ref-full spatial score is schema-1 (INVALID under the gate parser). Re-score the existing s1 fold predictions with current score_cv.py (schema-2) before any ref-b16 assemble; no retraining. Must run before s5b-assemble-ref-b16."
+  },
+  {
+    "id": "s26-rescore-ref-fault-full",
+    "step": 26,
+    "cmd": "/workspace/gems/queue/score_view.sh runs/ref-cv-fault-full fault data/processed/cv-fault-v1.tif runs/gate/ref-full",
+    "note": "Step-25 prerequisite: the committed ref-full fault score is schema-1 (INVALID under the gate parser). Re-score the existing s2 fold predictions with current score_cv.py (schema-2) before any ref-b16 assemble; no retraining. Must run before s5b-assemble-ref-b16."
+  },
+  {
+    "id": "s26-reassemble-ref-b16",
+    "step": 26,
+    "cmd": "mkdir -p runs/gate/ref-b16 && cp runs/gate/ref-full/spatial.json runs/gate/ref-full/fault.json runs/gate/ref-b16/ && ls runs/gate/ref-b16",
+    "note": "Unconditional cp (not cp -n): repairs a stale schema-1 copy if s5b-assemble-ref-b16 already ran on the box; s7-assemble-ref-b16 uses cp -n and would never repair it. Runs after the step-26 re-scores, before s5b-assemble-ref-b16."
+  },
+  {
     "id": "s5b-assemble-ref-b16",
     "step": 5,
     "cmd": "mkdir -p runs/gate/ref-b16 && cp runs/gate/ref-full/spatial.json runs/gate/ref-full/fault.json runs/gate/ref-b16/ && ls runs/gate/ref-b16",

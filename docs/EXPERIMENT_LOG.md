@@ -1903,3 +1903,58 @@ compare) remain the next CPU items once the box produces results, and
 the b16 gates now have a known re-score prerequisite on top of the
 assemble prerequisite. The threshold experiment is still unapproved;
 cash-eligibility gates are Sven's private call.
+
+## 2026-10-31 — Mid-queue insertion: step-26 re-score + re-assemble block (step 26)
+
+Step 25 left the b16 gates with an ordered prerequisite, not just a
+missing file: the s1/s2 full-run scores must be re-scored to schema-2
+BEFORE any ref-b16 assemble copies them, because the runner executes
+pending tasks in list order and the later s7-assemble uses `cp -n`,
+which would never repair a stale schema-1 copy. Appending the re-score
+tasks would have landed them after the assemble tasks they must precede,
+so this step adds `scripts/queue_insert.py` + 7 tests — the only
+supported way to insert mid-queue — and uses it to insert three step-26
+tasks immediately before `s5b-assemble-ref-b16` (queue 126 -> 129):
+
+- `s26-rescore-ref-spatial-full` and `s26-rescore-ref-fault-full`:
+  byte-identical replays of the s1/s2 score commands (same run, scheme,
+  fold map, gate dir), so the current `score_cv.py` (schema_version 2)
+  regenerates `runs/gate/ref-full/{spatial,fault}.json` from the
+  existing fold predictions. No retraining; protocol-faithful per the
+  step-25 analysis (buffer comes from the fold metrics files).
+- `s26-reassemble-ref-b16`: unconditional `cp` of the two re-scored
+  files into `runs/gate/ref-b16/` — deliberately NOT `cp -n`, so it
+  repairs a stale schema-1 copy even if `s5b-assemble-ref-b16` already
+  ran on the box before this insert.
+
+**Verification on the committed tree:** `queue_status.py` re-run:
+129 tasks (113 production, 10 gates, 2 compares), runs rollup unchanged
+(41 runs); `gate_readiness.py` unchanged (12 VALID, 0 INVALID, 42
+MISSING) with the ref-b16 incumbent inputs now listing the new
+re-assemble task first among their producers; `queue_critical_path.py`
+golden assertions unchanged. Known inventory caveat: the VM status
+tools classify the two re-score tasks as RECORDED because their runs
+have manifests — they key on run evidence, not on the gate-dir output
+file. The box runner is unaffected: it keys on `state/<id>.done`
+markers, and the new ids have none, so they will execute in list order
+once the box pulls. The box still has not committed anything since
+10-12 (19 days); whether its runner is even active is unknown from
+this VM, so the next box pull is the real test of this block.
+
+**Tests** (this VM): `543 passed, 18 skipped` (up from 536/18; the 7
+new tests; `test_endpoint_extension.py` still uncollectable — no
+skimage in VM venv, documented gap). `ruff check .` clean (CI gate);
+`ruff format` applied.
+
+**Scope notes**: no measured official-data scores — nothing ran here.
+No competition data was read — the insert reads only tasks.json and the
+committed results tree, never rasters or predictions. Box queue state:
+129 live tasks, 5 parked, no new box results since 10-12 (19 days); 33
+days to the 2026-12-03 close (safe planning cutoff 22:00 UTC per the
+10-28 preflight, pending organizer clarification). The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results, and
+the b16 gates now have their re-score prerequisite queued in the right
+order rather than just documented. The threshold experiment is still
+unapproved; cash-eligibility gates are Sven's private call.
