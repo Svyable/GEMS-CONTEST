@@ -97,8 +97,13 @@ def _lofo_payload(view: str, cal: list[float]) -> dict:
     return {
         "scheme": view,
         "folds": [
-            {"fold": i, "raw_score": 0.1, "calibrated_score": c,
-             "eval_pixels": 100, "truth_pixels": 10}
+            {
+                "fold": i,
+                "raw_score": 0.1,
+                "calibrated_score": c,
+                "eval_pixels": 100,
+                "truth_pixels": 10,
+            }
             for i, c in enumerate(cal)
         ],
         "calibrated_mean": sum(cal) / len(cal),
@@ -116,28 +121,35 @@ def comparison_dirs(tmp_path):
     cand_scores = [0.11, 0.13, 0.10, 0.12, 0.11]  # uniform +0.01
     for view in VIEWS:
         (inc_gate / f"{view}.json").write_text(
-            json.dumps(_gate_payload(view, inc_scores, epochs=5)))
+            json.dumps(_gate_payload(view, inc_scores, epochs=5))
+        )
         (cand_gate / f"{view}.json").write_text(
-            json.dumps(_gate_payload(view, cand_scores, epochs=10)))
+            json.dumps(_gate_payload(view, cand_scores, epochs=10))
+        )
         (inc_lofo / f"lofo-{view}.json").write_text(
-            json.dumps(_lofo_payload(view, [s + 0.03 for s in inc_scores])))
+            json.dumps(_lofo_payload(view, [s + 0.03 for s in inc_scores]))
+        )
         (cand_lofo / f"lofo-{view}.json").write_text(
-            json.dumps(_lofo_payload(view, [s + 0.035 for s in cand_scores])))
+            json.dumps(_lofo_payload(view, [s + 0.035 for s in cand_scores]))
+        )
     return inc_gate, cand_gate, inc_lofo, cand_lofo
 
 
 def _run(inc_gate, cand_gate, *extra):
     return subprocess.run(
         [sys.executable, str(COMPARE), str(inc_gate), str(cand_gate), *extra],
-        capture_output=True, text=True, timeout=30, check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
 
 
 def test_compare_reports_paired_deltas(comparison_dirs):
     inc_gate, cand_gate, inc_lofo, cand_lofo = comparison_dirs
-    result = _run(inc_gate, cand_gate,
-                  "--incumbent-lofo", str(inc_lofo),
-                  "--candidate-lofo", str(cand_lofo))
+    result = _run(
+        inc_gate, cand_gate, "--incumbent-lofo", str(inc_lofo), "--candidate-lofo", str(cand_lofo)
+    )
     assert result.returncode == 0, result.stderr
     assert "incumbent 5 epochs vs candidate 10 epochs" in result.stdout
     assert "mean delta +0.01000" in result.stdout  # raw: uniform +0.01
@@ -182,8 +194,68 @@ def test_compare_refuses_fold_mismatch(comparison_dirs):
 def test_compare_tolerates_missing_views(comparison_dirs):
     inc_gate, cand_gate, inc_lofo, cand_lofo = comparison_dirs
     (cand_gate / "trace.json").unlink()
-    result = _run(inc_gate, cand_gate,
-                  "--incumbent-lofo", str(inc_lofo),
-                  "--candidate-lofo", str(cand_lofo))
+    result = _run(
+        inc_gate, cand_gate, "--incumbent-lofo", str(inc_lofo), "--candidate-lofo", str(cand_lofo)
+    )
     assert result.returncode == 0, result.stderr
     assert "trace: SKIPPED" in result.stdout
+
+
+def test_compare_tolerates_missing_incumbent_lofo(comparison_dirs):
+    """The s12 compare's real box state: incumbent b16 LOFO exists only for
+    trace (s5b trace run); spatial/fault incumbent LOFO have no queued
+    producer (step-24 finding). The compare must still report raw deltas
+    for all views and LOFO-calibrated deltas for trace only, not fail."""
+    inc_gate, cand_gate, inc_lofo, cand_lofo = comparison_dirs
+    (inc_lofo / "lofo-spatial.json").unlink()
+    (inc_lofo / "lofo-fault.json").unlink()
+    result = _run(
+        inc_gate, cand_gate, "--incumbent-lofo", str(inc_lofo), "--candidate-lofo", str(cand_lofo)
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.count("mean delta +0.01000") == 3  # raw, all views
+    assert result.stdout.count("mean delta +0.01500") == 1  # LOFO-cal, trace only
+    assert result.stdout.count("LOFO-calibrated: SKIPPED") == 2  # spatial, fault
+
+
+# ---- compare_schedule.sh wrapper (step 27) ----
+
+COMPARE_WRAPPER = REPO / "scripts" / "queue" / "compare_schedule.sh"
+
+
+def _wrapper_copy_statements() -> list[str]:
+    """Join backslash continuations so each logical cp statement is one line."""
+    text = COMPARE_WRAPPER.read_text(encoding="utf-8")
+    logical: list[str] = []
+    buf = ""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if stripped.endswith("\\"):
+            buf += stripped[:-1]
+        else:
+            buf += stripped
+            logical.append(buf)
+            buf = ""
+    if buf:
+        logical.append(buf)
+    return [ln for ln in logical if "cp " in ln]
+
+
+def test_compare_wrapper_guards_every_copy():
+    """Regression for the step-24 s12 gap: under set -e a bare cp of a
+    missing input aborts the whole compare before compare_schedule.py
+    (which tolerates missing views/LOFO) ever runs. Every staging copy
+    must use the guarded idiom from compare_seed.sh."""
+    assert "set -eo pipefail" in COMPARE_WRAPPER.read_text(encoding="utf-8")
+    copies = _wrapper_copy_statements()
+    assert len(copies) == 4, f"expected 4 staging copies, got: {copies}"
+    for stmt in copies:
+        assert stmt.startswith("[ -f "), f"unguarded copy: {stmt}"
+        assert stmt.endswith("|| true"), f"copy not failure-tolerant: {stmt}"
+    # All four input classes staged, across all three views (loop variable).
+    assert any("INC_GATE" in s and "inc-raw" in s for s in copies)
+    assert any("CAND_GATE" in s and "cand-raw" in s for s in copies)
+    assert any("INC_BASE" in s and "inc-lofo" in s for s in copies)
+    assert any("CAND_BASE" in s and "cand-lofo" in s for s in copies)

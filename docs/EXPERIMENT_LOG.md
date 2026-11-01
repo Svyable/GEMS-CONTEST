@@ -1958,3 +1958,55 @@ compare) remain the next CPU items once the box produces results, and
 the b16 gates now have their re-score prerequisite queued in the right
 order rather than just documented. The threshold experiment is still
 unapproved; cash-eligibility gates are Sven's private call.
+
+## 2026-11-01 — s12 compare wrapper fix: guarded staging in compare_schedule.sh (step 27)
+
+Step 24 found the s12 schedule compare could not run as scripted and
+named two closings: new queue tasks for the b16 incumbent LOFO, or a
+compare-script path fix. This step takes the path fix, because it costs
+no box GPU time and no queue churn: `scripts/queue/compare_schedule.sh`
+now guards every staging copy with the same `[ -f ... ] && cp ... ||
+true` idiom `compare_seed.sh` already uses. The fix matters because the
+wrapper was stricter than the tool it wraps — `compare_schedule.py`
+already skips a view whose gate JSON is missing on either side and
+skips LOFO-calibrated deltas when a LOFO summary is missing
+(`load_view_results` skips absent files) — but a bare `cp` under
+`set -eo pipefail` aborted the whole compare before the tool ever ran.
+The incumbent b16 spatial/fault LOFO summaries have no queued producer
+(only the s5b trace LOFO exists), so the old script would have failed
+even after every producer task completed. The rejected alternative —
+training b16 incumbent spatial/fault runs just to produce LOFO summaries
+— spends box GPU time on a secondary output; raw paired deltas are the
+compare's primary output, and LOFO-calibrated deltas now report for
+trace only, with SKIPPED lines for spatial/fault in compare.log.
+
+**Verification on the committed tree:** `bash -n` syntax check on the
+wrapper; 2 new tests in `tests/test_longer_schedule.py` — one
+behavioral (incumbent LOFO present for trace only, the exact post-s26
+box state: exit 0, raw deltas for all 3 views, LOFO-calibrated for
+trace only, 2 SKIPPED lines) and one regression asserting all 4 staging
+copies use the guarded idiom under `set -eo pipefail`. Inventories
+re-run unchanged: 129 tasks (113 production, 10 gates, 2 compares),
+gate readiness 12 VALID, 0 INVALID, 42 MISSING, 9 gates pending.
+No queue change, so no tasks.json edit.
+
+**Tests** (this VM): `545 passed, 18 skipped` (up from 543/18; the 2
+new tests; `test_endpoint_extension.py` still uncollectable — no
+skimage in VM venv, documented gap). `ruff check .` clean (CI gate);
+`ruff format` applied.
+
+**Scope notes**: no measured official-data scores — nothing ran here.
+No competition data was read — the change reads only tasks.json,
+committed JSONs, and the queue scripts, never rasters or predictions.
+Caveat: the wrapper itself was not executed on this VM (it hardcodes
+the box path `/workspace/gems` and `uv run`); box-side execution when
+the s12 producers complete is the real test. Box queue state: 129 live
+tasks, 5 parked, no new box results since 10-12 (20 days); 32 days to
+the 2026-12-03 close (safe planning cutoff 22:00 UTC per the 10-28
+preflight, pending organizer clarification). The verdict-interpretation
+items (s7 loss gate, s8/s14 seed probe, s4–s6 lineament rerun gates,
+s9–s11/s13 candidate gates, s12 schedule compare) remain the next CPU
+items once the box produces results, and the s12 compare's scripted-input
+gap is now closed at the wrapper rather than just documented. The
+threshold experiment is still unapproved; cash-eligibility gates are
+Sven's private call.

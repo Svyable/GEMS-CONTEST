@@ -1104,3 +1104,12 @@ through the new tool's own validation (anchor uniqueness, id
 uniqueness, non-empty cmds) and verified against the queue-status,
 gate-readiness, and critical-path inventories before commit.
 No competition data was read; no model trained; no submission made.
+
+Step 27 (2026-11-01, VM): `scripts/queue/compare_schedule.sh` guarded
+staging fix + 2 tests in `tests/test_longer_schedule.py` (partial-LOFO
+behavioral test, wrapper-regression test) were AI-generated with
+human-direction from the step-24 finding; the fix aligns the wrapper
+with the tool it wraps (compare_schedule.py already skips missing
+views/LOFO) and with the compare_seed.sh precedent, closing the s12
+compare's scripted-input gap without new queue tasks or GPU work.
+No competition data was read; no model trained; no submission made.
