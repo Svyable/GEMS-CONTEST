@@ -6,7 +6,8 @@
 #   INC_RUN_BASE: runs/ref-cv        -> runs/ref-cv-spatial-b16/scores/lofo-spatial.json
 #   CAND_RUN_DIR: runs/ref-cv-spatial-b16-seed20260923 -> CAND_RUN_DIR/scores/lofo-spatial.json
 set -eo pipefail
-cd /workspace/gems/GEMS-CONTEST
+WORKSPACE="${GEMS_WORKSPACE:-/workspace/gems/GEMS-CONTEST}"
+cd "$WORKSPACE"
 INC_GATE=$1; CAND_GATE=$2; INC_BASE=$3; CAND_RUN=$4
 CMP=runs/compare/seed20260923-b16
 rm -rf $CMP; mkdir -p $CMP/inc-raw $CMP/cand-raw $CMP/inc-lofo $CMP/cand-lofo

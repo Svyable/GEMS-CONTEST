@@ -2010,3 +2010,59 @@ items once the box produces results, and the s12 compare's scripted-input
 gap is now closed at the wrapper rather than just documented. The
 threshold experiment is still unapproved; cash-eligibility gates are
 Sven's private call.
+
+## 2026-11-02 — Checkout-portable queue wrappers: GEMS_WORKSPACE in all 9 wrappers (step 28)
+
+Step 27 closed the s12 compare's scripted-input gap at the wrapper but
+left a caveat: the wrapper itself was never executed on this VM because
+every queue wrapper hardcoded `cd /workspace/gems/GEMS-CONTEST`. This
+step removes that hardcoding at the source. The other eight wrappers
+(`compare_schedule.sh`, `compare_seed.sh`, `curved_view.sh`,
+`endpoint_view.sh`, `gate.sh`, `record.sh`, `rival_threshold.sh`,
+`score_view.sh`) now use the override idiom `train_folds.sh` already had
+(`WORKSPACE="${GEMS_WORKSPACE:-/workspace/gems/GEMS-CONTEST}"; cd
+"$WORKSPACE"`), so the whole queue can run from any checkout — this VM
+or a Mac checkout — while the default keeps box behavior identical, so
+no queued command changes meaning. The wrapper caveat is now closed by
+execution, not just by test: `compare_schedule.sh` ran on this VM twice
+— once inside the new end-to-end test (tmp workspace, fake `uv` shim,
+real committed `results/runs/gate/ref-b16/trace.json` as the
+incumbent-trace-only fixture) and once manually against the committed
+`results/runs/gate/ref-b16` dir — both exit 0 with SKIPPED lines for
+all three views, staging only the incumbent trace JSON. The manual
+run's gitignored output (`runs/compare/`) was removed afterwards; the
+working tree shows only the intended files.
+
+Scope boundary, stated so it is not mistaken for an oversight: only the
+`cd` lines changed. `gate.sh` / `record.sh` / `score_view.sh` still
+write to absolute box output paths (`phase1-outputs`,
+`phase2-outputs`, the box-side `queue/` dir) because those outputs live
+outside the repo on the box by design; the compare wrappers, which use
+only repo-relative paths after `cd`, are the fully portable ones.
+
+**Verification on the committed tree:** `bash -n` on all 9 wrappers;
+19 new tests in `tests/test_queue_workspace.py` (override present with
+the box path as default and no bare hardcoded `cd` in every wrapper,
+syntax checks, and the end-to-end wrapper execution above). Inventories
+re-run unchanged: 129 tasks (113 production, 10 gates, 2 compares),
+gate readiness 12 VALID, 0 INVALID, 42 MISSING across the 54
+pending-gate inputs, 9 gates pending. No queue change, so no tasks.json
+edit.
+
+**Tests** (this VM): `564 passed, 18 skipped` (up from 545/18; the 19
+new tests; `test_endpoint_extension.py` still uncollectable — no
+skimage in VM venv, documented gap). `ruff check .` clean (CI gate);
+`ruff format` clean.
+
+**Scope notes**: no measured official-data scores — the only tool run
+here was the compare over already-committed gate JSONs; no rasters or
+predictions were read. No competition data was read beyond committed
+JSONs. Box queue state: 129 live tasks, 5 parked, no new box results
+since 10-12 (21 days); 31 days to the 2026-12-03 close (safe planning
+cutoff 22:00 UTC per the 10-28 preflight, pending organizer
+clarification). The verdict-interpretation items (s7 loss gate, s8/s14
+seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates,
+s12 schedule compare) remain the next CPU items once the box produces
+results, and the s12 compare is now executable from any checkout when
+its producers complete. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call.

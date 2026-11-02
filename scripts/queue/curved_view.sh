@@ -3,7 +3,8 @@
 # Apply P4 curved continuation to each fold map with skeleton threshold = that
 # fold's LOFO threshold (fit without its labels), mirroring endpoint_view.sh.
 set -eo pipefail
-cd /workspace/gems/GEMS-CONTEST
+WORKSPACE="${GEMS_WORKSPACE:-/workspace/gems/GEMS-CONTEST}"
+cd "$WORKSPACE"
 BASE=$1; OUT=$2; SCHEME=$3; mkdir -p $OUT
 for k in 0 1 2 3 4; do
   [ -f $OUT/fold-$k.tif ] && continue

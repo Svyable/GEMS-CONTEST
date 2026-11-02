@@ -1,7 +1,8 @@
 #!/bin/bash
 # usage: record.sh RUN_ID RUN_DIR CONFIG "HYPOTHESIS" "NOTES"  (records + exports commit-safe files)
 set -eo pipefail
-cd /workspace/gems/GEMS-CONTEST
+WORKSPACE="${GEMS_WORKSPACE:-/workspace/gems/GEMS-CONTEST}"
+cd "$WORKSPACE"
 ID=$1; RUN=$2; CFG=$3
 ARTS=$(ls $RUN/scores/*.json $RUN/fold-?.json 2>/dev/null | sed 's/^/--artifact /' | tr '\n' ' ')
 uv run python scripts/record_run.py --run-id $ID --config $CFG --data-manifest data/manifests/official.json \

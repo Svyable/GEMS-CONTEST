@@ -1,7 +1,8 @@
 #!/bin/bash
 # usage: score_view.sh RUN_DIR SCHEME FOLD_MAP GATE_DIR  -> GATE_DIR/SCHEME.json + RUN_DIR/scores/lofo-SCHEME.json
 set -eo pipefail
-cd /workspace/gems/GEMS-CONTEST
+WORKSPACE="${GEMS_WORKSPACE:-/workspace/gems/GEMS-CONTEST}"
+cd "$WORKSPACE"
 RUN=$1; SCHEME=$2; FMAP=$3; GATE=$4
 mkdir -p $GATE $RUN/scores
 uv run python scripts/score_cv.py --truth data/raw/existing_faults.tif --fold-map $FMAP --scheme $SCHEME \

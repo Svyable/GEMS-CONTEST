@@ -1113,3 +1113,13 @@ with the tool it wraps (compare_schedule.py already skips missing
 views/LOFO) and with the compare_seed.sh precedent, closing the s12
 compare's scripted-input gap without new queue tasks or GPU work.
 No competition data was read; no model trained; no submission made.
+
+Step 28 (2026-11-02, VM): `GEMS_WORKSPACE` override generalized from
+`train_folds.sh` to the other eight queue wrappers + 19 tests in
+`tests/test_queue_workspace.py` (override/default assertions, `bash -n`
+syntax checks, end-to-end `compare_schedule.sh` execution from a tmp
+workspace with a fake `uv` shim) were AI-generated with human-direction
+from the step-27 caveat; the change is behavior-identical on the box
+(the default is the old hardcoded path) and was verified by executing
+the wrapper on this VM against the committed gate JSONs.
+No competition data was read; no model trained; no submission made.

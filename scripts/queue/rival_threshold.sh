@@ -9,7 +9,8 @@
 # Part of the threshold experiment (step 21): PARKED until Sven green-lights
 # it. Runs nothing on its own; see scripts/rival_threshold.py.
 set -eo pipefail
-cd /workspace/gems/GEMS-CONTEST
+WORKSPACE="${GEMS_WORKSPACE:-/workspace/gems/GEMS-CONTEST}"
+cd "$WORKSPACE"
 RUN=$1; SCHEME=$2; FMAP=$3; EXPECTED=$4; FACTOR=${5:-0.2}
 uv run python scripts/rival_threshold.py $RUN $SCHEME $FMAP \
   --expected-score $EXPECTED --factor $FACTOR

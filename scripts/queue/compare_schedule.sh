@@ -14,7 +14,8 @@
 # completed. Missing inputs surface as SKIPPED lines in compare.log.
 # (Same guarded idiom as compare_seed.sh.)
 set -eo pipefail
-cd /workspace/gems/GEMS-CONTEST
+WORKSPACE="${GEMS_WORKSPACE:-/workspace/gems/GEMS-CONTEST}"
+cd "$WORKSPACE"
 INC_GATE=$1; CAND_GATE=$2; INC_BASE=$3; CAND_BASE=$4
 CMP=runs/compare/longer_schedule-b16
 rm -rf $CMP; mkdir -p $CMP/inc-raw $CMP/cand-raw $CMP/inc-lofo $CMP/cand-lofo
