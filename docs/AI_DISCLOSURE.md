@@ -1123,3 +1123,17 @@ from the step-27 caveat; the change is behavior-identical on the box
 (the default is the old hardcoded path) and was verified by executing
 the wrapper on this VM against the committed gate JSONs.
 No competition data was read; no model trained; no submission made.
+
+Step 29 (2026-11-03, VM): `scripts/queue_doctor.py` + 11 tests in
+`tests/test_queue_doctor.py` were AI-generated with human-direction
+from the 22-day box silence: the doctor diagnoses a silent queue
+runner from its box-side state dir alone (STOPPED / RUNNING /
+RUNNING-WAIT-MEM / INTERRUPTED / NOT-RUNNING / WAIT / ALL-DONE),
+changes nothing, and prints the exact resume command per verdict. It
+was verified against simulated queue dirs on this VM and against the
+real committed tasks.json; the VM-side run says nothing about the box,
+whose state dir only Sven or the box can show it. Also retired the
+stale carried-forward note that `test_endpoint_extension.py` is
+uncollectable in the VM venv — the current venv provides scikit-image
+0.26.0 and all 21 tests pass.
+No competition data was read; no model trained; no submission made.

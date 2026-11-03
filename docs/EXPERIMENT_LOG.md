@@ -2066,3 +2066,76 @@ s12 schedule compare) remain the next CPU items once the box produces
 results, and the s12 compare is now executable from any checkout when
 its producers complete. The threshold experiment is still unapproved;
 cash-eligibility gates are Sven's private call.
+
+## 2026-11-03 — Queue doctor: diagnose a silent box runner from its state dir (step 29)
+
+The box has now been silent for 22 days (no training results since the
+10-12 b32 baselines), and every inventory tool so far answers questions
+about the committed tree — which the VM can see — while the silence
+itself lives in the box-side queue dir, which the VM cannot see. This
+step builds the tool that closes that gap: `scripts/queue_doctor.py`
+reads only `tasks.json`, `state/*.done` / `*.failed` / `*.started`,
+`runner.lock`, `status.json`, and the tail of `queue.log`, changes
+nothing (the lock probe opens in append mode so it never truncates the
+pid the live runner wrote), and returns a verdict plus the exact resume
+command for that verdict. Verdicts, in runner order: STOPPED (a
+`.failed` marker exists — the runner exits before every task until it
+is cleared, so one failed task stops the queue on every restart; the
+doctor names the first failed task in list order and prints the
+`rm state/<id>.failed` + restart command), RUNNING (lock held) with a
+RUNNING-WAIT-MEM refinement (current task is a `train_folds.sh`
+invocation and the log tail shows WAIT-MEM — the train wrapper's
+memory gate, added 2026-10-10, has no timeout, so a memory-hogging job
+elsewhere on the shared box stalls the queue silently and indefinitely),
+INTERRUPTED (first pending task has `.started` but no `.done`/`.failed`
+and the lock is free — runner died mid-task, safe to restart since
+wrappers skip finished folds), NOT-RUNNING (pending work, no failed
+marker, lock free — nothing auto-starts the runner after a reboot),
+WAIT (next task is a `while kill -0 <pid>` loop — the queue waits on
+an external process, not GPU work), and ALL-DONE. Exit 0 whenever a
+diagnosis was produced; exit 2 only when tasks.json is missing or
+malformed, mirroring `queue_critical_path.py`.
+
+**Verification on the committed tree:** 11 new tests in
+`tests/test_queue_doctor.py` — one per verdict (STOPPED names the
+failed task and its clear command; RUNNING via a real flock held in
+the test; RUNNING-WAIT-MEM via a WAIT-MEM log tail; INTERRUPTED;
+NOT-RUNNING; ALL-DONE; wait-loop flagging; missing/malformed
+tasks.json → exit 2; main() exit 0 + verdict line) plus an end-to-end
+run against the real committed tasks.json (129 pending from an empty
+state dir, first pending `s1-wait-existing-spatial-loop` — the
+wait-loop note firing on the real queue shape). The doctor was also run
+against an empty dir on this VM: it reports NOT-RUNNING, which proves
+the tool runs — it says nothing about the box, whose state dir only
+Sven or the box can show it. The handoff is one command on the box:
+`python3 scripts/queue_doctor.py` (default queue dir
+`/workspace/gems/queue`, overridable via `--queue-dir` / `$QUEUE_DIR`).
+Inventories re-run unchanged: 129 tasks (113 production, 10 gates, 2
+compares), gate readiness 12 VALID, 0 INVALID, 42 MISSING, 9 gates
+pending. No queue change, so no tasks.json edit.
+
+**Also corrected in this run:** the carried-forward suite note that
+`tests/test_endpoint_extension.py` is "uncollectable — no skimage in
+VM venv" is stale. The current `.venv` provides scikit-image 0.26.0;
+the file collects 21 tests and all 21 pass, and they are inside the
+full-suite count below. The note was repeated verbatim across steps
+22–28; it is retired as of this run rather than carried forward again.
+
+**Tests** (this VM): `575 passed, 18 skipped` (up from 564/18; the 11
+new doctor tests). `ruff check .` clean (CI gate); `ruff format`
+applied. The 18 skips are the documented torch-half / torch-absent
+skips, unchanged.
+
+**Scope notes**: no measured official-data scores — nothing ran here.
+No competition data was read — the doctor reads only tasks.json,
+state markers, lock/status files, and a log tail, never rasters,
+predictions, or checkpoints. Box queue state: 129 live tasks, 5
+parked, no new box results since 10-12 (22 days); 30 days to the
+2026-12-03 close (safe planning cutoff 22:00 UTC per the 10-28
+preflight, pending organizer clarification). The verdict-interpretation
+items (s7 loss gate, s8/s14 seed probe, s4–s6 lineament rerun gates,
+s9–s11/s13 candidate gates, s12 schedule compare) remain the next CPU
+items once the box produces results — and the queue doctor is now the
+tool that can say, from the box, why it has not. The threshold
+experiment is still unapproved; cash-eligibility gates are Sven's
+private call.
