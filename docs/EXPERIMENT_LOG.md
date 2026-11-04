@@ -2139,3 +2139,78 @@ items once the box produces results — and the queue doctor is now the
 tool that can say, from the box, why it has not. The threshold
 experiment is still unapproved; cash-eligibility gates are Sven's
 private call.
+
+## 2026-11-04 — Queue doctor step 30: sync check, stalled refinement, wait-pid liveness
+
+The step-29 doctor could still report a healthy-looking RUNNING or
+NOT-RUNNING while missing three real stall causes. First, queued
+commands invoke `/workspace/gems/queue/*.sh` — the queue dir's own
+copies, not the repo checkout — and the runner re-reads the queue
+dir's `tasks.json` before every task, so the step-26 insertions and
+step-27/28 wrapper fixes reach the runner only if the box queue dir
+was re-synced from the checkout; the doctor never compared the two.
+Second, a held lock does not mean healthy work: a hung subprocess
+holds the lock forever while writing nothing, and no step in this
+repo runs silently for 48 hours (full-map folds log per fold and take
+minutes to hours). Third, a wait-loop first-pending task is only a
+real wait while its pid is alive on the host.
+
+Changes to `scripts/queue_doctor.py` (all read-only, doctor still
+changes nothing): a `--workspace` option (default `$GEMS_WORKSPACE`
+or `/workspace/gems/GEMS-CONTEST`) and a SYNC check that
+hash-compares the queue dir's `tasks.json` ids and 11 wrapper files
+(`train_folds.sh`, `score_view.sh`, `record.sh`, `gate.sh`,
+`endpoint_view.sh`, `curved_view.sh`, `compare_seed.sh`,
+`compare_schedule.sh`, `rival_threshold.sh`, `runner.py`,
+`lofo_calibrate_view.py`) against `<workspace>/scripts/queue/`.
+The check is skipped, not failed, when no checkout is present (the
+VM case); a present-but-malformed checkout `tasks.json` is reported,
+not raised, since the queue dir's tasks are authoritative for the
+verdict. The render gains a SYNC line (OK / DIVERGED / skipped), and
+a DIVERGED result adds a note with the re-sync command
+(`cp <checkout>/scripts/queue/tasks.json <checkout>/scripts/queue/*.sh
+<checkout>/scripts/queue/*.py <queue-dir>/`) — tasks.json is re-read
+before each task and wrappers are read at task start, so a sync only
+affects tasks not yet started. A new RUNNING-STALLED verdict fires
+when the lock is held, the current task started 48+ hours ago, and
+`queue.log` was last written 48+ hours ago; WAIT-MEM takes precedence
+over it (that wait prints once and then sleeps silently, so an old
+log mtime there is expected, not a stall), and a missing log is
+reported as "missing", not promoted to STALLED (it may have been
+rotated). The wait-loop note now carries pid liveness: alive means
+the wait is genuine; dead means the task exits immediately once the
+runner starts, so it is not the stall.
+
+**Verification on the committed tree:** 7 new tests in
+`tests/test_queue_doctor.py` (STALLED; WAIT-MEM precedence over
+STALLED; wait pid alive via the test process's own pid; wait pid dead
+via a reaped `Popen`; SYNC diverged on both tasks and a wrapper;
+SYNC OK through `main()`/render; SYNC skipped without a checkout).
+End-to-end demo on this VM: the doctor against the real committed
+`tasks.json` with `--workspace .` reports NOT-RUNNING, 129 pending,
+SYNC OK (129 tasks), first pending `s1-wait-existing-spatial-loop` —
+and its wait-loop note now says that pid is dead on this host, which
+is a VM-side fact only and says nothing about the box. Inventories
+re-run unchanged: 129 tasks (113 production, 10 gates, 2 compares),
+pending-gate inputs 12 VALID, 0 INVALID, 42 MISSING, 9 gates pending.
+No queue change, so no tasks.json edit.
+
+**Tests** (this VM): `582 passed, 18 skipped` (up from 575/18; the 7
+new doctor tests). `ruff check .` clean (CI gate); `ruff format`
+clean.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the doctor over already-committed JSONs and the inventories.
+No competition data was read beyond committed JSONs/tasks.json. Box
+queue state: 129 live tasks, 5 parked, no new box results since 10-12
+(23 days); 29 days to the 2026-12-03 close (safe planning cutoff
+22:00 UTC per the 10-28 preflight, pending organizer clarification).
+The verdict-interpretation items (s7 loss gate, s8/s14 seed probe,
+s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results.
+The box handoff is still one command — `python3
+scripts/queue_doctor.py` — now also printing the SYNC line: if it
+says DIVERGED, re-sync the queue dir from the checkout before
+restarting, or the runner will keep executing the old copies. The
+threshold experiment is still unapproved; cash-eligibility gates are
+Sven's private call.

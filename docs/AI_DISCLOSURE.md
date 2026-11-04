@@ -1137,3 +1137,17 @@ stale carried-forward note that `test_endpoint_extension.py` is
 uncollectable in the VM venv — the current venv provides scikit-image
 0.26.0 and all 21 tests pass.
 No competition data was read; no model trained; no submission made.
+
+Step 30 (2026-11-04, VM): `scripts/queue_doctor.py` SYNC check
+(queue-dir tasks.json + 11 wrapper files hash-compared against the
+repo checkout), RUNNING-STALLED refinement (lock held, current task
+48h+ old, queue.log unwritten 48h+, WAIT-MEM taking precedence), and
+wait-loop pid-liveness notes + 7 tests in
+`tests/test_queue_doctor.py` were AI-generated with human-direction
+from the step-29 doctor's blind spots: queued commands invoke the
+queue dir's own script copies, not the checkout, and a held lock
+alone does not distinguish healthy work from a hung subprocess. The
+change is read-only (the doctor still changes nothing) and was
+verified by the new tests, the full suite (582 passed, 18 skipped),
+and an end-to-end run against the real committed tasks.json.
+No competition data was read; no model trained; no submission made.

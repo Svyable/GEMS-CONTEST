@@ -11,14 +11,17 @@ from __future__ import annotations
 
 import fcntl
 import json
+import os
+import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from queue_doctor import diagnose, main
+from queue_doctor import diagnose, main, render
 
 
 def _write_queue(
@@ -178,3 +181,128 @@ def test_real_queue_dir_diagnoses_without_crashing(tmp_path: Path) -> None:
     assert result["verdict"] == "NOT-RUNNING"
     assert result["counts"]["pending"] == 129
     assert result["first_pending"] == "s1-wait-existing-spatial-loop"
+
+
+# --- Step 30: RUNNING-STALLED, wait-pid liveness, queue-vs-checkout SYNC ---
+
+
+def _hold_lock_and_diagnose(queue_dir: Path, workspace: Path | None = None) -> dict:
+    lock_path = queue_dir / "runner.lock"
+    with open(lock_path, "w") as handle:
+        handle.write("12345")
+        handle.flush()
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return diagnose(queue_dir, queue_dir / "tasks.json", workspace)
+
+
+def _age_log(queue_dir: Path, when: datetime) -> None:
+    stamp = when.timestamp()
+    os.utime(queue_dir / "queue.log", (stamp, stamp))
+
+
+def test_running_stalled_when_lock_held_and_log_silent_48h(tmp_path: Path) -> None:
+    queue_dir = _write_queue(
+        tmp_path,
+        TASKS,
+        done=("t1-train",),
+        started=("t2-score",),
+        status={"updated": "2026-10-20 09:00:00 UTC", "current": "t2-score"},
+        log="2026-10-20 09:00:00 START t2-score: score_view.sh runs/a\n",
+    )
+    _age_log(queue_dir, datetime(2026, 10, 21, tzinfo=UTC))
+    result = _hold_lock_and_diagnose(queue_dir)
+    assert result["verdict"] == "RUNNING-STALLED"
+    assert any("hung" in note for note in result["notes"])
+    assert "kill the child" in result["resume"]
+
+
+def test_wait_mem_takes_precedence_over_stalled(tmp_path: Path) -> None:
+    log = (
+        "2026-10-20 09:00:00 START t1-train: train_folds.sh runs/a\n"
+        "2026-10-20 09:00:01 WAIT-MEM fold 0: MemAvailable=1200MB < 5000MB\n"
+    )
+    queue_dir = _write_queue(
+        tmp_path,
+        TASKS,
+        started=("t1-train",),
+        status={"updated": "2026-10-20 09:00:00 UTC", "current": "t1-train"},
+        log=log,
+    )
+    _age_log(queue_dir, datetime(2026, 10, 21, tzinfo=UTC))
+    result = _hold_lock_and_diagnose(queue_dir)
+    assert result["verdict"] == "RUNNING-WAIT-MEM"
+
+
+def test_wait_loop_pid_alive_is_genuine_wait(tmp_path: Path) -> None:
+    tasks = [
+        {
+            "id": "t0-wait",
+            "step": 1,
+            "cmd": f"while kill -0 {os.getpid()} 2>/dev/null; do sleep 30; done; echo done",
+        }
+    ]
+    queue_dir = _write_queue(tmp_path, tasks)
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert any("still running on this host" in note for note in result["notes"])
+
+
+def test_wait_loop_pid_dead_is_not_the_stall(tmp_path: Path) -> None:
+    proc = subprocess.Popen(["true"])
+    proc.wait()
+    dead_pid = proc.pid
+    tasks = [
+        {
+            "id": "t0-wait",
+            "step": 1,
+            "cmd": f"while kill -0 {dead_pid} 2>/dev/null; do sleep 30; done; echo done",
+        }
+    ]
+    queue_dir = _write_queue(tmp_path, tasks)
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert any("not running on this host" in note for note in result["notes"])
+    assert any("exit immediately once the runner starts" in note for note in result["notes"])
+
+
+def _write_workspace(tmp_path: Path, tasks: list[dict], wrappers: dict[str, str]) -> Path:
+    ws_queue = tmp_path / "ws" / "scripts" / "queue"
+    ws_queue.mkdir(parents=True)
+    (ws_queue / "tasks.json").write_text(json.dumps(tasks), encoding="utf-8")
+    for name, content in wrappers.items():
+        (ws_queue / name).write_text(content, encoding="utf-8")
+    return tmp_path / "ws"
+
+
+def test_sync_diverged_tasks_and_wrapper(tmp_path: Path) -> None:
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    (queue_dir / "train_folds.sh").write_text("old wrapper\n", encoding="utf-8")
+    extra = {"id": "t4-new", "step": 1, "cmd": "score_view.sh runs/b spatial fm.tif runs/gate/g"}
+    workspace = _write_workspace(tmp_path, [*TASKS, extra], {"train_folds.sh": "new wrapper\n"})
+    result = diagnose(queue_dir, queue_dir / "tasks.json", workspace)
+    assert result["sync"] is not None
+    assert result["sync"]["tasks_diverged"] is True
+    assert result["sync"]["only_in_repo"] == ["t4-new"]
+    assert result["sync"]["wrappers_diverged"] == ["train_folds.sh"]
+    assert any("SYNC DIVERGED" in note for note in result["notes"])
+    assert "SYNC: DIVERGED" in render(result)
+
+
+def test_sync_ok_and_rendered(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    (queue_dir / "train_folds.sh").write_text("same wrapper\n", encoding="utf-8")
+    workspace = _write_workspace(tmp_path, TASKS, {"train_folds.sh": "same wrapper\n"})
+    assert main(["--queue-dir", str(queue_dir), "--workspace", str(workspace)]) == 0
+    out = capsys.readouterr().out
+    assert "SYNC: OK" in out
+    assert "3 tasks" in out
+
+
+def test_sync_skipped_without_checkout(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json", tmp_path / "no-such-checkout")
+    assert result["sync"] is None
+    assert result["verdict"] == "NOT-RUNNING"
+    assert (
+        main(["--queue-dir", str(queue_dir), "--workspace", str(tmp_path / "no-such-checkout")])
+        == 0
+    )
+    assert "SYNC: skipped" in capsys.readouterr().out
