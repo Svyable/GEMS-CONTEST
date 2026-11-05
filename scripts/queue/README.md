@@ -83,6 +83,32 @@ nohup python3 scripts/queue/runner.py >> scripts/queue/queue.log 2>&1 &
 
 The runner enforces single-instance execution with flock on `runner.lock`.
 
+### Auto-start after a reboot (step 31)
+
+A manual `nohup` start does not survive a reboot — the step-29 doctor
+can only report NOT-RUNNING when that happens. Install the persistent
+fix once from the checkout:
+
+```bash
+bash scripts/queue/install_autostart.sh
+```
+
+It installs `gems-queue.service` as a systemd user unit when a user
+manager answers (enabled, started, `loginctl enable-linger` attempted
+so it also starts at boot without a login session), and otherwise
+falls back to an `@reboot` cron entry. Both paths are idempotent and
+`--dry-run` previews the change. `Restart=on-failure`, not `always`:
+the runner exits 0 on STOPPED (a task failed — human inspection must
+precede any resume) and on ALL-DONE, and both must stay stopped; only
+a crash restarts it. Installing while a `nohup` runner is already live
+is safe (flock): the service's first start exits immediately and the
+unit takes over after that runner exits, or on the next reboot. Check
+with `systemctl --user status gems-queue.service` (or `crontab -l`
+for the cron path); remove with `install_autostart.sh --uninstall`.
+The unit file itself is not part of the doctor's SYNC check — it is
+run once from the checkout, never executed by the runner, so it is
+not copied into the queue dir.
+
 ### Monitor progress
 
 ```bash

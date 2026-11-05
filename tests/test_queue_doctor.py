@@ -87,6 +87,21 @@ def test_not_running_when_lock_free_and_pending(tmp_path: Path) -> None:
     assert "runner.py" in result["resume"]
 
 
+def test_not_running_resume_points_at_autostart_installer(tmp_path: Path) -> None:
+    """Step 31: the NOT-RUNNING resume must name the persistent fix.
+
+    The doctor used to say "nothing auto-starts it after a reboot"
+    and only print the one-off nohup command. Now that
+    install_autostart.sh exists, the resume must point at it, so a
+    reboot is not diagnosed the same way twice.
+    """
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["verdict"] == "NOT-RUNNING"
+    assert "install_autostart.sh" in result["resume"]
+    assert "nohup python3" in result["resume"]
+
+
 def test_interrupted_when_started_but_no_done_or_failed(tmp_path: Path) -> None:
     queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",), started=("t2-score",))
     result = diagnose(queue_dir, queue_dir / "tasks.json")

@@ -63,7 +63,10 @@ Stall signatures, in the order the runner itself would hit them:
   re-runs the task and the wrappers skip finished folds.
 - NOT-RUNNING: pending tasks remain, no failed marker, lock free —
   the runner is simply not started. This is the expected verdict
-  after a box reboot, since nothing auto-starts the runner.
+  after a box reboot, unless ``install_autostart.sh`` (step 31: a
+  systemd user unit, or an @reboot cron entry as fallback) was run —
+  in which case a NOT-RUNNING verdict after a reboot means the
+  auto-start itself failed and its logs are the next thing to read.
 - WAIT: the next task is a ``while kill -0 <pid>`` wait loop (the
   s1 housekeeping task) — the queue is waiting on an external
   process, not on GPU work, unless that pid is already dead.
@@ -372,8 +375,11 @@ def diagnose(queue_dir: Path, tasks_path: Path, workspace: Path | None = None) -
             "pending tasks remain, no failed marker, lock free: the runner is not started."
         )
         resume = (
-            "Start it (nothing auto-starts it after a reboot):\n"
-            f"  nohup python3 {queue_dir}/runner.py >> {queue_dir}/queue.log 2>&1 &"
+            "Start it now:\n"
+            f"  nohup python3 {queue_dir}/runner.py >> {queue_dir}/queue.log 2>&1 &\n"
+            "Make it survive reboots (systemd user unit, or an @reboot cron\n"
+            "entry when no user systemd manager answers):\n"
+            f"  bash {workspace_path}/scripts/queue/install_autostart.sh"
         )
     if first_pending is not None:
         wait_match = WAIT_RE.match(first_pending["cmd"])

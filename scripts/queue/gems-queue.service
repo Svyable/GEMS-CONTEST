@@ -1,0 +1,27 @@
+# GEMS experiment queue runner — systemd user unit (step 31).
+#
+# Install on the box with: bash scripts/queue/install_autostart.sh
+# (systemd path; that script falls back to an @reboot cron entry when
+# no user systemd manager is available). Restart is on-failure, NOT
+# always: the runner exits 0 when a task fails (STOPPED — a human must
+# inspect before the queue resumes) and when the queue is done
+# (ALL-DONE); both must stay stopped. Only a crash (non-zero exit)
+# restarts the runner. The runner's own flock on runner.lock keeps a
+# second instance from starting if one is already live under nohup.
+[Unit]
+Description=GEMS experiment queue runner
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=QUEUE_DIR=/workspace/gems/queue
+Environment=GEMS_WORKSPACE=/workspace/gems/GEMS-CONTEST
+ExecStart=/usr/bin/env python3 /workspace/gems/queue/runner.py
+StandardOutput=append:/workspace/gems/queue/queue.log
+StandardError=append:/workspace/gems/queue/queue.log
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=default.target

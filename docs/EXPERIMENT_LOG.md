@@ -2214,3 +2214,79 @@ says DIVERGED, re-sync the queue dir from the checkout before
 restarting, or the runner will keep executing the old copies. The
 threshold experiment is still unapproved; cash-eligibility gates are
 Sven's private call.
+
+## 2026-11-05 — Queue auto-start step 31: systemd user unit + installer, doctor points at it
+
+The step-29 doctor can diagnose NOT-RUNNING but could not fix it:
+after a box reboot nothing restarted the runner, and the only advice
+was the one-off `nohup` command — so a reboot could be diagnosed the
+same way twice. Step 31 ships the persistent fix, one command on the
+box: `bash scripts/queue/install_autostart.sh`.
+
+Changes: `scripts/queue/gems-queue.service` — a systemd user unit
+whose `ExecStart` mirrors the documented `nohup` invocation
+(`python3 /workspace/gems/queue/runner.py`, stdout/stderr appended
+to `queue.log`); `scripts/queue/install_autostart.sh` — installs the
+unit when a user systemd manager answers (writes it to
+`~/.config/systemd/user/`, `daemon-reload`, `enable`, `start`,
+best-effort `loginctl enable-linger` so it starts at boot without a
+login session), and otherwise falls back to an idempotent `@reboot`
+cron entry (marker comment, 30 s sleep, guarded by the runner's own
+flock). Both paths are idempotent, support `--dry-run` (changes
+nothing), `--no-start`, `--uninstall`, and `--queue-dir` /
+`--workspace` overrides; with neither mechanism available the
+installer exits 2 and prints the manual start command instead of
+failing silently. `Restart=on-failure`, not `always`, is the
+load-bearing choice: the runner exits 0 on STOPPED (a task failed —
+human inspection must precede any resume) and on ALL-DONE, and both
+must stay stopped; only a crash (non-zero exit) restarts it.
+Installing while a `nohup` runner is already live is safe (flock):
+the service's first start exits immediately and the unit takes over
+after that runner exits, or on the next reboot. The doctor's
+NOT-RUNNING resume now prints the start command plus the installer
+invocation (with the workspace checkout path), and its docstring no
+longer claims nothing auto-starts the runner. The unit is
+deliberately outside the doctor's SYNC check — it is run once from
+the checkout, never executed by the runner, so it is not copied into
+the queue dir. `scripts/queue/README.md` gains an "Auto-start after
+a reboot" section.
+
+**Verification on the committed tree:** 8 new tests in
+`tests/test_queue_autostart.py` (unit sections + `on-failure` policy;
+`bash -n`; systemd install writes/enables/starts with linger and is
+idempotent; `--queue-dir`/`--workspace` substitution in the
+installed unit; `--dry-run` changes nothing; cron fallback installs
+exactly one `@reboot` line across two runs; uninstall removes the
+unit and the cron line; no mechanism exits 2 with the manual
+command) + 1 doctor test (NOT-RUNNING resume names
+`install_autostart.sh`). The installer is verified with stubbed
+`systemctl` / `crontab` / `loginctl` on a hermetic PATH and a temp
+HOME (the step-28 fake-`uv` idiom) — no real unit or crontab is
+touched; two stub bugs were caught by the tests themselves (a
+duplicate-`Environment=` key that configparser rejects, and the
+systemctl stub not shifting off the `--user` flag). End-to-end on
+this VM: `install_autostart.sh --dry-run` correctly reports no
+mechanism here (no user systemd manager, no crontab — exit 2 with
+the manual command), and the doctor against the real committed
+`tasks.json` reports NOT-RUNNING with the new resume text. Inventories
+re-run unchanged: 129 tasks (113 production, 10 gates, 2 compares),
+gate readiness 12 VALID, 0 INVALID, 42 MISSING, 9 gates pending.
+
+**Tests** (this VM): `591 passed, 18 skipped` (up from 582/18; the 9
+new tests). `ruff check .` clean (CI gate); `ruff format` clean.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the installer/doctor over already-committed JSONs and the
+inventories. No competition data was read. Box queue state: 129 live
+tasks, 5 parked, no new box results since 10-12 (24 days); 28 days
+to the 2026-12-03 close (safe planning cutoff 22:00 UTC per the
+10-28 preflight, pending organizer clarification). The box handoff
+is still one command — `bash scripts/queue/install_autostart.sh`
+after `git pull` — and it is now the command that ends the silence
+if the cause was a reboot with no auto-start. If the doctor instead
+reports STOPPED / RUNNING-STALLED / WAIT-MEM, those verdicts still
+need their own human fixes first. The verdict-interpretation items
+(s7 loss gate, s8/s14 seed probe, s4–s6 lineament rerun gates,
+s9–s11/s13 candidate gates, s12 schedule compare) remain the next
+CPU items once the box produces results. The threshold experiment
+is still unapproved; cash-eligibility gates are Sven's private call.

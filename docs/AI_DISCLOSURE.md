@@ -1151,3 +1151,18 @@ change is read-only (the doctor still changes nothing) and was
 verified by the new tests, the full suite (582 passed, 18 skipped),
 and an end-to-end run against the real committed tasks.json.
 No competition data was read; no model trained; no submission made.
+
+Step 31 (2026-11-05, VM): `scripts/queue/gems-queue.service` (systemd
+user unit, `Restart=on-failure`), `scripts/queue/install_autostart.sh`
+(systemd install with `@reboot` cron fallback, `--dry-run`,
+`--uninstall`, path overrides) + 8 tests in
+`tests/test_queue_autostart.py`, the doctor's NOT-RUNNING resume now
+pointing at the installer + 1 test in `tests/test_queue_doctor.py`,
+and the `scripts/queue/README.md` autostart section were
+AI-generated with human-direction from the step-29 doctor's
+NOT-RUNNING verdict: a reboot leaves the runner stopped because
+nothing auto-starts it, and the doctor could only print the one-off
+`nohup` command. The installer was verified with stubbed `systemctl`
+/ `crontab` / `loginctl` on a hermetic PATH and a temp HOME; the
+`--dry-run` on this VM correctly reports no install mechanism here.
+No competition data was read; no model trained; no submission made.
