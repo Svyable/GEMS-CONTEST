@@ -321,3 +321,163 @@ def test_sync_skipped_without_checkout(tmp_path: Path, capsys: pytest.CaptureFix
         == 0
     )
     assert "SYNC: skipped" in capsys.readouterr().out
+
+
+# --- Step 32: AUTOSTART check ---
+
+
+def _stub_bin(tmp_path: Path, stubs: dict[str, str]) -> Path:
+    """A PATH dir holding only the given stub scripts (step-31 idiom).
+
+    The doctor only ever spawns systemctl/crontab, so unlike the
+    installer tests this needs no /usr/bin symlink farm — and no
+    stub at all means "that tool is absent", which is itself a case.
+    """
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    for name, body in stubs.items():
+        stub = bin_dir / name
+        stub.write_text(body, encoding="utf-8")
+        stub.chmod(0o755)
+    return bin_dir
+
+
+_SYSTEMCTL_STUB = """#!/bin/sh
+if [ "$1" = "--user" ]; then shift; fi
+case "$1" in
+  is-enabled) printf '%s\\n' "${STUB_IS_ENABLED:-enabled}"; exit "${STUB_IS_ENABLED_RC:-0}" ;;
+  *) exit 0 ;;
+esac
+"""
+
+_CRONTAB_STUB = """#!/bin/sh
+if [ "$1" = "-l" ]; then printf '%s' "$STUB_CRONTAB"; exit "${STUB_CRONTAB_RC:-0}"; fi
+exit 0
+"""
+
+_CRON_LINE = (
+    "# GEMS queue autostart (installed by scripts/queue/install_autostart.sh)\n"
+    "@reboot sleep 30; QUEUE_DIR=/workspace/gems/queue nohup python3 "
+    "/workspace/gems/queue/runner.py >> /workspace/gems/queue/queue.log 2>&1 &\n"
+)
+
+
+def _autostart_env(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    stubs: dict[str, str] | None = None,
+    unit: bool = False,
+    crontab: str | None = None,
+) -> None:
+    """Fake HOME (+ stubbed PATH) for the doctor's autostart check.
+
+    XDG_CONFIG_HOME is cleared so the unit path is always
+    $HOME/.config/systemd/user/gems-queue.service.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setenv("PATH", str(_stub_bin(tmp_path, stubs or {})))
+    if unit:
+        unit_path = home / ".config" / "systemd" / "user" / "gems-queue.service"
+        unit_path.parent.mkdir(parents=True)
+        unit_path.write_text("[Unit]\nDescription=test\n", encoding="utf-8")
+    if crontab is not None:
+        monkeypatch.setenv("STUB_CRONTAB", crontab)
+
+
+def test_autostart_systemd_enabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _autostart_env(monkeypatch, tmp_path, stubs={"systemctl": _SYSTEMCTL_STUB}, unit=True)
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["autostart"]["status"] == "yes"
+    assert result["autostart"]["unit_enabled"] is True
+    assert "AUTOSTART: installed — systemd unit enabled" in render(result)
+
+
+def test_autostart_cron_installed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _autostart_env(monkeypatch, tmp_path, stubs={"crontab": _CRONTAB_STUB}, crontab=_CRON_LINE)
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["autostart"]["status"] == "yes"
+    assert result["autostart"]["cron_installed"] is True
+    assert "AUTOSTART: installed — @reboot cron entry" in render(result)
+
+
+def test_autostart_both_mechanisms(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _autostart_env(
+        monkeypatch,
+        tmp_path,
+        stubs={"systemctl": _SYSTEMCTL_STUB, "crontab": _CRONTAB_STUB},
+        unit=True,
+        crontab=_CRON_LINE,
+    )
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["autostart"]["status"] == "yes"
+    assert "AUTOSTART: installed — systemd unit enabled + @reboot cron entry" in render(result)
+
+
+def test_autostart_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _autostart_env(monkeypatch, tmp_path, stubs={"crontab": _CRONTAB_STUB}, crontab="")
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["autostart"]["status"] == "no"
+    assert result["autostart"]["cron_installed"] is False
+    assert "AUTOSTART: missing" in render(result)
+
+
+def test_autostart_unit_disabled_is_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _autostart_env(monkeypatch, tmp_path, stubs={"systemctl": _SYSTEMCTL_STUB}, unit=True)
+    monkeypatch.setenv("STUB_IS_ENABLED", "disabled")
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["autostart"]["status"] == "partial"
+    assert result["autostart"]["unit_enabled"] is False
+    assert "AUTOSTART: partial — unit file present but not enabled" in render(result)
+
+
+def test_autostart_unit_present_manager_silent_is_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _autostart_env(monkeypatch, tmp_path, stubs={"systemctl": _SYSTEMCTL_STUB}, unit=True)
+    # is-enabled exits non-zero: the manager does not answer. That is
+    # "unknown enable state", never "disabled" — the unit may be fine.
+    monkeypatch.setenv("STUB_IS_ENABLED_RC", "1")
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["autostart"]["status"] == "partial"
+    assert result["autostart"]["unit_enabled"] is None
+    assert "manager did not answer" in render(result)
+
+
+def test_autostart_unknown_without_manager_or_crontab(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # No stubs at all: no systemctl, no crontab, no unit file — the
+    # doctor must say "unknown", not overclaim "missing".
+    _autostart_env(monkeypatch, tmp_path)
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["autostart"]["status"] == "unknown"
+    assert "AUTOSTART: unknown" in render(result)
+
+
+def test_not_running_note_when_autostart_installed_points_at_service_logs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Step 32: installed-but-not-running means the auto-start failed.
+
+    The NOT-RUNNING note must say so and point at the service logs,
+    instead of leaving the operator to re-install blindly.
+    """
+    _autostart_env(monkeypatch, tmp_path, stubs={"systemctl": _SYSTEMCTL_STUB}, unit=True)
+    queue_dir = _write_queue(tmp_path, TASKS, done=("t1-train",))
+    result = diagnose(queue_dir, queue_dir / "tasks.json")
+    assert result["verdict"] == "NOT-RUNNING"
+    assert any("auto-start itself failed" in note for note in result["notes"])
+    assert any("systemctl --user status" in note for note in result["notes"])

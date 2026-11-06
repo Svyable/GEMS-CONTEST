@@ -2290,3 +2290,71 @@ need their own human fixes first. The verdict-interpretation items
 s9–s11/s13 candidate gates, s12 schedule compare) remain the next
 CPU items once the box produces results. The threshold experiment
 is still unapproved; cash-eligibility gates are Sven's private call.
+
+## 2026-11-06 — Queue doctor step 32: AUTOSTART check, "installed but failed" vs "never installed"
+
+The step-31 doctor's NOT-RUNNING note carried an "unless": a
+NOT-RUNNING verdict after a reboot means the auto-start itself
+failed — *if* `install_autostart.sh` was run. The doctor could not
+tell whether it had been, so the operator had to guess between
+"never installed" and "installed but failed" and could re-install
+blindly over a broken unit. Step 32 closes that gap: the doctor
+now reports an AUTOSTART line on every run.
+
+Changes: `scripts/queue_doctor.py` gains `_autostart_check()` —
+unit file present at `$XDG_CONFIG_HOME/systemd/user/` (else
+`$HOME/.config/...`) `gems-queue.service`? `systemctl --user
+is-enabled` state (True/False, None when the manager does not
+answer — a non-zero exit is never read as "disabled")? `crontab -l`
+holding an `@reboot ... runner.py` line (the installer's marker is
+not required — a hand-rolled @reboot line would still restart the
+runner, and that is the question)? Status derives as `yes`
+(enabled unit or cron entry), `partial` (unit file present but not
+enabled / state unreadable, no cron cover), `no` (verified
+nothing installed), or `unknown` (nothing found and the cron side
+could not be checked at all — the doctor says "unknown", never
+overclaims "missing"). A NOT-RUNNING verdict with auto-start
+installed now notes the auto-start itself failed and points at
+`systemctl --user status gems-queue.service` / `journalctl --user
+-u gems-queue.service` (or `crontab -l`) before re-installing; the
+`partial` and `unknown` cases get their own notes, and the
+`no` case keeps the existing installer pointer in the resume.
+`scripts/queue/README.md` documents the line in the autostart
+section. The check is read-only (one unit-file read, one systemctl
+query, one `crontab -l`) and changes nothing.
+
+**Verification on the committed tree:** 8 new tests in
+`tests/test_queue_doctor.py` (systemd enabled; cron installed; both
+mechanisms; missing; unit disabled → partial; manager silent →
+partial with enable state unknown, never "disabled"; no manager
+and no crontab → unknown; NOT-RUNNING note names the service logs
+when auto-start is installed), using the step-31 stub idiom
+(stubbed `systemctl`/`crontab` on a hermetic PATH, temp HOME,
+`XDG_CONFIG_HOME` cleared). End-to-end on this VM: the doctor
+against the real committed `tasks.json` reports NOT-RUNNING, 129
+pending, SYNC OK (129 tasks), AUTOSTART unknown — correctly, since
+this VM has no unit file and no crontab to check, which is a
+VM-side fact only and says nothing about the box. Inventories
+re-run unchanged: 129 tasks (113 production, 10 gates, 2 compares),
+gate readiness 12 VALID, 0 INVALID, 42 MISSING, 9 gates pending;
+audit 33 findings, 0 hard errors.
+
+**Tests** (this VM): `599 passed, 18 skipped` (up from 591/18; the 8
+new doctor tests). `ruff check .` clean (CI gate); `ruff format`
+clean.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the doctor over already-committed JSONs and the inventories.
+No competition data was read. Box queue state: 129 live tasks, 5
+parked, no new box results since 10-12 (25 days); 27 days to the
+2026-12-03 close (safe planning cutoff 22:00 UTC per the 10-28
+preflight, pending organizer clarification). The box handoff is one
+command — `python3 scripts/queue_doctor.py` — and its AUTOSTART line
+now answers the first question after a reboot before anyone touches
+the installer. If the doctor instead reports STOPPED /
+RUNNING-STALLED / WAIT-MEM, those verdicts still need their own
+human fixes first. The verdict-interpretation items (s7 loss gate,
+s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate
+gates, s12 schedule compare) remain the next CPU items once the box
+produces results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call.

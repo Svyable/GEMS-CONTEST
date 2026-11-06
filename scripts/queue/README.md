@@ -107,7 +107,12 @@ with `systemctl --user status gems-queue.service` (or `crontab -l`
 for the cron path); remove with `install_autostart.sh --uninstall`.
 The unit file itself is not part of the doctor's SYNC check — it is
 run once from the checkout, never executed by the runner, so it is
-not copied into the queue dir.
+not copied into the queue dir. The doctor does verify the install,
+though: step 32 adds an AUTOSTART line to its output (installed via
+systemd unit / @reboot cron, partial, missing, or unknown), and a
+NOT-RUNNING verdict with auto-start installed means the auto-start
+itself failed — check `systemctl --user status gems-queue.service`
+before re-installing.
 
 ### Monitor progress
 

@@ -1166,3 +1166,18 @@ nothing auto-starts it, and the doctor could only print the one-off
 / `crontab` / `loginctl` on a hermetic PATH and a temp HOME; the
 `--dry-run` on this VM correctly reports no install mechanism here.
 No competition data was read; no model trained; no submission made.
+
+Step 32 (2026-11-06, VM): `scripts/queue_doctor.py` AUTOSTART check
+(unit-file presence, `systemctl --user is-enabled` state, `@reboot`
+cron entry; status yes/partial/no/unknown; NOT-RUNNING note naming
+the service logs when auto-start is installed) + 8 tests in
+`tests/test_queue_doctor.py` and the `scripts/queue/README.md`
+autostart-section note were AI-generated with human-direction from
+the step-31 doctor's NOT-RUNNING "unless": it could not tell
+whether the installer had ever run, so "installed but failed" and
+"never installed" were indistinguishable. The check is read-only
+and was verified by the new tests (stubbed `systemctl`/`crontab` on
+a hermetic PATH, temp HOME), the full suite (599 passed, 18
+skipped), and an end-to-end run against the real committed
+tasks.json.
+No competition data was read; no model trained; no submission made.

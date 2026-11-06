@@ -67,6 +67,10 @@ Stall signatures, in the order the runner itself would hit them:
   systemd user unit, or an @reboot cron entry as fallback) was run —
   in which case a NOT-RUNNING verdict after a reboot means the
   auto-start itself failed and its logs are the next thing to read.
+  Step 32 closes that "unless": the doctor now reports an AUTOSTART
+  line (unit file present? ``systemctl --user is-enabled`` state?
+  @reboot cron entry present?), so the operator can tell "never
+  installed" from "installed but failed" without guessing.
 - WAIT: the next task is a ``while kill -0 <pid>`` wait loop (the
   s1 housekeeping task) — the queue is waiting on an external
   process, not on GPU work, unless that pid is already dead.
@@ -75,8 +79,9 @@ Stall signatures, in the order the runner itself would hit them:
 Output is a verdict line, the evidence behind it (counts, first
 pending task in list order — the task the runner will run next —
 current task and its age, ``status.json`` / ``queue.log`` ages),
-the queue-vs-checkout SYNC line, and the exact resume command for
-the verdict. Exit 0 whenever a diagnosis was produced; exit 2 when
+the queue-vs-checkout SYNC line, the AUTOSTART line, and the exact
+resume command for the verdict. Exit 0 whenever a diagnosis was
+produced; exit 2 when
 tasks.json is missing or malformed, because without the queue the
 diagnosis is meaningless.
 
@@ -94,12 +99,16 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 DEFAULT_QUEUE_DIR = "/workspace/gems/queue"
 DEFAULT_WORKSPACE = "/workspace/gems/GEMS-CONTEST"
+UNIT_NAME = "gems-queue.service"
+CRON_MARKER = "# GEMS queue autostart (installed by scripts/queue/install_autostart.sh)"
 STAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 WAIT_RE = re.compile(r"^\s*while\s+kill\s+-0\s+(\d+)")
 LOG_TAIL_BYTES = 200_000
@@ -207,6 +216,122 @@ def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _unit_path() -> Path:
+    """Where install_autostart.sh puts the systemd user unit.
+
+    Mirrors the installer's UNIT_DIR: $XDG_CONFIG_HOME (when set),
+    else $HOME/.config, under systemd/user.
+    """
+    config_home = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(config_home) if config_home else Path.home() / ".config"
+    return base / "systemd" / "user" / UNIT_NAME
+
+
+def _systemctl_unit_enabled() -> bool | None:
+    """True/False from `systemctl --user is-enabled`, None if unanswerable.
+
+    Only called when the unit file exists. A non-zero exit means the
+    user manager does not answer (or the unit is broken), not that the
+    unit is disabled — hence None, never False, on failure.
+    """
+    systemctl = shutil.which("systemctl")
+    if systemctl is None:
+        return None
+    try:
+        proc = subprocess.run(
+            [systemctl, "--user", "is-enabled", UNIT_NAME],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() == "enabled"
+
+
+def _cron_autostart_installed() -> bool | None:
+    """True when the crontab holds an @reboot runner.py line.
+
+    False when a crontab was read without one (including "no crontab
+    for user", which the installer also treats as empty); None only
+    when no crontab could be read at all, so absence cannot be proven.
+    The installer's marker is not required — a hand-rolled @reboot
+    line would still restart the runner, and that is the question.
+    """
+    crontab = shutil.which("crontab")
+    if crontab is None:
+        return None
+    try:
+        proc = subprocess.run(
+            [crontab, "-l"], capture_output=True, text=True, timeout=10, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return False
+    return "@reboot" in proc.stdout and "runner.py" in proc.stdout
+
+
+def _autostart_check() -> dict:
+    """Will the runner restart itself after a reboot? (step 32)
+
+    status is "yes" when an enabled systemd unit or an @reboot cron
+    entry will restart it; "partial" when a unit file exists but is
+    not enabled (or its enable state could not be read) and no cron
+    entry covers it; "no" when nothing is installed and that was
+    verified; "unknown" when nothing was found but the cron side
+    could not be checked at all. The doctor changes nothing — it
+    only reads a unit file, one systemctl query, and `crontab -l`.
+    """
+    unit_present = _unit_path().exists()
+    unit_enabled = _systemctl_unit_enabled() if unit_present else None
+    cron_installed = _cron_autostart_installed()
+    if unit_enabled is True or cron_installed is True:
+        status = "yes"
+    elif unit_present:
+        status = "partial"
+    elif cron_installed is False:
+        status = "no"
+    else:
+        status = "unknown"
+    return {
+        "status": status,
+        "unit_present": unit_present,
+        "unit_enabled": unit_enabled,
+        "cron_installed": cron_installed,
+    }
+
+
+def _autostart_line(autostart: dict) -> str:
+    status = autostart["status"]
+    if status == "yes":
+        mechanisms = []
+        if autostart["unit_enabled"] is True:
+            mechanisms.append("systemd unit enabled")
+        if autostart["cron_installed"] is True:
+            mechanisms.append("@reboot cron entry")
+        return "AUTOSTART: installed — " + " + ".join(mechanisms)
+    if status == "partial":
+        if autostart["unit_enabled"] is False:
+            return (
+                "AUTOSTART: partial — unit file present but not enabled "
+                "(run install_autostart.sh to enable it)"
+            )
+        return (
+            "AUTOSTART: partial — unit file present but the systemd user "
+            "manager did not answer, so enable state is unknown"
+        )
+    if status == "no":
+        return "AUTOSTART: missing — no systemd unit and no @reboot cron entry"
+    return (
+        "AUTOSTART: unknown — no unit file found, and neither systemctl "
+        "nor crontab could be checked on this host"
+    )
+
+
 def _sync_check(queue_dir: Path, queue_tasks: list, workspace: Path) -> dict | None:
     """Queue-dir copies vs the repo checkout, or None if no checkout.
 
@@ -307,6 +432,7 @@ def diagnose(queue_dir: Path, tasks_path: Path, workspace: Path | None = None) -
     )
     workspace_path = _resolve_workspace(workspace)
     sync = _sync_check(queue_dir, tasks, workspace_path)
+    autostart = _autostart_check()
 
     verdict = "ALL-DONE"
     notes: list[str] = []
@@ -381,6 +507,27 @@ def diagnose(queue_dir: Path, tasks_path: Path, workspace: Path | None = None) -
             "entry when no user systemd manager answers):\n"
             f"  bash {workspace_path}/scripts/queue/install_autostart.sh"
         )
+        if autostart["status"] == "yes":
+            notes.append(
+                "auto-start IS installed (see AUTOSTART line): a NOT-RUNNING "
+                "verdict after a reboot means the auto-start itself failed — "
+                "check `systemctl --user status gems-queue.service` / "
+                "`journalctl --user -u gems-queue.service` (systemd) or "
+                "`crontab -l` (cron) before re-installing."
+            )
+        elif autostart["status"] == "partial":
+            notes.append(
+                "auto-start is half-installed: the unit file exists but is "
+                "not enabled (or its enable state could not be read) and no "
+                "@reboot cron entry covers it — re-run "
+                "install_autostart.sh to enable it."
+            )
+        elif autostart["status"] == "unknown":
+            notes.append(
+                "auto-start could not be verified on this host (no unit "
+                "file, and neither systemctl nor crontab could be checked) "
+                "— run install_autostart.sh on the box to install it."
+            )
     if first_pending is not None:
         wait_match = WAIT_RE.match(first_pending["cmd"])
         if wait_match:
@@ -422,6 +569,7 @@ def diagnose(queue_dir: Path, tasks_path: Path, workspace: Path | None = None) -
         "log_age": log_age,
         "workspace": str(workspace_path),
         "sync": sync,
+        "autostart": autostart,
         "notes": notes,
         "resume": resume,
     }
@@ -463,6 +611,8 @@ def render(result: dict) -> str:
             f"({sync['queue_count']} tasks); {sync['wrappers_compared']} wrapper "
             "files compared, all identical"
         )
+    if result.get("autostart") is not None:
+        lines.append(_autostart_line(result["autostart"]))
     for note in result["notes"]:
         lines.append(f"NOTE: {note}")
     lines.append(f"RESUME:\n{result['resume']}")
