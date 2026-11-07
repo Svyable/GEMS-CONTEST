@@ -2358,3 +2358,71 @@ s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate
 gates, s12 schedule compare) remain the next CPU items once the box
 produces results. The threshold experiment is still unapproved;
 cash-eligibility gates are Sven's private call.
+
+## 2026-11-07 — Queue order audit: consumers must follow producers in list order (step 33)
+
+The runner executes pending tasks strictly in `tasks.json` list
+order and stops on the first failure, so list order *is*
+dependency order — but nothing checked it. The step-16/17
+invariant tests check producer *presence* (a gate's candidate dir
+must have a producing score task somewhere in the queue), and step
+26 fixed an ordering hole by hand, inserting three re-score tasks
+immediately before the assemble they feed. Had those re-scores
+been appended after the assemble, it would have copied stale
+schema-1 scores and every downstream gate would have decided on
+them. Step 33 generalizes that hand fix into a checked invariant:
+`scripts/queue_order_audit.py` derives each task's reads and
+writes from its command text (same token idioms as
+`queue_critical_path.py`) and verifies every consumer follows its
+producers — train before score before record within each triple;
+score after the train (or view) that produced its run; view after
+the base run's LOFO score; record after its run's score; assemble
+after the scores that wrote its source gate JSONs; gate and
+compare after the score/assemble tasks that wrote both gate dirs
+and the candidate run dirs. Incumbent LOFO summaries are not
+checked: they are best-effort by design (`compare_schedule.py`
+skips missing views; step 27).
+
+Findings on the committed queue: **0 ORDER-VIOLATIONs**. The
+step-26 insert holds — the re-scores (indices 29–30) precede both
+ref-b16 assembles (31–32) and all ref-b16 gates. Two NO-PRODUCER
+notes, both by design: `s14-compare-seed20260923-b16` reads
+`runs/gate/ref-seed20260923-b16/fault.json` and `trace.json`, which
+no queued task produces, because the step-8 seed probe is
+spatial-only — `compare_seed.sh` guards every copy with `[ -f ...
+] && cp ... || true` and `compare_seed.py` prints SKIPPED for a
+view missing on either side. The audit reports these as notes
+(exit 0), not violations: presence is owned by the invariant
+tests, and an incumbent gate dir may legitimately predate the
+queue. Exit codes: 0 clean (notes allowed), 1 on any violation,
+2 on an unreadable/malformed `tasks.json`.
+
+**Verification on the committed tree:** 14 new tests in
+`tests/test_queue_order_audit.py` (clean chain; gate/score/record/
+assemble/view/compare/triple each placed before its producer;
+NO-PRODUCER as note not violation; wait task ignored; the real
+129-task queue locked to 0 violations + exactly the 2 known s14
+notes; CLI exit 0/1/2). `scripts/queue/README.md` documents the
+tool in the Components list and a new "Queue order audit" section.
+Inventories re-run unchanged: 129 tasks, 9 gates pending (1
+decided, ENDPOINT-EXT-02 REJECT), gate readiness 12 VALID, 0
+INVALID, 42 MISSING; audit 33 findings, 0 hard errors.
+
+**Tests** (this VM): `613 passed, 18 skipped` (up from 599/18;
+the 14 new order-audit tests). `ruff check .` clean (CI gate);
+`ruff format` clean.
+
+**Scope notes**: no measured official-data scores — nothing ran
+here beyond the audit over the committed `tasks.json` and the
+inventories. No competition data was read. Box queue state: 129
+live tasks, 5 parked, no new box results since 10-12 (26 days);
+26 days to the 2026-12-03 close (safe planning cutoff 22:00 UTC
+per the 10-28 preflight, pending organizer clarification). The box
+handoff is still one command — `python3 scripts/queue_doctor.py`
+— and its AUTOSTART line now answers the first question after a
+reboot before anyone touches the installer. The verdict-
+interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results.
+The threshold experiment is still unapproved; cash-eligibility
+gates are Sven's private call.

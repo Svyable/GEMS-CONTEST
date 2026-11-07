@@ -7,6 +7,7 @@ Resumable CPU-based experiment queue runner and helper scripts for GEMS competit
 - **runner.py**: Main queue runner. Reads tasks from `tasks.json` and executes them sequentially, tracking state in `state/*.{done,failed,started}`. Stops on first failure for inspection.
 - **tasks.json**: Queue task definitions (one per experiment). Re-read before each task execution, allowing live task additions.
 - **queue_insert.py** (in `scripts/`, step 26): Insert new tasks before a named anchor task. The runner executes pending tasks in list order, so a task that must precede an already-queued consumer (e.g. a re-score that must run before the assemble that copies its output) cannot be appended — it has to be inserted. The tool validates anchor uniqueness, id uniqueness, and non-empty cmds before writing anything, and refuses to write on any failure. Use `--dry-run` first.
+- **queue_order_audit.py** (in `scripts/`, step 33): Audit the queue's list order — every consumer must follow its producers (train before score before record; score after its run's train; view after its base run's LOFO score; assemble after the scores that wrote its source gate JSONs; gate/compare after the tasks that wrote both gate dirs and the candidate run dirs). Presence is checked by the invariant tests; this checks position. Exit 0 when clean, 1 on any ORDER-VIOLATION, 2 on an unreadable `tasks.json`. Inputs with no queued producer at all are NO-PRODUCER notes, not violations — an incumbent gate dir may predate the queue, and the step-8 seed probe is spatial-only by design (its compare skips missing views).
 - **tasks.parked.json**: Parked tasks (removed from active queue but kept for reference).
 - **train_folds.sh**: Resumable 5-fold training script. Skips folds that already have outputs. Includes memory gate (waits for available memory before starting each fold) and OOM retry logic (retries folds killed with exit code 137 up to 3 times). Optional 6th arg `SEED` (default `20260922`, the incumbent seed) forwarded as `train_full_map.py --seed`; used by the step-8 seed-robustness probe.
 - **score_view.sh**: Score a completed fold-map experiment for one CV view.
@@ -128,6 +129,22 @@ tail -f scripts/queue/queue.log
 2. Fix the issue (code, data, config)
 3. Delete the failed marker: `rm scripts/queue/state/<task-id>.failed`
 4. Restart the queue (it will resume from the failed task)
+
+### Queue order audit
+
+```bash
+uv run python scripts/queue_order_audit.py
+```
+
+Run this after any edit to `tasks.json` (append, insert, or reorder)
+before the box pulls: it verifies every consumer follows its
+producers in list order and fails loudly (exit 1) on any
+ORDER-VIOLATION, instead of letting a gate decide on stale or
+missing inputs after hours of training. The two NO-PRODUCER notes
+on the current queue are by design (the spatial-only seed probe);
+a new note means a task reads an input nothing in the queue
+produces — check whether it is grandfathered/committed before
+assuming it is missing.
 
 ### Manual task execution
 
