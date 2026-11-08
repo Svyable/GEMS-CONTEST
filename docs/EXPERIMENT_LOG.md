@@ -2426,3 +2426,76 @@ lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
 compare) remain the next CPU items once the box produces results.
 The threshold experiment is still unapproved; cash-eligibility
 gates are Sven's private call.
+
+## 2026-11-08 — Queue forecast: drain vs the safe cutoff (step 34)
+
+Steps 23–24 answer which tasks have landed and what should run
+first; neither answers whether there is enough time left. With 25
+days to the 2026-12-03 close and a box silent for weeks, step 34
+turns the queue's feasibility into a number:
+`scripts/queue_forecast.py` derives the observed throughput from
+committed evidence only — the 6 run manifests' `created_utc`
+(2026-10-09 21:06 to 2026-10-11 23:26 UTC, a 2.10-day window) give
+**2.86 runs/day**. The rate is a lower bound: one more run
+(ref-cv-fault-b32) has committed scores but no manifest, so its
+training finished inside the same window without being counted.
+Score, view, assemble, gate, and compare tasks run in minutes on
+CPU and are excluded from the day count; the 5-fold train tasks
+dominate wall-clock and the runner is sequential, so drain days =
+pending trains / rate.
+
+Findings on the committed queue: **28 pending train tasks → 9.8
+drain days against 25.3 days to the safe cutoff (2026-12-03 22:00
+UTC) — FEASIBLE with a +15.6-day margin** over the 5-day buffer
+kept for scoring, gating, and submission. The per-decision
+earliest, from the `queue_critical_path.py` feeders (transitive
+train edges included), puts the first decision within a day of
+resumption: CAND-CURVED_CONTINUATION-B16 needs 0 trains (its view
+tasks apply to already-trained ref predictions; only the pending
+assemble/score/view minutes stand between it and a verdict),
+compare_seed 1 train (~0.3d), CAND-MUMFORD_SHAH_LOG-B16 2 trains
+(~0.7d), and the remaining six b16 gates plus compare_schedule 3
+trains each (~1.0d); the two b32 gates need 4 trains each (~1.4d)
+because the b32 trace reference train is still pending. These are
+per-decision lower bounds assuming the runner works on that
+decision's feeders first — shared trains count once per decision,
+so the per-decision days do not sum to the drain days.
+
+The second line is the one that matters while the box is quiet:
+**27.6 days of silence at 0 runs/day — at the current rate the
+queue never drains.** Capacity is not the constraint (9.8 days of
+work in a 25.3-day window); resumption is. The box handoff is
+unchanged: one command — `python3 scripts/queue_doctor.py` — and
+its AUTOSTART line answers the first question after a reboot
+before anyone touches the installer.
+
+**Verification on the committed tree:** 8 new tests in
+`tests/test_queue_forecast.py` (rate math; FEASIBLE/TIGHT/
+INFEASIBLE bands; UNKNOWN rate with <2 manifests; malformed
+tasks.json → exit 2; scored-unrecorded lower-bound note;
+per-decision train counts on a synthetic queue; the real repo
+locked to 2.86 runs/day, 28 trains, 9.8 drain days, FEASIBLE at
+--now 2026-11-08T13:39Z — update when the box commits new
+manifests or the queue changes). `scripts/queue/README.md`
+documents the tool in the Components list and a new "Queue
+forecast" section. Inventories re-run unchanged: 129 tasks, 9
+gates pending (1 decided, ENDPOINT-EXT-02 REJECT), gate readiness
+12 VALID, 0 INVALID, 42 MISSING; audit 33 findings, 0 hard
+errors.
+
+**Tests** (this VM): `621 passed, 18 skipped` (up from 613/18;
+the 8 new forecast tests). `ruff check .` clean; `ruff format`
+clean on the two new files (64 pre-existing files elsewhere in
+the repo remain unformatted — untouched by this change).
+
+**Scope notes**: no measured official-data scores — nothing ran
+here beyond the forecast over the committed `tasks.json`,
+manifests, and inventories. No competition data was read. Box
+queue state: 129 live tasks, 5 parked, no new box results since
+10-12 (27 days); 25 days to the 2026-12-03 close (safe planning
+cutoff 22:00 UTC per the 10-28 preflight, pending organizer
+clarification). The verdict-interpretation items (s7 loss gate,
+s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13
+candidate gates, s12 schedule compare) remain the next CPU items
+once the box produces results. The threshold experiment is still
+unapproved; cash-eligibility gates are Sven's private call.

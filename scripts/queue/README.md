@@ -8,6 +8,7 @@ Resumable CPU-based experiment queue runner and helper scripts for GEMS competit
 - **tasks.json**: Queue task definitions (one per experiment). Re-read before each task execution, allowing live task additions.
 - **queue_insert.py** (in `scripts/`, step 26): Insert new tasks before a named anchor task. The runner executes pending tasks in list order, so a task that must precede an already-queued consumer (e.g. a re-score that must run before the assemble that copies its output) cannot be appended — it has to be inserted. The tool validates anchor uniqueness, id uniqueness, and non-empty cmds before writing anything, and refuses to write on any failure. Use `--dry-run` first.
 - **queue_order_audit.py** (in `scripts/`, step 33): Audit the queue's list order — every consumer must follow its producers (train before score before record; score after its run's train; view after its base run's LOFO score; assemble after the scores that wrote its source gate JSONs; gate/compare after the tasks that wrote both gate dirs and the candidate run dirs). Presence is checked by the invariant tests; this checks position. Exit 0 when clean, 1 on any ORDER-VIOLATION, 2 on an unreadable `tasks.json`. Inputs with no queued producer at all are NO-PRODUCER notes, not violations — an incumbent gate dir may predate the queue, and the step-8 seed probe is spatial-only by design (its compare skips missing views).
+- **queue_forecast.py** (in `scripts/`, step 34): Forecast whether the queue can drain before the safe cutoff (2026-12-03 22:00 UTC). Observed throughput is recorded runs/day from committed manifest `created_utc` (a lower bound — scored-but-unrecorded runs are reported alongside); drain days = pending train tasks / rate, since 5-fold trains dominate wall-clock and the runner is sequential. Per pending gate/compare it reports the train tasks on its critical path (from `queue_critical_path.py` feeders) and the days to that decision. Verdict bands at the observed rate: FEASIBLE (5-day buffer for scoring/gating/submission), TIGHT, INFEASIBLE — plus a separate silence line: 0 runs/day across the silence window means the queue never drains until the box resumes. Exit 0 whenever the forecast could be produced (UNKNOWN rate with fewer than two manifests), 2 on an unreadable/malformed `tasks.json`.
 - **tasks.parked.json**: Parked tasks (removed from active queue but kept for reference).
 - **train_folds.sh**: Resumable 5-fold training script. Skips folds that already have outputs. Includes memory gate (waits for available memory before starting each fold) and OOM retry logic (retries folds killed with exit code 137 up to 3 times). Optional 6th arg `SEED` (default `20260922`, the incumbent seed) forwarded as `train_full_map.py --seed`; used by the step-8 seed-robustness probe.
 - **score_view.sh**: Score a completed fold-map experiment for one CV view.
@@ -145,6 +146,23 @@ on the current queue are by design (the spatial-only seed probe);
 a new note means a task reads an input nothing in the queue
 produces — check whether it is grandfathered/committed before
 assuming it is missing.
+
+### Queue forecast
+
+```bash
+uv run python scripts/queue_forecast.py
+```
+
+Run this when the close approaches or the box has been silent: it
+answers whether the queue can drain before the safe cutoff
+(2026-12-03 22:00 UTC) at the observed rate, and which decision
+gets decidable first once the box resumes. The observed rate comes
+from committed manifests only, so box-side-only progress is
+invisible here by design — the box should commit before trusting
+the forecast. A FEASIBLE verdict at the observed rate does not mean
+the queue is draining: the silence line is the binding constraint
+while the box is quiet, and resumption, not capacity, is what
+unblocks the 9 pending gates.
 
 ### Manual task execution
 
