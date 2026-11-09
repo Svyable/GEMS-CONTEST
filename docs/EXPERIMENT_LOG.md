@@ -2499,3 +2499,65 @@ s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13
 candidate gates, s12 schedule compare) remain the next CPU items
 once the box produces results. The threshold experiment is still
 unapproved; cash-eligibility gates are Sven's private call.
+
+## 2026-11-09 — Config-drift audit: recorded hashes vs the files on disk (step 35)
+
+Steps 22–24 audit the committed record, the queue's order, and whether
+it can drain — but nothing checked the link between the two: a gate
+refuses a protocol-unequal comparison, and the protocol a run scores
+under is fixed by its config file at train time, yet a config edited
+after a run was scored would silently change what the queue trains
+next. Step 35 closes that gap: `scripts/audit_config_drift.py`
+compares, per run, the `config_sha256` recorded in its manifest
+(`config.path` + `config.sha256`), its schema-2 score JSONs
+(`evaluation_protocol.config_sha256`), and its fold files (top-level
+`config_sha256`) against the current file on disk, and cross-checks
+the manifest's config path against the queue train task for the same
+run dir (the config a re-train would use).
+
+Findings on the committed tree: **0 findings across 7 runs** — every
+recorded hash still matches the file on disk: the four
+`reference_unet.yaml` runs (ref-cv-spatial-b32, ref-cv-fault-b32,
+ref-cv-trace-b16, plus the three `-full` runs via their manifests)
+record `7a5cd36b…` and the file still hashes to it; the one candidate
+run (cand-mumford_shah_log-spatial-b16) records `833b08c8…` for
+`configs/candidates/cand_mumford_shah_log.yaml` and matches. No
+manifest/queue config mismatch, no missing config, no
+self-contradictory recorded hashes. The audit also closes a small
+bookkeeping gap it found while being written: `docs/AI_DISCLOSURE.md`
+had no entries for steps 33–34 — entries for both are added here
+alongside step 35, restoring the file's currency per AGENTS.md.
+
+**Verification on the committed tree:** 10 new tests in
+`tests/test_audit_config_drift.py` (clean match; drift naming the
+affected train tasks; manifest/queue mismatch; missing config file;
+mixed recorded hashes; schema-1 no-hash and no-train-task as notes
+not findings; malformed tasks.json → exit 2; gate-dir copies
+excluded; the real repo locked to 7 runs, 0 findings).
+`scripts/queue/README.md` documents the tool in the Components list
+and a new "Config drift audit" section. Inventories re-run unchanged:
+129 tasks, 9 gates pending (1 decided, ENDPOINT-EXT-02 REJECT), gate
+readiness 12 VALID, 0 INVALID, 42 MISSING; audit 33 findings, 0 hard
+errors. Forecast re-run for today: silence 28.6 days, 24.3 days to
+the safe cutoff (2026-12-03 22:00 UTC), still FEASIBLE at the
+observed 2.86 runs/day with a +14.6-day margin.
+
+**Tests** (this VM): `631 passed, 18 skipped` (up from 621/18; the
+10 new drift-audit tests). `ruff check .` clean; `ruff format` clean
+on the new files (64 pre-existing files elsewhere in the repo remain
+unformatted — untouched by this change).
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the audit over the committed `tasks.json`, manifests, score
+JSONs, and fold files. No competition data was read. Box queue state:
+129 live tasks, 5 parked, no new box results since 10-12 (28 days);
+24 days to the 2026-12-03 close (safe planning cutoff 22:00 UTC per
+the 10-28 preflight, pending organizer clarification). The box
+handoff is unchanged: one command — `python3
+scripts/queue_doctor.py` — and the AUTOSTART line answers the first
+question after a reboot before anyone touches the installer. The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results.
+The threshold experiment is still unapproved; cash-eligibility gates
+are Sven's private call.

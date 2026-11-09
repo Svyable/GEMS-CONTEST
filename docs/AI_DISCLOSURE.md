@@ -1181,3 +1181,44 @@ a hermetic PATH, temp HOME), the full suite (599 passed, 18
 skipped), and an end-to-end run against the real committed
 tasks.json.
 No competition data was read; no model trained; no submission made.
+
+Step 33 (2026-11-07, VM): `scripts/queue_order_audit.py` + 14 tests in
+`tests/test_queue_order_audit.py` and the `scripts/queue/README.md`
+"Queue order audit" section were AI-generated with human-direction
+from the step-26 hand-insert: the runner executes in list order, so
+every consumer must follow its producers, and the invariant had only
+ever been checked by hand. The audit was verified by the new tests
+(clean chain; each consumer class placed before its producer;
+NO-PRODUCER as note not violation; the real 129-task queue locked to
+0 violations + the 2 known s14 notes) and an end-to-end run against
+the real committed tasks.json. Full suite 613 passed, 18 skipped.
+No competition data was read; no model trained; no submission made.
+
+Step 34 (2026-11-08, VM): `scripts/queue_forecast.py` + 8 tests in
+`tests/test_queue_forecast.py` and the `scripts/queue/README.md`
+"Queue forecast" section were AI-generated with human-direction from
+the open question the step-23/24 inventories could not answer:
+whether the queue can drain before the safe cutoff at the observed
+rate. The forecast was verified by the new tests (rate math; verdict
+bands; UNKNOWN rate; malformed tasks.json; the real repo locked to
+2.86 runs/day, 28 trains, 9.8 drain days, FEASIBLE at --now
+2026-11-08T13:39Z) and an end-to-end run against the real committed
+tasks.json and manifests. Full suite 621 passed, 18 skipped.
+No competition data was read; no model trained; no submission made.
+
+Step 35 (2026-11-09, VM): `scripts/audit_config_drift.py` + 10 tests
+in `tests/test_audit_config_drift.py` and the `scripts/queue/README.md`
+"Config drift audit" section were AI-generated with human-direction
+from an unclosed validation gap: no tool checked that a config file
+on disk still hashes to the `config_sha256` its runs recorded, so a
+config edited after scoring would silently change what the queue
+trains next and the gate would refuse the protocol-unequal
+comparison after the GPU days were spent. The audit was verified by
+the new tests (clean match; drift naming the affected trains;
+manifest/queue mismatch; missing config; mixed recorded hashes;
+schema-1 no-hash and no-train-task notes; malformed tasks.json;
+gate-dir copies excluded; the real repo locked to 7 runs, 0
+findings) and an end-to-end run against the real committed
+tasks.json, manifests, score JSONs, and fold files. Full suite 631
+passed, 18 skipped. No competition data was read; no model trained;
+no submission made.
