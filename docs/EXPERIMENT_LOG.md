@@ -2561,3 +2561,60 @@ lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
 compare) remain the next CPU items once the box produces results.
 The threshold experiment is still unapproved; cash-eligibility gates
 are Sven's private call.
+
+## 2026-11-10 — Submission validator hardening: the last link before an upload (step 36)
+
+The endgame chain is `train_full_map.py` → `write_prediction.py` →
+`validate_submission.py` → upload (Sven's per-action call), and the last
+link had holes the repo's own tests enshrined: the validator passed a
+constant map (the end-to-end writer test used a constant 0.4 prediction
+and asserted OK), passed finite predictions outside the template's valid
+region (only a warning when the masks differed), and passed NaN holes
+inside the valid region (the masked read silently dropped them). Any of
+those would have spent one of the three rolling submission slots for no
+signal — 23 days from the close, with the box silent 29 days, that slot
+is the scarcest resource in the endgame. Step 36 closes all three:
+
+- **Errors, directional:** finite predictions outside the template's
+  valid region (contract: null/NaN there), and missing (nodata/NaN)
+  predictions inside the valid region (a hole in the map). The old
+  generic mask-difference warning is superseded and removed; the check
+  is now nodata-agnostic (raw values against the template mask, not the
+  submission's own masked read), so a submission that declares no nodata
+  cannot hide behind metadata.
+- **Warning:** constant predictions — a degenerate model output. Still
+  `ok`, so a genuinely flat map is never hard-blocked, but the upload
+  path now says so out loud.
+- **CLI:** `scripts/write_prediction.py` returns exit 1 with an `ERROR:`
+  line instead of a traceback when the raster is out of range or the
+  wrong shape.
+
+**Verification on synthetic data only:** 6 new tests in
+`tests/test_submission.py` (outside-valid rejection, inside-NaN
+rejection, out-of-range, all-NaN, constant warning, nodata-metadata
+mismatch that must still error), 3 new tests in
+`tests/test_write_prediction_cli.py` (clean run exits 0 and prints OK;
+out-of-range and shape-mismatch exit 1 with an ERROR line), and the
+`tests/test_prediction.py` end-to-end case now uses a gradient and
+asserts a fully clean report. `docs/COMPETITION.md` and the README's
+non-negotiable checks record the hardened contract.
+
+**Tests** (this VM): `640 passed, 18 skipped` (up from 631/18; the 9
+new validator/CLI tests). `ruff check .` clean; `ruff format` clean on
+the five touched files.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the validator over synthetic rasters and the writer CLI on
+synthetic .npy input. No competition data was read. Box queue state:
+129 live tasks, 5 parked, no new box results since 10-12 (29 days);
+23 days to the 2026-12-03 close (safe planning cutoff 22:00 UTC per
+the 10-28 preflight, pending organizer clarification). Forecast
+re-run for today: silence 29.6 days, still FEASIBLE at the observed
+2.86 runs/day with a +13.6-day margin. Inventories re-run unchanged:
+audit 33 findings, 0 hard errors; gate readiness 12 VALID, 0 INVALID,
+42 MISSING; config-drift audit 0 findings across 7 runs; queue order
+audit 0 violations. The verdict-interpretation items (s7 loss gate,
+s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate
+gates, s12 schedule compare) remain the next CPU items once the box
+produces results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call.

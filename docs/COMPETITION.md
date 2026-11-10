@@ -48,8 +48,9 @@ One GeoTIFF:
 - `float32`
 - confidence/probability in `[0, 1]`
 - null/NaN outside valid bounds as required by the template
+- finite predictions everywhere inside the valid region (no holes)
 
-Run `scripts/validate_submission.py` against the official sample submission before uploading.
+Run `scripts/validate_submission.py` against the official sample submission before uploading. The validator also enforces the valid-region contract directionally (finite values outside the template's valid region are an error, missing values inside it are an error) and warns on a constant map — a degenerate model output that would spend one of the three rolling submission slots for no signal.
 
 ## Competition mechanics
 

@@ -1222,3 +1222,17 @@ findings) and an end-to-end run against the real committed
 tasks.json, manifests, score JSONs, and fold files. Full suite 631
 passed, 18 skipped. No competition data was read; no model trained;
 no submission made.
+
+Step 36 (2026-11-10, VM): `src/gems/submission.py` hardening (directional
+valid-region errors, constant-map warning), the `scripts/write_prediction.py`
+CLI now returning exit 1 with an ERROR line instead of a traceback on an
+invalid raster, 6 new tests in `tests/test_submission.py`, 3 new tests in
+`tests/test_write_prediction_cli.py`, and the `tests/test_prediction.py`
+end-to-end case now asserting a fully clean report were AI-generated with
+human-direction from an unclosed endgame gap: the validator passed a
+constant map, a map with predictions outside the template's valid region,
+and a map with holes inside it — any of which would have spent one of the
+three rolling submission slots. The changes were verified by the new tests
+and an end-to-end run of the writer CLI on synthetic data. Full suite 640
+passed, 18 skipped. No competition data was read; no model trained; no
+submission made.

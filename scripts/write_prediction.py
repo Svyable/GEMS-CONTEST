@@ -18,11 +18,17 @@ def main() -> int:
     args = parser.parse_args()
 
     prediction = np.load(args.prediction_npy)
-    path = write_prediction_like_template(
-        prediction,
-        template_path=args.template,
-        output_path=args.output,
-    )
+    try:
+        path = write_prediction_like_template(
+            prediction,
+            template_path=args.template,
+            output_path=args.output,
+        )
+    except ValueError as exc:
+        # Shape mismatch, non-finite or out-of-range values inside the
+        # valid region: report it as a failed write, not a traceback.
+        print(f"ERROR: {exc}")
+        return 1
     report = validate_submission(path, args.template)
     for warning in report.warnings:
         print(f"WARNING: {warning}")

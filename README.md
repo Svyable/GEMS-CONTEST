@@ -138,7 +138,7 @@ tests/                   unit tests
 
 ## Non-negotiable submission checks
 
-A valid submission must be a single-band `float32` GeoTIFF in **EPSG:32611**, at **100 m** resolution, with the same shape/bounds/transform as the organizer template and finite prediction values in `[0, 1]` inside the valid study region. Use the template-based validator before every upload.
+A valid submission must be a single-band `float32` GeoTIFF in **EPSG:32611**, at **100 m** resolution, with the same shape/bounds/transform as the organizer template, finite prediction values in `[0, 1]` inside the valid study region, no missing predictions inside that region, and no finite predictions outside it. A constant map is a degenerate output, not a submission. Use the template-based validator before every upload.
 
 The organizer has clarified that pixels corresponding to the existing USGS/INGENIOUS faults are masked out of evaluation, including the final re-scoring round. That makes this an **unknown-fault discovery** problem, not merely a trace-reproduction problem.
 

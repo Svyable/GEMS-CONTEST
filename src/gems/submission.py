@@ -26,7 +26,16 @@ def _same_nodata(left: object, right: object) -> bool:
 
 
 def validate_submission(submission_path: str | Path, template_path: str | Path) -> SubmissionReport:
-    """Validate a prediction GeoTIFF against the organizer's sample submission."""
+    """Validate a prediction GeoTIFF against the organizer's sample submission.
+
+    Beyond the template's shape/CRS/dtype contract, this checks the
+    valid-region contract directionally: finite predictions outside the
+    template's valid region are an error (the contract requires null/NaN
+    there), and missing (nodata/NaN) predictions inside the valid region
+    are an error (a hole in the map). A constant map passes the format
+    checks but earns a warning: it is a degenerate model output that
+    would burn one of the three rolling submission slots for nothing.
+    """
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -49,24 +58,43 @@ def validate_submission(submission_path: str | Path, template_path: str | Path) 
         if sub.bounds != ref.bounds:
             errors.append(f"bounds mismatch: submission={sub.bounds}, template={ref.bounds}")
 
-        data = sub.read(1, masked=True)
-        finite = np.asarray(data.compressed())
-        if finite.size == 0:
-            errors.append("submission contains no finite/unmasked predictions")
+        ref_mask = ref.dataset_mask() > 0
+        raw = sub.read(1)
+        if not ref_mask.any():
+            errors.append("template contains no valid pixels")
         else:
-            lo = float(np.nanmin(finite))
-            hi = float(np.nanmax(finite))
-            if lo < 0.0 or hi > 1.0:
-                errors.append(f"prediction range must be [0, 1], found [{lo}, {hi}]")
+            outside = int(np.count_nonzero(np.isfinite(raw) & ~ref_mask))
+            if outside:
+                errors.append(
+                    f"submission has {outside} finite predictions outside the "
+                    "template's valid region (must be null/NaN there)"
+                )
+            inside = raw[ref_mask]
+            missing = int(np.count_nonzero(~np.isfinite(inside)))
+            if missing:
+                errors.append(
+                    f"submission has {missing} missing (nodata/NaN) predictions "
+                    "inside the template's valid region"
+                )
+            finite = inside[np.isfinite(inside)]
+            if finite.size == 0:
+                errors.append(
+                    "submission contains no finite predictions inside the template's valid region"
+                )
+            else:
+                lo = float(np.min(finite))
+                hi = float(np.max(finite))
+                if lo < 0.0 or hi > 1.0:
+                    errors.append(f"prediction range must be [0, 1], found [{lo}, {hi}]")
+                elif lo == hi:
+                    warnings.append(
+                        f"predictions are constant ({lo}); a degenerate map that "
+                        "would spend a rolling submission slot for no signal"
+                    )
 
         if not _same_nodata(sub.nodata, ref.nodata):
             warnings.append(
                 f"nodata metadata differs: submission={sub.nodata}, template={ref.nodata}"
             )
-
-        ref_mask = ref.dataset_mask() > 0
-        sub_mask = sub.dataset_mask() > 0
-        if not np.array_equal(ref_mask, sub_mask):
-            warnings.append("dataset valid-data mask differs from template")
 
     return SubmissionReport(not errors, tuple(errors), tuple(warnings))

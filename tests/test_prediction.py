@@ -29,7 +29,7 @@ def test_write_prediction_matches_template_and_validates(tmp_path):
     output = tmp_path / "prediction.tif"
     _template(template)
 
-    prediction = np.full((5, 6), 0.4, dtype=np.float32)
+    prediction = np.linspace(0.05, 0.95, 5 * 6, dtype=np.float32).reshape(5, 6)
     write_prediction_like_template(
         prediction,
         template_path=template,
@@ -38,7 +38,8 @@ def test_write_prediction_matches_template_and_validates(tmp_path):
 
     report = validate_submission(output, template)
     assert report.ok, report.errors
+    assert report.warnings == ()
     with rasterio.open(output) as src:
         values = src.read(1)
         assert np.isnan(values[0]).all()
-        assert np.allclose(values[1:], 0.4)
+        assert np.allclose(values[1:], prediction[1:])
