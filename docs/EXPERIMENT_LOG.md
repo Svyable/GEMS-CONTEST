@@ -2618,3 +2618,56 @@ s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate
 gates, s12 schedule compare) remain the next CPU items once the box
 produces results. The threshold experiment is still unapproved;
 cash-eligibility gates are Sven's private call.
+
+## 2026-11-11 — CI red since step 31: the autostart test's PATH leak (step 37)
+
+Main had been red for six straight pushes (steps 31–36), all on the
+same test — `test_no_mechanism_exits_2_with_manual_command`
+(`assert 1 == 2`) — while the suite passed on this VM every day. The
+root cause was not the installer but the test's environment:
+`_installer_env` appended `/usr/bin:/bin` to PATH after the hermetic
+bin dir, so the real `systemctl`/`crontab` leaked back in. The leak
+was invisible here (no user manager answers `show-environment`, no
+`crontab` installed at all), but on the GitHub Actions `ubuntu-latest`
+runner a user systemd manager answers, so the installer took the
+systemd path, attempted a real install, and exited 1 instead of the
+expected 2. Reproduced locally with a stub `systemctl` that answers
+`show-environment` placed later on PATH: the installer printed
+"systemd user manager available — installing user unit" and exited 1,
+matching the CI log exactly.
+
+- **Fix:** PATH is now the hermetic dir only. `_hermetic_bin`
+  already symlinks every tool the installer needs except the three it
+  probes, so nothing else is required — and the file's own docstring
+  already claimed the tests never see the real systemd/cron; the PATH
+  append contradicted it. No installer change: given a host with a
+  systemd user manager, the installer behaved correctly.
+- **Regression test:** `test_installer_env_is_hermetic` — with no
+  stubs, `command -v` must find neither systemctl, crontab, nor
+  loginctl, while `sed` (a tool the installer genuinely needs) still
+  resolves inside the hermetic dir. Negative control verified: with
+  the old PATH line restored in a throwaway copy, the new test fails
+  on this VM (the host systemctl leaks in); the copy was deleted
+  after the check.
+- **CI verification is this push itself:** the fix can only be proven
+  green by the runner that was failing, so the next CI run is the
+  verdict on step 37, not a local run.
+
+**Tests** (this VM): `641 passed, 18 skipped` (up from 640/18; the 1
+new hermetic test). `ruff check .` clean; `ruff format` clean on the
+touched file.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the installer and the test suite. No competition data was read.
+No queue change (still 129 tasks, 5 parked); gate readiness unchanged
+(12 VALID, 0 INVALID, 42 MISSING); audit 33 findings, 0 hard errors;
+config-drift audit 0 findings across 7 runs; queue order audit 0
+violations. Forecast re-run: silence 30.6 days, 22.3 days to the
+2026-12-03 22:00 UTC safe cutoff, still FEASIBLE at the observed 2.86
+runs/day with a +12.6-day margin. The verdict-interpretation items
+(s7 loss gate, s8/s14 seed probe, s4–s6 lineament rerun gates,
+s9–s11/s13 candidate gates, s12 schedule compare) remain the next CPU
+items once the box produces results. The threshold experiment is still
+unapproved; cash-eligibility gates are Sven's private call. The
+autostart fix (step 31) is still the live handoff for the box:
+`bash scripts/queue/install_autostart.sh` after `git pull`.

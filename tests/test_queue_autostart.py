@@ -134,7 +134,14 @@ def _installer_env(tmp_path: Path, bin_dir: Path) -> dict[str, str]:
     env["HOME"] = str(tmp_path / "home")
     (tmp_path / "home").mkdir(exist_ok=True)
     env.pop("XDG_CONFIG_HOME", None)
-    env["PATH"] = f"{bin_dir}{os.pathsep}/usr/bin{os.pathsep}/bin"
+    # PATH is the hermetic dir ONLY. _hermetic_bin already symlinks
+    # every host tool the installer needs except the three it probes,
+    # so nothing else is required — and appending /usr/bin:/bin leaked
+    # the real systemctl/crontab back in. That leak was invisible on
+    # the VM (no user manager answers, no crontab installed) but broke
+    # CI from step 31 on: on ubuntu-latest a user manager answers, so
+    # the no-mechanism test took the systemd path and failed.
+    env["PATH"] = str(bin_dir)
     env["USER"] = "testuser"
     env["STUB_SYSTEMCTL_FAIL_SHOW"] = "0"
     return env
@@ -306,3 +313,37 @@ def test_no_mechanism_exits_2_with_manual_command(tmp_path: Path) -> None:
     assert "nohup python3" in proc.stderr
     assert f"{DEFAULT_QUEUE}/runner.py" in proc.stderr
     assert not (tmp_path / "home" / ".config").exists()
+
+
+def test_installer_env_is_hermetic(tmp_path: Path) -> None:
+    """The installer env must not see the host's real probed tools.
+
+    Guards the step-37 fix directly: with no stubs, `command -v`
+    must find neither systemctl, crontab, nor loginctl, while a tool
+    the installer genuinely needs (sed) still resolves inside the
+    hermetic dir. If a future change appends /usr/bin to PATH again,
+    this fails on any host with a real systemctl — including this VM —
+    instead of failing only on CI runners where a user manager
+    answers, as it did from step 31 to step 36.
+    """
+    bin_dir = _hermetic_bin(tmp_path, stubs={})
+    env = _installer_env(tmp_path, bin_dir)
+    for tool in ("systemctl", "crontab", "loginctl"):
+        proc = subprocess.run(
+            [BASH, "-c", f"command -v {tool}"],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        assert proc.returncode != 0, f"host {tool} leaked into hermetic PATH"
+        assert proc.stdout.strip() == ""
+    proc = subprocess.run(
+        [BASH, "-c", "command -v sed"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == str(bin_dir / "sed")

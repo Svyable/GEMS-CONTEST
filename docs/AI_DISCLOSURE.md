@@ -1236,3 +1236,14 @@ three rolling submission slots. The changes were verified by the new tests
 and an end-to-end run of the writer CLI on synthetic data. Full suite 640
 passed, 18 skipped. No competition data was read; no model trained; no
 submission made.
+
+Step 37 (2026-11-11, VM): the one-line PATH fix in
+`tests/test_queue_autostart.py` (hermetic dir only, no `/usr/bin:/bin`
+append) and the new `test_installer_env_is_hermetic` regression test
+were AI-generated with human-direction from a CI failure that had
+been red since step 31: the no-mechanism test leaked the host's real
+systemctl on runners where a user manager answers. The fix was
+verified by the new test passing, the full suite, and a negative
+control (old PATH line in a throwaway copy fails the new test on this
+VM). Full suite 641 passed, 18 skipped. No competition data was read;
+no model trained; no submission made.
