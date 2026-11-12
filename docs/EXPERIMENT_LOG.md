@@ -2671,3 +2671,64 @@ items once the box produces results. The threshold experiment is still
 unapproved; cash-eligibility gates are Sven's private call. The
 autostart fix (step 31) is still the live handoff for the box:
 `bash scripts/queue/install_autostart.sh` after `git pull`.
+
+## 2026-11-12 — CI green at last, and a queue reference-integrity audit (step 38)
+
+Step 37's verdict was explicitly the CI run itself — and it is green.
+The 2026-11-11 push (81589df) completed with conclusion `success` on
+both jobs (`test` and `training-smoke`), ending the red streak that ran
+from step 31 through step 36. Main is back. That closes the step-37
+debt; the live handoff for the box is unchanged (the autostart
+installer, one command after `git pull`).
+
+The step-38 build closes the last unowned link in the queue-integrity
+chain. The order audit (step 33) checks that consumers follow
+producers; the config-drift audit (step 35) checks that recorded
+hashes still match the files on disk. Neither checks that the files a
+queued command *names* still exist at all — a config renamed after its
+tasks were queued, a wrapper moved, a script deleted would fail on the
+box only after resumption, burning the drain margin the forecast
+measures. `scripts/audit_queue_refs.py` checks two layers from
+committed evidence only:
+
+- Queue tasks (live `tasks.json` + `tasks.parked.json`, parked checked
+  the same way since they go live later): every `queue/*.sh` wrapper,
+  `configs/**/*.yaml`, and `scripts/**/*.py` token must exist in the
+  repo. `data/*` and `runs/*` are deliberately out of scope — box-side
+  state/outputs, not repo references — and double-quoted hypothesis and
+  notes arguments are stripped before extraction so free text is never
+  read as a path.
+- Wrappers themselves (`scripts/queue/*.sh`): every `scripts/**/*.py`
+  and `configs/**/*.yaml` they call (e.g. `train_folds.sh` calling
+  `scripts/train_full_map.py`) is checked the same way.
+
+- **First run on the committed queue: 0 findings** — 134 tasks (129
+  live, 5 parked), 218 task refs + 9 wrapper refs checked across 10
+  wrappers. The 4 unparsed tasks are exactly the ones with no static
+  repo reference: the s1 wait-for-existing-loop task and the three
+  assemble tasks (s5b, s7, s26), which name only `runs/` dirs.
+- Exit codes follow the sibling audits: 0 clean, 1 on MISSING-REF, 2
+  on an unreadable queue file.
+
+**Tests** (this VM): `653 passed, 18 skipped` (up from 641/18; the 12
+new tests in `tests/test_audit_queue_refs.py` cover a missing config,
+wrapper, and script ref; parked-task checking; a wrapper calling a
+missing script; the quoted-hypothesis false positive; data/runs paths
+ignored; wait/assemble tasks as unparsed notes; and a regression lock
+on the committed queue's exact counts). `ruff check .` clean;
+`ruff format` clean on both touched files.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the audit scripts and the test suite. No competition data was
+read. No queue change (still 129 tasks, 5 parked); gate readiness
+unchanged (12 VALID, 0 INVALID, 42 MISSING); audit 33 findings, 0
+hard errors; config-drift audit 0 findings across 7 runs; queue order
+audit 0 violations. Forecast re-run: silence 31.6 days, 21.3 days to
+the 2026-12-03 22:00 UTC safe cutoff, still FEASIBLE at the observed
+2.86 runs/day with a +11.6-day margin. The verdict-interpretation
+items (s7 loss gate, s8/s14 seed probe, s4–s6 lineament rerun gates,
+s9–s11/s13 candidate gates, s12 schedule compare) remain the next CPU
+items once the box produces results. The threshold experiment is still
+unapproved; cash-eligibility gates are Sven's private call. The
+autostart fix (step 31) is still the live handoff for the box:
+`bash scripts/queue/install_autostart.sh` after `git pull`.

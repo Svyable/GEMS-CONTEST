@@ -1247,3 +1247,17 @@ verified by the new test passing, the full suite, and a negative
 control (old PATH line in a throwaway copy fails the new test on this
 VM). Full suite 641 passed, 18 skipped. No competition data was read;
 no model trained; no submission made.
+
+Step 38 (2026-11-12, VM): `scripts/audit_queue_refs.py` and 12 tests in
+`tests/test_audit_queue_refs.py` were AI-generated with human-direction
+from an unclosed integrity gap: the order audit (step 33) checks that
+queue consumers follow producers and the config-drift audit (step 35)
+checks recorded hashes, but nothing checked that the wrapper scripts,
+configs, and python scripts a queued command names still exist in the
+repo — a rename after queueing would fail on the box only after
+resumption. The audit was verified by the new tests (including negative
+controls for a missing config/wrapper/script and a quoted-hypothesis
+false positive) and a run on the committed queue: 0 findings across 134
+tasks (218 task refs + 9 wrapper refs). Full suite 653 passed, 18
+skipped. No competition data was read; no model trained; no submission
+made.
