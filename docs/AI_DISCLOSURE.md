@@ -1261,3 +1261,20 @@ false positive) and a run on the committed queue: 0 findings across 134
 tasks (218 task refs + 9 wrapper refs). Full suite 653 passed, 18
 skipped. No competition data was read; no model trained; no submission
 made.
+
+Step 39 (2026-11-13, VM): `scripts/audit_queue_args.py` and 18 tests in
+`tests/test_audit_queue_args.py` were AI-generated with human-direction
+from an unclosed integrity gap: the refs audit (step 38) checks that the
+files a queued command names still exist, but nothing checked that the
+arguments were right for each other. The audit's first run found two
+real defects in the committed queue — four s11/s12 trace tasks naming
+the superseded pre-repair fold map `cv-trace-v1.tif` (which crashed the
+trace baseline on fold 1) instead of `cv-trace-v1b.tif`, and two gate
+tasks whose `\"`-escaped hypotheses would have split under `bash -c` so
+only the first word reached the gate script — and the queue was fixed in
+place (6 task commands edited, no count change). The audit was verified
+by the new tests (including negative controls for each argument shape
+and a regression lock on the committed queue's exact counts) and a
+second run on the fixed queue: 0 findings across 134 tasks (136 wrapper
+segments). Full suite 671 passed, 18 skipped. No competition data was
+read; no model trained; no submission made.

@@ -2732,3 +2732,72 @@ items once the box produces results. The threshold experiment is still
 unapproved; cash-eligibility gates are Sven's private call. The
 autostart fix (step 31) is still the live handoff for the box:
 `bash scripts/queue/install_autostart.sh` after `git pull`.
+
+## 2026-11-13 — Queue argument audit finds a live queue-halting defect (step 39)
+
+The refs audit (step 38) checks that files a queued command names still
+exist; it cannot catch arguments that are all real files but wrong for
+each other. `scripts/audit_queue_args.py` parses every queued command
+positionally (shlex, per `&&` segment) and checks each argument against
+its wrapper's documented contract and against the other arguments of the
+same command: scheme validity, fold-map currency per scheme, buffer
+numeric + matching any `-b<N>` run-dir suffix, scheme carried in the run
+dir, eight-digit seed, config matching the run dir, record run-id matching
+the run-dir basename, gate-name shape + buffer suffix vs candidate dir,
+and rival-threshold expected scores in (0, 1). The runner executes via
+`bash -c`, so the audit models bash quoting: a `\"`-escaped hypothesis is
+not one argument, and a 5th note argument to the compare wrappers is
+tolerated (the wrappers ignore it).
+
+- **First run on the committed queue: 6 findings, 2 real defects.**
+  - **STALE-FOLD-MAP (4 tasks):** `s11-train/score-loss_skeleton_recall-trace`
+    and `s12-train/score-longer_schedule-trace` named the superseded
+    pre-repair trace fold map `cv-trace-v1.tif`. That map crashed the
+    trace baseline on fold 1 (2026-10-10, withheld label pixel row 3264
+    col 1516 outside the feature valid mask, no retained trace body) and
+    was replaced by `cv-trace-v1b.tif`; all 22 other trace tasks use v1b.
+    Had the box resumed with these tasks, the s11 trace train would have
+    crashed at fold 1 and the runner stops the whole queue on the first
+    non-zero exit — halting the 129-task drain with 20 days to the close.
+    Even a clean run would have been protocol-unequal to ref-b16 (all
+    v1b), so its gate could not be decided. Fixed: all four tasks now name
+    `cv-trace-v1b.tif`. The stale map likely came from
+    `docs/CANDIDATE_PIPELINE.md`, which prescribed `cv-trace-v1.tif` for
+    trace completion — corrected to v1b there too, with a supersession note.
+  - **ESCAPED-QUOTE (2 tasks):** `s10-gate-loss_background_soften-b16` and
+    `s11-gate-skeleton_recall-b16` wrote their hypotheses with `\"` escapes.
+    Under `bash -c` that is a literal quote character, so the hypothesis
+    splits into ~28 words and `gate.sh` $5 is only its first word
+    (`"Reference`) — the gate would have run, but the ledger hypothesis
+    would be truncated garbage. Fixed: plain `"..."` quotes, matching every
+    other gate task.
+  - No other findings: the s12/s14 compare 5th arguments are tolerated
+    note strings (dropped by the wrappers), and the 4 unparsed tasks are
+    the known wait loop + 3 assemble tasks.
+- **Second run after the fix: 0 findings** — 134 tasks (129 live, 5
+  parked), 136 wrapper segments checked.
+
+**Tests** (this VM): `671 passed, 18 skipped` (up from 653/18; the 18
+new tests in `tests/test_audit_queue_args.py` cover a stale trace map,
+bad scheme/buffer/seed, config-dir and record-id mismatches, gate-name
+and buffer mismatches, the escaped-quote defect with normalized args
+still checked, the quoted-hypothesis false positive, compound commands,
+rival-threshold scores, arg counts, unparsed tasks, unreadable queues,
+exit codes, and a regression lock on the committed queue's exact counts).
+`ruff check .` clean; `ruff format` clean on both touched files.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the audit scripts and the test suite. No competition data was
+read. No queue change in count (still 129 tasks, 5 parked); the fix
+edits 6 task commands in place. Gate readiness unchanged (12 VALID, 0
+INVALID, 42 MISSING); audit 33 findings, 0 hard errors; config-drift
+audit 0 findings across 7 runs; queue order audit 0 violations; refs
+audit 0 findings. Forecast re-run: silence 32.6 days, 20.3 days to the
+2026-12-03 22:00 UTC safe cutoff, still FEASIBLE at the observed 2.86
+runs/day with a +10.6-day margin. The verdict-interpretation items (s7
+loss gate, s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13
+candidate gates, s12 schedule compare) remain the next CPU items once
+the box produces results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call. The autostart fix (step
+31) is still the live handoff for the box:
+`bash scripts/queue/install_autostart.sh` after `git pull`.

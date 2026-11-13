@@ -100,8 +100,10 @@ uv run python scripts/train_full_map.py \
   --metrics-json runs/discovery-control/fold-0.json
 ```
 
-For trace completion, use `cv-trace-v1.tif`, `--cv-scheme trace`, and
-`--buffer-pixels 3` to match that artifact's documented buffer. Repeat each scheme
+For trace completion, use `cv-trace-v1b.tif`, `--cv-scheme trace`, and
+`--buffer-pixels 3` to match that artifact's documented buffer. (`cv-trace-v1.tif`
+is the superseded pre-repair map — it crashes fold 1 on a withheld label pixel
+outside the feature valid mask; use v1b.) Repeat each scheme
 for folds 0–4 before comparing models.
 
 Sparse holdouts cannot use only completely unmasked windows without discarding
@@ -132,7 +134,7 @@ After all folds have their own predictions:
 ```bash
 uv run python scripts/score_cv.py \
   --truth data/raw/existing_faults.tif \
-  --fold-map data/processed/cv-trace-v1.tif \
+  --fold-map data/processed/cv-trace-v1b.tif \
   --scheme trace \
   --prediction-pattern 'runs/trace-control/fold-{fold}.tif' \
   --output-json runs/trace-control/scores.json
