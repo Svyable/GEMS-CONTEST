@@ -1278,3 +1278,20 @@ and a regression lock on the committed queue's exact counts) and a
 second run on the fixed queue: 0 findings across 134 tasks (136 wrapper
 segments). Full suite 671 passed, 18 skipped. No competition data was
 read; no model trained; no submission made.
+
+Step 40 (2026-11-14, VM): `scripts/audit_queue_duplicates.py` and 16 tests in
+`tests/test_audit_queue_duplicates.py` were AI-generated with human-direction
+from an unclosed integrity gap: the refs audit (step 38) checks that the
+files a queued command names exist and the args audit (step 39) checks that
+a command's arguments are consistent, but nothing checked whether the queue
+asks for the same work twice — and the queue's execution model makes
+duplication silently destructive (the runner keys on task ids with .done
+markers, so a duplicated id drops a task; gate.sh writes one verdict file
+per gate name; score_view.sh writes one file per gate-dir/view). The audit
+was verified by the new tests (including negative controls for each
+duplication shape, the step-26 replay exemption, and a regression lock on
+the committed queue's exact counts) and a run on the committed queue: 0
+findings across 134 tasks — the only duplication is the documented step-26
+replays (3 replayed commands, 2 re-score coverage notes). Full suite 687
+passed, 18 skipped. No competition data was read; no model trained; no
+submission made.

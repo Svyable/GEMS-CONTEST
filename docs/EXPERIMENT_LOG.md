@@ -2801,3 +2801,68 @@ the box produces results. The threshold experiment is still unapproved;
 cash-eligibility gates are Sven's private call. The autostart fix (step
 31) is still the live handoff for the box:
 `bash scripts/queue/install_autostart.sh` after `git pull`.
+
+## 2026-11-14 — Queue duplication audit (step 40)
+
+The refs audit (step 38) checks that files a queued command names exist;
+the args audit (step 39) checks that a command's arguments are consistent
+with each other. Neither checks whether the queue asks for the same work
+twice — and the queue's execution model makes duplication silently
+destructive rather than merely wasteful. `scripts/audit_queue_duplicates.py`
+checks seven duplication shapes from committed evidence only:
+
+- **DUP-TASK-ID:** the runner keys on task ids with `.done` markers (step
+  26), so a second task with an id that already ran is skipped without a
+  trace — a duplicated id silently drops a whole train/score/record triple.
+- **DUP-COMMAND:** identical command text in two tasks.
+- **DUP-GATE-NAME:** `gate.sh` writes its verdict to
+  `phase2-outputs/gates/<NAME>.json`, so two gates with the same name
+  clobber each other's verdict and the ledger keeps only the later one.
+- **DUP-SCORE-COVERAGE:** `score_view.sh` writes
+  `<GATE_DIR>/<VIEW>.json`, so two different runs scored into the same gate
+  dir and view land in one file and the later score silently wins — the
+  gate then compares the wrong candidate.
+- **DUP-TRAIN-RUN / DUP-RECORD-ID:** a repeated run dir redoes (or
+  overwrites) folds; a repeated run id writes the same manifest twice.
+- **DUP-VIEW-OUT:** two views from different base runs into the same
+  derived run dir clobber each other.
+
+One deliberate exception, encoded in the audit: the step-26 replays
+(`s26-rescore-ref-spatial-full`, `s26-rescore-ref-fault-full`,
+`s26-reassemble-ref-b16`) are byte-identical replays inserted on purpose
+to repair stale schema-1 gate copies, so a duplicate whose extra tasks are
+all step-26 replays is a REPLAY note, not a finding — and a replay does
+not exempt a second non-replay copy of the same command.
+
+- **First run on the committed queue: 0 findings** — 134 tasks (129 live,
+  5 parked), 5 replay notes (3 replayed commands + 2 re-score coverage
+  notes from the same two re-scores). No duplicated id, gate name, train
+  run, record id, or view output; every candidate gate dir has all three
+  views covered by score tasks (verified while scoping the audit), with
+  ref-b16's spatial+fault inputs arriving only via the assemble tasks.
+- Exit codes follow the sibling audits: 0 clean, 1 on findings, 2 on an
+  unreadable queue file.
+
+**Tests** (this VM): `687 passed, 18 skipped` (up from 671/18; the 16
+new tests in `tests/test_audit_queue_duplicates.py` cover each duplication
+shape, the step-26 replay exemption including a third non-replay copy,
+live-vs-parked id collision, `&&`-chained segments, unreadable queues,
+exit codes, and a regression lock on the committed queue's exact counts).
+`ruff check .` clean; `ruff format` clean on both touched files (one
+EXE001 fixed by marking the script executable, matching its siblings).
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the audit script and the test suite. No competition data was read.
+No queue change (still 129 tasks, 5 parked); gate readiness unchanged (12
+VALID, 0 INVALID, 42 MISSING); audit 33 findings, 0 hard errors;
+config-drift audit 0 findings across 7 runs; queue order audit 0
+violations; refs audit 0 findings; args audit 0 findings. Forecast
+re-run: silence 33.6 days, 19.3 days to the 2026-12-03 22:00 UTC safe
+cutoff, still FEASIBLE at the observed 2.86 runs/day with a +9.6-day
+margin. The verdict-interpretation items (s7 loss gate, s8/s14 seed probe,
+s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results. The
+threshold experiment is still unapproved; cash-eligibility gates are
+Sven's private call. The autostart fix (step 31) is still the live
+handoff for the box: `bash scripts/queue/install_autostart.sh` after
+`git pull`.
