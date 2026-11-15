@@ -52,9 +52,11 @@ Stall signatures, in the order the runner itself would hit them:
   and the ``queue.log`` tail shows ``WAIT-MEM`` lines, the runner is
   not training — it is parked in the train wrapper's memory gate
   (added 2026-10-10 after OOM kills), waiting for ``MemAvailable``
-  to reach ``GEMS_MIN_AVAIL_MB``. That wait has no timeout, so a
-  memory-hogging job elsewhere on the shared box stalls the queue
-  silently and indefinitely.
+  to reach ``GEMS_MIN_AVAIL_MB``. That wait is bounded (step 41):
+  after ``GEMS_WAIT_MEM_TIMEOUT_S`` (default 21600s = 6h) the wrapper
+  exits 3 and the runner records a ``.failed`` marker, so a memory
+  hog longer than 6h stops the queue loudly for inspection instead of
+  stalling it silently forever.
 - RUNNING-STALLED: lock held, current task 48+ hours old, and
   ``queue.log`` unwritten for 48+ hours (and not WAIT-MEM).
 - INTERRUPTED: the first pending task has a ``.started`` marker but
@@ -461,7 +463,9 @@ def diagnose(queue_dir: Path, tasks_path: Path, workspace: Path | None = None) -
                 notes.append(
                     "queue.log tail shows WAIT-MEM: the train wrapper's memory gate "
                     "is waiting for MemAvailable >= GEMS_MIN_AVAIL_MB (default 5000MB). "
-                    "This wait has no timeout — check what else on the box holds memory."
+                    "This wait is bounded at GEMS_WAIT_MEM_TIMEOUT_S (default 6h); if "
+                    "it does not clear, the task fails with rc=3 and the runner stops "
+                    "for inspection. Check what else on the box holds memory."
                 )
             elif stalled:
                 verdict = "RUNNING-STALLED"

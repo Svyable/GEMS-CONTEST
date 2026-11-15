@@ -1295,3 +1295,19 @@ findings across 134 tasks — the only duplication is the documented step-26
 replays (3 replayed commands, 2 re-score coverage notes). Full suite 687
 passed, 18 skipped. No competition data was read; no model trained; no
 submission made.
+
+Step 41 (2026-11-15, VM): `scripts/queue/train_folds.sh` and 5 tests in
+`tests/test_queue_train_mem_gate.py` (plus a doctor-note assertion in
+`tests/test_queue_doctor.py`) were AI-generated with human-direction
+from an unclosed resilience gap: the train wrapper's memory gate waited
+unboundedly for MemAvailable, so a memory-hogging job elsewhere on the
+shared box stalled the queue silently and indefinitely — the doctor
+(step 29) could only diagnose RUNNING-WAIT-MEM. The wait is now bounded
+at GEMS_WAIT_MEM_TIMEOUT_S (default 21600s = 6h); past the bound the
+fold exits 3 with a WAIT-MEM-TIMEOUT log line, so the runner records a
+.failed marker and stops for inspection. The doctor's RUNNING-WAIT-MEM
+note and docstring were updated to state the bound instead of "no
+timeout". Verified by the new tests (including a negative control
+showing the pre-fix wrapper hangs forever on a low-memory fixture) and
+a full-suite run: 692 passed, 18 skipped. No competition data was read;
+no model trained; no submission made.

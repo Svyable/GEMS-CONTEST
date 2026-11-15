@@ -147,6 +147,9 @@ def test_running_wait_mem_when_train_task_and_wait_mem_in_log(tmp_path: Path) ->
         result = diagnose(queue_dir, queue_dir / "tasks.json")
     assert result["verdict"] == "RUNNING-WAIT-MEM"
     assert any("memory gate" in note for note in result["notes"])
+    # Step 41 bounds the wait: the note must say so, not "no timeout".
+    assert any("6h" in note for note in result["notes"])
+    assert not any("no timeout" in note for note in result["notes"])
 
 
 def test_wait_loop_task_flagged(tmp_path: Path) -> None:

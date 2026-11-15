@@ -2866,3 +2866,60 @@ threshold experiment is still unapproved; cash-eligibility gates are
 Sven's private call. The autostart fix (step 31) is still the live
 handoff for the box: `bash scripts/queue/install_autostart.sh` after
 `git pull`.
+
+## 2026-11-15 — Bounded train memory gate (step 41)
+
+The doctor (step 29) diagnosed RUNNING-WAIT-MEM but the wrapper itself
+never gave up: `train_folds.sh` waited unboundedly for `MemAvailable`
+to reach `GEMS_MIN_AVAIL_MB` before each fold, so a memory-hogging job
+elsewhere on the shared box stalled the queue silently and indefinitely
+— no `.failed` marker, no runner stop, nothing for the doctor to report
+beyond "wait". Step 41 bounds the wait at `GEMS_WAIT_MEM_TIMEOUT_S`
+(default 21600s = 6h; a transient hog under 6h still waits out). Past
+the bound the fold gives up with exit 3 and a `WAIT-MEM-TIMEOUT` log
+line, so the runner records a `.failed` marker and stops for inspection
+— the state the doctor's STOPPED verdict already knows how to diagnose
+and resume from (inspect, fix, delete the marker, restart). The OOM
+retry (rc=137, ×3) is untouched: the bound only fires before a fold
+starts, never mid-train. Two test hooks, box defaults unchanged:
+`GEMS_MEMINFO` (default `/proc/meminfo`) and `GEMS_WAIT_MEM_SLEEP_S`
+(default 60s). A missing `MemAvailable` line now reads as 0MB instead
+of crashing the `[ ... -ge ... ]` test. The doctor's RUNNING-WAIT-MEM
+note and module docstring now state the 6h bound and rc=3 instead of
+"no timeout".
+
+- **Negative control:** the pre-fix wrapper run against a low-memory
+  fixture was killed by `timeout` after 5s (exit 124) — it waits
+  forever; the new wrapper with `GEMS_WAIT_MEM_TIMEOUT_S=0` exits 3
+  immediately with `WAIT-MEM-TIMEOUT`, and with timeout 2s / sleep 1s
+  exits 3 after ~2s of waiting.
+- **Box note:** the fix lives in `scripts/queue/train_folds.sh`, and
+  the queue dir runs its own copies — like the step 27–28 wrapper
+  fixes, it reaches the runner only when the queue dir is re-synced
+  from the checkout after `git pull` (the doctor's SYNC check reports
+  DIVERGED until then). No queue change (still 129 tasks, 5 parked);
+  no task command changed, so the order/refs/args/dups audits are
+  unaffected by the edit itself.
+
+**Tests** (this VM): `692 passed, 18 skipped` (up from 687/18; the 5
+new tests in `tests/test_queue_train_mem_gate.py` cover the loud
+timeout, the wait-up-to-bound timing, a meminfo with no MemAvailable
+line, gate-pass on plentiful memory, and the default declarations; the
+doctor's WAIT-MEM test now asserts the note states the 6h bound).
+`ruff check .` clean; `ruff format` clean on all three touched files.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the wrapper, the doctor, and the test suite. No competition data
+was read. No queue change; gate readiness unchanged (12 VALID, 0
+INVALID, 42 MISSING); audit 33 findings, 0 hard errors; config-drift
+audit 0 findings across 7 runs; queue order audit 0 violations; refs
+audit 0 findings; args audit 0 findings; duplicates audit 0 findings.
+Forecast re-run: silence 34.6 days, 18.3 days to the 2026-12-03 22:00
+UTC safe cutoff, still FEASIBLE at the observed 2.86 runs/day with a
++8.6-day margin. The verdict-interpretation items (s7 loss gate, s8/s14
+seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12
+schedule compare) remain the next CPU items once the box produces
+results. The threshold experiment is still unapproved; cash-eligibility
+gates are Sven's private call. The autostart fix (step 31) is still the
+live handoff for the box: `bash scripts/queue/install_autostart.sh`
+after `git pull`.
