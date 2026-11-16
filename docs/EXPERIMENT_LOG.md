@@ -2923,3 +2923,48 @@ results. The threshold experiment is still unapproved; cash-eligibility
 gates are Sven's private call. The autostart fix (step 31) is still the
 live handoff for the box: `bash scripts/queue/install_autostart.sh`
 after `git pull`.
+
+## 2026-11-16 — Queue runner contract tests (step 42)
+
+Every queue audit so far (order s33, config drift s35, refs s38, args
+s39, duplicates s40) checks the queue's *contents*, and the doctor
+(s29/s30/s32) diagnoses the runner's *state dir* — but the runner
+itself, the one engine that turns tasks.json into .done/.failed
+markers, had never been executed on this VM. Step 42 pins its contract
+with 6 tests in `tests/test_queue_runner.py`, running the real
+`scripts/queue/runner.py` in a sandboxed QUEUE_DIR + GEMS_WORKSPACE
+(both env overrides the runner already supports) with trivial shell
+commands: tasks run in list order with rc=0 `.done` markers and an
+IDLE status; a failing task (rc=3, the step-41 WAIT-MEM-TIMEOUT code)
+writes `.failed`, stops the queue with a STOPPED note, and leaves later
+tasks unstarted; deleting the `.failed` marker after fixing the cause
+resumes with the failed task re-run, not from scratch; pre-existing
+`.done` markers are skipped on restart; a second instance exits 0 at
+once on the flock ("runner already active") and runs nothing; a task
+appended to tasks.json mid-queue is picked up without a restart
+(tasks.json is re-read before every task). No runner change was
+needed — the contract held as documented on first execution, which is
+itself the finding: the s41 exit-3 → `.failed` → STOPPED chain and the
+doctor's resume instructions now rest on an executed test, not on
+reading the code.
+
+**Tests** (this VM): `698 passed, 18 skipped` (up from 692/18; the 6
+new tests are the runner contract suite). `ruff check .` clean; `ruff
+format` clean on the new file.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the runner, the audits, and the test suite. No competition data
+was read. No queue change; gate readiness unchanged (12 VALID, 0
+INVALID, 42 MISSING); audit 33 findings, 0 hard errors; config-drift
+audit 0 findings across 7 runs; queue order audit 0 violations; refs
+audit 0 findings; args audit 0 findings; duplicates audit 0 findings
+(only the documented step-26 replays). Forecast re-run: silence 35.6
+days, 17.3 days to the 2026-12-03 22:00 UTC safe cutoff, still
+FEASIBLE at the observed 2.86 runs/day with a +7.6-day margin. The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results. The
+threshold experiment is still unapproved; cash-eligibility gates are
+Sven's private call. The autostart fix (step 31) is still the live
+handoff for the box: `bash scripts/queue/install_autostart.sh` after
+`git pull`.

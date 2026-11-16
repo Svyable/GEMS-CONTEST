@@ -1311,3 +1311,18 @@ timeout". Verified by the new tests (including a negative control
 showing the pre-fix wrapper hangs forever on a low-memory fixture) and
 a full-suite run: 692 passed, 18 skipped. No competition data was read;
 no model trained; no submission made.
+
+Step 42 (2026-11-16, VM): 6 tests in `tests/test_queue_runner.py`
+were AI-generated with human-direction from an unclosed verification
+gap: every queue audit checks the queue's contents and the doctor
+diagnoses the runner's state dir, but the runner itself — the engine
+that turns tasks.json into .done/.failed markers — had never been
+executed on this VM. The tests run the real
+`scripts/queue/runner.py` in a sandboxed queue dir with trivial shell
+commands and pin its contract (in-order execution, skip-done,
+stop-on-failure with a .failed marker, resume after the marker is
+deleted, live-appended tasks, single-instance flock). No runner change
+was needed — the contract held as documented on first execution.
+Verified by the new tests and a full-suite run: 698 passed, 18
+skipped. No competition data was read; no model trained; no
+submission made.
