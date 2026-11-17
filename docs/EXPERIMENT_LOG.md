@@ -2968,3 +2968,57 @@ threshold experiment is still unapproved; cash-eligibility gates are
 Sven's private call. The autostart fix (step 31) is still the live
 handoff for the box: `bash scripts/queue/install_autostart.sh` after
 `git pull`.
+## 2026-11-17 — Doctor vs runner-produced state (step 43)
+
+The doctor (steps 29/30/32) was verified only against hand-built
+simulated queue dirs, and the runner (step 42) only against its own
+markers — but on the box the doctor reads state the runner actually
+wrote, and a hand-written fixture can drift from what the runner
+writes (marker stamps, status.json shape, queue.log lines, the lock
+pid). Step 43 closes that loop with 6 tests in
+`tests/test_doctor_on_runner_state.py`: the real `scripts/queue/runner.py`
+produces the state in a sandboxed queue dir (stdout redirected to
+queue.log, mirroring the box's nohup redirect), then the real doctor
+(`diagnose`) reads it. Every verdict the runner can produce now rests
+on executed state, not on fixtures: STOPPED on a real rc=3 failure
+(names the task, prints the `rm state/<id>.failed` resume, counts
+1/1/1); ALL-DONE on a real completion; RUNNING against a live runner
+holding the flock (current task named, lock pid matches the runner's
+pid); INTERRUPTED after SIGKILLing the runner's process group
+mid-task (lock free, `.started` with no `.done`/`.failed`, safe-restart
+resume); RUNNING-STALLED after aging runner-produced state 49h
+(marker stamp, status.json stamp, log mtime — with a control showing
+the same state reads RUNNING before aging, so the age is what flips
+the verdict); RUNNING-WAIT-MEM from a train task whose stub wrapper
+prints one WAIT-MEM line and sleeps, with the step-41 6h bound in the
+note. **No doctor or runner change was needed — every verdict held as
+documented on first execution**, which is itself the finding: the
+diagnoses Sven will act on from the box now rest on the engine that
+produces the state, not on reading either tool's code. The one verdict
+still simulated-only is NOT-RUNNING, which needs no runner at all and
+is already pinned against the committed queue in
+`tests/test_queue_doctor.py`.
+
+**Tests** (this VM): `704 passed, 18 skipped` (up from 698/18; the 6
+new tests are the doctor-on-runner-state suite). `ruff check .` clean;
+`ruff format` clean on the new file. CI for the step-42 push
+(43879077034) completed `success`, so main is green and the pending
+verification note from steps 38–42 is closed.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the runner, the doctor, the audits, and the test suite. No
+competition data was read. No queue change; gate readiness unchanged
+(10 gate decisions queued, 1 decided, 9 pending; 2 manual compares
+pending); audit 33 findings, 0 hard errors; config-drift audit 0
+findings across 7 runs; queue order audit 0 violations; refs audit 0
+findings; args audit 0 findings; duplicates audit 0 findings (only
+the documented step-26 replays). Forecast re-run: silence 36.6 days,
+16.3 days to the 2026-12-03 22:00 UTC safe cutoff, still FEASIBLE at
+the observed 2.86 runs/day with a +6.6-day margin. The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results. The
+threshold experiment is still unapproved; cash-eligibility gates are
+Sven's private call. The autostart fix (step 31) is still the live
+handoff for the box: `bash scripts/queue/install_autostart.sh` after
+`git pull`.

@@ -1326,3 +1326,16 @@ was needed — the contract held as documented on first execution.
 Verified by the new tests and a full-suite run: 698 passed, 18
 skipped. No competition data was read; no model trained; no
 submission made.
+Step 43 (2026-11-17, VM): 6 tests in
+`tests/test_doctor_on_runner_state.py` were AI-generated with
+human-direction from an unclosed verification gap: the doctor was
+verified only against hand-built simulated queue dirs, but on the box
+it reads state the runner actually writes. The tests run the real
+`scripts/queue/runner.py` to produce the state, then run the real
+doctor against it, pinning STOPPED, ALL-DONE, RUNNING, INTERRUPTED,
+RUNNING-STALLED, and RUNNING-WAIT-MEM verdicts (including a stub
+train wrapper for the WAIT-MEM case and an aging control for the
+stalled case). No doctor or runner change was needed — every verdict
+held as documented on first execution. Verified by the new tests and a
+full-suite run: 704 passed, 18 skipped. No competition data was read;
+no model trained; no submission made.
