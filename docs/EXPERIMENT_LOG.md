@@ -3003,7 +3003,8 @@ is already pinned against the committed queue in
 new tests are the doctor-on-runner-state suite). `ruff check .` clean;
 `ruff format` clean on the new file. CI for the step-42 push
 (43879077034) completed `success`, so main is green and the pending
-verification note from steps 38–42 is closed.
+verification note from steps 38–42 is closed. CI for this push
+(44096612576) also completed `success`.
 
 **Scope notes**: no measured official-data scores — nothing ran here
 beyond the runner, the doctor, the audits, and the test suite. No
