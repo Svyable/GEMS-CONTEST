@@ -1339,3 +1339,20 @@ stalled case). No doctor or runner change was needed — every verdict
 held as documented on first execution. Verified by the new tests and a
 full-suite run: 704 passed, 18 skipped. No competition data was read;
 no model trained; no submission made.
+Step 44 (2026-11-18, VM): `scripts/queue/gate.sh` and 4 tests in
+`tests/test_gate_wrapper.py` were AI-generated with human-direction
+from an unclosed verification gap: the gate wrapper was the one queue
+wrapper never executed on this VM, because its verdict and ledger
+paths were absolute box paths even with `GEMS_WORKSPACE` set. The
+wrapper now takes a `GEMS_OUTPUTS` override (default
+`/workspace/gems`, box-identical) for those paths, and the tests
+execute the real wrapper in a sandboxed checkout against the
+committed ref-b16 / cand-mumford_shah_log-b16 gate dirs with the exact
+queued s5b task arguments, pinning an INCONCLUSIVE verdict with zero
+comparable views (incumbent holds trace only, candidate spatial
+only), the verdict JSON and one ledger trial under the overridden
+outputs dir, and no write outside the sandbox. Unlike steps 42–43 a
+production change was needed: the three absolute output paths in
+`gate.sh`. Verified by the new tests and a full-suite run: 708
+passed, 18 skipped. No competition data was read; no model trained;
+no submission made.

@@ -3023,3 +3023,59 @@ threshold experiment is still unapproved; cash-eligibility gates are
 Sven's private call. The autostart fix (step 31) is still the live
 handoff for the box: `bash scripts/queue/install_autostart.sh` after
 `git pull`.
+## 2026-11-18 — Gate wrapper outputs portability + first execution (step 44)
+
+The gate wrapper was the one queue wrapper never executed on this VM.
+Steps 27–28 fixed and executed the compare wrappers, and steps 42–43
+executed the runner and the doctor against each other — but `gate.sh`
+honored `GEMS_WORKSPACE` only for its `cd` line while its verdict
+JSON and trial-ledger paths were absolute box paths
+(`/workspace/gems/phase2-outputs/gates`,
+`/workspace/gems/phase1-outputs/candidate-trials.jsonl`), so it could
+never run from a different checkout. Step 44 puts those three paths
+behind a `GEMS_OUTPUTS` override (default `/workspace/gems`,
+box-identical) and executes the real wrapper end to end in a
+sandboxed checkout with a fake-`uv` shim (the step-28 idiom),
+`PYTHONPATH` to the repo `src` (the box `uv run` precondition), and
+the exact queued s5b task arguments for
+`CAND-MUMFORD_SHAH_LOG-B16` against the committed gate dirs.
+**Verdict: INCONCLUSIVE, zero comparable views** — the committed
+incumbent dir holds trace only and the candidate dir spatial only, so
+every view is non-comparable with a reason; the verdict JSON lands
+under the overridden outputs dir and exactly one trial
+(`trials_after=1`) is appended to the overridden ledger. That is the
+finding, not a fixture artifact: it pins what the queued s5b gate
+would record if the box ran it before the step-26 re-scores and the
+s5b assemble fill the incumbent dir. The pre-fix script is not
+executed as a negative control — this VM's filesystem root is
+writable and `/workspace` does not exist, so the old script would
+have created it rather than failing; the defect is pinned statically
+(no bare box output path outside the override default) and the
+execution test asserts `/workspace` still does not exist afterwards.
+`record.sh` / `score_view.sh` still write to absolute box output
+paths and remain the last two unexecuted wrappers; the step-28 scope
+note in `tests/test_queue_workspace.py` and the queue README env
+section are updated for the gate.
+
+**Tests** (this VM): `708 passed, 18 skipped` (up from 704/18; the 4
+new tests are the gate-wrapper suite). `ruff check .` clean; `ruff
+format` clean on the new/changed files. CI for this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the wrapper, the gate logic, and the test suite. No
+competition data was read. No queue change; gate readiness unchanged
+(10 gate decisions queued, 1 decided, 9 pending; 2 manual compares
+pending); audit 33 findings, 0 hard errors; config-drift audit 0
+findings across 7 runs; queue order audit 0 violations; refs audit 0
+findings; args audit 0 findings; duplicates audit 0 findings (only
+the documented step-26 replays). Forecast re-run: silence 37.6 days,
+15.3 days to the 2026-12-03 22:00 UTC safe cutoff, still FEASIBLE at
+the observed 2.86 runs/day with a +5.6-day margin (down from +6.6 on
+11-17 — the margin shrinks a day a day while the box stays silent).
+The verdict-interpretation items (s7 loss gate, s8/s14 seed probe,
+s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results. The
+threshold experiment is still unapproved; cash-eligibility gates are
+Sven's private call. The autostart fix (step 31) is still the live
+handoff for the box: `bash scripts/queue/install_autostart.sh` after
+`git pull`.

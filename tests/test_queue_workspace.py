@@ -11,11 +11,14 @@ is byte-identical to the old hardcoded path, so box behavior is
 unchanged; only the checkout location becomes overridable.
 
 Scope boundary, stated so it is not mistaken for an oversight: this
-changes only the ``cd`` line. ``gate.sh`` / ``record.sh`` / ``score_view.sh``
-still write to absolute box output paths (``phase1-outputs``,
+changes only the ``cd`` line. ``record.sh`` / ``score_view.sh`` still
+write to absolute box output paths (``phase1-outputs``,
 ``phase2-outputs``, the box-side ``queue/`` dir) because those outputs
 live outside the repo on the box by design; the compare wrappers, which
 use only repo-relative paths after ``cd``, are the fully portable ones.
+``gate.sh`` was the same until step 44, which put its verdict/ledger
+paths behind a ``GEMS_OUTPUTS`` override (see
+tests/test_gate_wrapper.py).
 """
 
 from __future__ import annotations
