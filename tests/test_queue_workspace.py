@@ -18,7 +18,11 @@ live outside the repo on the box by design; the compare wrappers, which
 use only repo-relative paths after ``cd``, are the fully portable ones.
 ``gate.sh`` was the same until step 44, which put its verdict/ledger
 paths behind a ``GEMS_OUTPUTS`` override (see
-tests/test_gate_wrapper.py).
+tests/test_gate_wrapper.py); ``record.sh`` followed in step 45, which
+put its export dir behind the same override and put
+``score_view.sh``'s LOFO path behind a ``QUEUE_DIR`` override (see
+tests/test_record_score_wrappers.py) — every queue wrapper has now
+been executed on this VM.
 """
 
 from __future__ import annotations

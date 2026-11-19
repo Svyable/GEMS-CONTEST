@@ -25,8 +25,8 @@ Resumable CPU-based experiment queue runner and helper scripts for GEMS competit
 All scripts support environment variable overrides with sensible defaults:
 
 - `GEMS_WORKSPACE`: Repository root (default: `/workspace/gems/GEMS-CONTEST`)
-- `GEMS_OUTPUTS`: Box outputs root for `gate.sh` verdicts (`phase2-outputs/gates`) and the trial ledger (`phase1-outputs/candidate-trials.jsonl`) (default: `/workspace/gems`)
-- `QUEUE_DIR`: Queue state/log directory (default: `/workspace/gems/queue`)
+- `GEMS_OUTPUTS`: Box outputs root for `gate.sh` verdicts (`phase2-outputs/gates`) and the trial ledger (`phase1-outputs/candidate-trials.jsonl`), and for `record.sh` run exports (`phase2-outputs/runs/<id>`) (default: `/workspace/gems`)
+- `QUEUE_DIR`: Queue state/log directory (default: `/workspace/gems/queue`); also where `score_view.sh` finds `lofo_calibrate_view.py`
 - `GEMS_MIN_AVAIL_MB`: Minimum available memory in MB before starting a fold (default: 5000). Used by `train_folds.sh` memory gate.
 
 Example:

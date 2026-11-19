@@ -3079,3 +3079,71 @@ threshold experiment is still unapproved; cash-eligibility gates are
 Sven's private call. The autostart fix (step 31) is still the live
 handoff for the box: `bash scripts/queue/install_autostart.sh` after
 `git pull`.
+## 2026-11-19 — Record/score wrapper outputs portability + first execution (step 45)
+
+The record and score wrappers were the last two queue wrappers never
+executed on this VM (step 44 scope note). `record.sh` honored
+`GEMS_WORKSPACE` for its `cd` line but exported run manifests to the
+absolute box path `/workspace/gems/phase2-outputs/runs/<id>`;
+`score_view.sh` invoked the LOFO calibrator at the absolute box path
+`/workspace/gems/queue/lofo_calibrate_view.py`. Step 45 puts the
+record export dir behind the step-44 `GEMS_OUTPUTS` override (default
+`/workspace/gems`, box-identical) and the LOFO path behind a
+`QUEUE_DIR` override (default `/workspace/gems/queue`, box-identical
+— the same default `install_autostart.sh` already uses, and the
+doctor's SYNC check already pins `lofo_calibrate_view.py` as a
+queue-dir file the runner executes), and executes both real wrappers
+end to end in sandboxed checkouts with a fake-`uv` shim (the step-28
+idiom) and `PYTHONPATH` to the repo `src`. `record.sh` runs with the
+exact queued `s4-record-ref-spatial-b32` task arguments against a copy
+of the real committed run dir, the real config, and the real data
+manifest, inside a git-initialized sandbox: exit 0, manifest written
+for `ref-cv-spatial-b32` with the recorded config hash matching the
+real `configs/reference_unet.yaml` and the queued hypothesis, and the
+manifest, both score JSONs, all five fold JSONs, and `config.yaml`
+exported under the overridden outputs dir. `score_view.sh` runs with
+the exact queued score arguments for the same run, but the truth
+raster, fold map, and fold predictions are synthetic fixtures (the
+`test_score_cv_protocol.py` idiom) because the real truth raster is
+competition data, never committed and absent from this VM: exit 0,
+schema-2 gate JSON with macro_mean ~1 by construction, copied into
+the run's scores, LOFO calibration JSON written, `score_cv` log
+written. The scores are plumbing output only, not a measured result.
+The pre-fix scripts are not executed as negative controls — this VM's
+filesystem root is writable and `/workspace` does not exist, so the
+old scripts would have created it rather than failing; the defects
+are pinned statically and both execution tests assert `/workspace`
+still does not exist afterwards. The step-28 scope note in
+`tests/test_queue_workspace.py` and the queue README env section are
+updated: **every queue wrapper has now been executed on this VM** —
+there is no remaining unexecuted wrapper in the queue.
+
+**Tests** (this VM): `716 passed, 18 skipped` (up from 708/18; the 8
+new tests are the record/score-wrapper suite). `ruff check .` clean;
+`ruff format` clean on the new/changed files. CI for the step-44 push
+(44317011232) completed `success`, so main is green and the pending
+verification note from steps 38–44 is closed. CI for this push is
+pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the wrappers, the scorer, the calibrator, the audits, and the
+test suite. No competition data was read (the score fixture is
+synthetic). No queue change; gate readiness unchanged (10 gate
+decisions queued, 1 decided, 9 pending; 2 manual compares pending);
+audit 33 findings, 0 hard errors; config-drift audit 0 findings
+across 7 runs; queue order audit 0 violations; refs audit 0 findings;
+args audit 0 findings; duplicates audit 0 findings (only the
+documented step-26 replays). Forecast re-run: silence 38.6 days,
+14.3 days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8 days at
+the observed 2.86 runs/day — **verdict now TIGHT, +4.6-day margin
+(down from FEASIBLE +5.6 on 11-18: the margin has slipped below the
+5-day buffer for scoring/gating/submission)**. The binding constraint
+is still resumption, not capacity: 38.6 days of silence at 0 runs/day
+— the queue never drains until the box resumes. The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results. The
+threshold experiment is still unapproved; cash-eligibility gates are
+Sven's private call. The autostart fix (step 31) is still the live
+handoff for the box: `bash scripts/queue/install_autostart.sh` after
+`git pull`.

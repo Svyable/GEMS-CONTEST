@@ -1356,3 +1356,25 @@ production change was needed: the three absolute output paths in
 `gate.sh`. Verified by the new tests and a full-suite run: 708
 passed, 18 skipped. No competition data was read; no model trained;
 no submission made.
+Step 45 (2026-11-19, VM): `scripts/queue/record.sh`,
+`scripts/queue/score_view.sh`, and 8 tests in
+`tests/test_record_score_wrappers.py` were AI-generated with
+human-direction from an unclosed verification gap: the record and
+score wrappers were the last two queue wrappers never executed on
+this VM, because the record export dir and the LOFO calibrator path
+were absolute box paths even with `GEMS_WORKSPACE` set. The record
+export dir now takes the step-44 `GEMS_OUTPUTS` override (default
+`/workspace/gems`, box-identical) and the LOFO path takes a
+`QUEUE_DIR` override (default `/workspace/gems/queue`,
+box-identical), and the tests execute both real wrappers in
+sandboxed checkouts — `record.sh` with the exact queued
+`s4-record-ref-spatial-b32` arguments against the real committed run
+dir, config, and data manifest, pinning the manifest and its exports
+under the overridden outputs dir; `score_view.sh` with the exact
+queued score arguments against synthetic GeoTIFF fixtures (the real
+truth raster is uncommitted competition data), pinning the schema-2
+gate JSON, its copy into the run's scores, and the LOFO calibration
+JSON. Production changes were needed: the absolute output path in
+`record.sh` and the absolute LOFO path in `score_view.sh`. Verified
+by the new tests and a full-suite run: 716 passed, 18 skipped. No
+competition data was read; no model trained; no submission made.
