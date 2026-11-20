@@ -1378,3 +1378,23 @@ JSON. Production changes were needed: the absolute output path in
 `record.sh` and the absolute LOFO path in `score_view.sh`. Verified
 by the new tests and a full-suite run: 716 passed, 18 skipped. No
 competition data was read; no model trained; no submission made.
+Step 46 (2026-11-20, VM): 5 tests in
+`tests/test_remaining_wrappers.py` and the scope-note correction in
+`tests/test_queue_workspace.py` were AI-generated with
+human-direction from an unclosed verification gap: step 45 claimed
+every queue wrapper had been executed on this VM, but
+`compare_seed.sh`, `curved_view.sh`, `endpoint_view.sh`, and
+`rival_threshold.sh` had only ever been statically asserted — a grep
+over the test suite confirmed no execution of any of the four
+existed. The tests execute all four real wrappers in sandboxed
+checkouts with the exact queued task arguments — `endpoint_view.sh`
+(s3) and `curved_view.sh` (s13) on a synthetic 5-fold base run,
+pinning the per-fold LOFO threshold lookup, the `.tmp.tif` rename,
+and the resume-skip; `compare_seed.sh` (s14) against the real
+committed incumbent trace gate JSON and a seed-perturbed candidate,
+pinning the trace comparison and the spatial/fault skips;
+`rival_threshold.sh` (s21, still parked) on synthetic data, pinning
+its default-truth argument passing. No wrapper change was needed.
+Verified by the new tests and a full-suite run: 721 passed, 18
+skipped. No competition data was read; no model trained; no
+submission made.

@@ -21,8 +21,13 @@ paths behind a ``GEMS_OUTPUTS`` override (see
 tests/test_gate_wrapper.py); ``record.sh`` followed in step 45, which
 put its export dir behind the same override and put
 ``score_view.sh``'s LOFO path behind a ``QUEUE_DIR`` override (see
-tests/test_record_score_wrappers.py) — every queue wrapper has now
-been executed on this VM.
+tests/test_record_score_wrappers.py). Step 45's log entry claimed
+every queue wrapper had then been executed on this VM — that was
+premature: ``compare_seed.sh``, ``curved_view.sh``,
+``endpoint_view.sh``, and ``rival_threshold.sh`` had only ever been
+statically asserted, never executed. Step 46 executes those four (see
+tests/test_remaining_wrappers.py); with it, every queue wrapper has
+now actually been executed on this VM.
 """
 
 from __future__ import annotations

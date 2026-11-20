@@ -3147,3 +3147,87 @@ threshold experiment is still unapproved; cash-eligibility gates are
 Sven's private call. The autostart fix (step 31) is still the live
 handoff for the box: `bash scripts/queue/install_autostart.sh` after
 `git pull`.
+## 2026-11-20 — Four remaining wrappers executed on VM; step-45 claim corrected (step 46)
+
+Step 45's log entry and the scope note in
+`tests/test_queue_workspace.py` claimed "every queue wrapper has now
+been executed on this VM". That was premature. Steps 28/44/45 executed
+`compare_schedule.sh`, `gate.sh`, `record.sh`, `score_view.sh` (and
+`train_folds.sh` in step 41) — but four wrappers had only ever been
+statically asserted, never executed end to end on this VM:
+`compare_seed.sh` (only its Python script was unit-tested),
+`curved_view.sh` / `endpoint_view.sh` (only their Python scripts were
+unit-tested), and `rival_threshold.sh` (only
+`scripts/rival_threshold.py` was executed). A grep over the test suite
+confirms it: no `subprocess` execution of any of the four wrappers
+existed before this step. Step 46 executes all four real wrappers in
+sandboxed checkouts with the fake-`uv` shim (the step-28 idiom) and
+the exact queued task arguments, parsed from `tasks.json` /
+`tasks.parked.json` so the tests track the queue: 5 tests in
+`tests/test_remaining_wrappers.py`. `endpoint_view.sh` runs with the
+exact queued s3 args on a 5-fold synthetic base run (20x40 probability
+rasters: a 0.9 line with a 0.4 support tail, 30 m pixels, LOFO
+thresholds 0.5) — exit 0, `fold k threshold=0.5` for all five folds,
+14 pixels extended per fold, all five outputs valid float32 rasters
+differing from their inputs, no `.tmp.tif` leftovers; a second test
+pre-creates `fold-2.tif` as a sentinel and pins the resume-skip
+idiom (sentinel untouched, `fold 2 threshold` never printed).
+`curved_view.sh` runs with the exact queued s13 args on the same
+fixture — exit 0, 2 continuation pixels painted per fold, all five
+outputs differing from their inputs. `compare_seed.sh` runs with the
+exact queued s14 args against the real committed incumbent
+`results/runs/gate/ref-b16/trace.json`, a seed-perturbed copy (seed
+20260923, fold scores +0.0005) as the candidate, and synthetic LOFO
+summaries for the trace view — exit 0, trace compared (raw mean delta
++0.00050, LOFO-calibrated +0.00040, seed-effect std 0.00000 on both),
+spatial/fault SKIPPED on both sides, all four staged files landed
+under `runs/compare/seed20260923-b16`. `rival_threshold.sh` runs with
+the exact queued s21-spatial args against a synthetic 2-fold run (the
+`tests/test_rival_threshold.py` idiom), synthetic truth at the
+wrapper's default `data/raw/existing_faults.tif`, and a synthetic fold
+map at the queued `data/processed/cv-spatial-v1.tif` path — exit 0,
+`rival_threshold-spatial.json` written with threshold 0.024592
+(0.2 x 0.12296), rival mean 0.4246 vs LOFO 0.375 on the fixture. The
+s21 tasks stay PARKED: this executes the wrapper on synthetic data in
+a sandbox, it does not run the threshold experiment on real data.
+**No wrapper change was needed — every wrapper held as documented on
+first execution**, which is itself the finding: the per-fold LOFO
+threshold lookup, the `.tmp.tif` rename, the resume-skip, the guarded
+staging copies, and the rival wrapper's default-truth argument
+passing now rest on executed tests, not on reading the code. The
+step-45 overclaim is corrected in the `test_queue_workspace.py`
+scope note, which now points at this file. With step 46, every queue
+wrapper has now actually been executed on this VM (nine wrappers +
+the installer `--dry-run` in step 31's tests); there is no remaining
+unexecuted queue script.
+
+**Tests** (this VM): `721 passed, 18 skipped` (up from 716/18; the 5
+new tests are the remaining-wrappers suite, ~15 s). `ruff check .`
+clean; `ruff format` clean on the new/changed files. CI for the
+step-45 push (44537176712) completed `success`, so main is green and
+the pending-verification note from steps 38–45 is closed. CI for
+this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the wrappers, the view scripts, the compare/rival scripts,
+the audits, and the test suite. No competition data was read (the
+view/rival fixtures are synthetic; the compare fixture uses the real
+committed trace gate JSON only). No queue change; gate readiness
+unchanged (10 gate decisions queued, 1 decided, 9 pending; 2 manual
+compares pending); audit 33 findings, 0 hard errors; config-drift
+audit 0 findings across 7 runs; queue order audit 0 violations; refs
+audit 0 findings; args audit 0 findings; duplicates audit 0 findings
+(only the documented step-26 replays). Forecast re-run: silence 39.6
+days, 13.3 days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8
+days at the observed 2.86 runs/day — **verdict still TIGHT, +3.6-day
+margin (down from +4.6 on 11-19: the margin slips a day a day while
+the box stays silent, and is now 1.4 days below the 5-day buffer)**.
+The binding constraint is still resumption, not capacity: 39.6 days
+of silence at 0 runs/day — the queue never drains until the box
+resumes. The verdict-interpretation items (s7 loss gate, s8/s14 seed
+probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12
+schedule compare) remain the next CPU items once the box produces
+results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call. The autostart fix
+(step 31) is still the live handoff for the box: `bash
+scripts/queue/install_autostart.sh` after `git pull`.
