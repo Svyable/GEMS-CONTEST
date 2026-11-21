@@ -38,6 +38,18 @@ Method
   INFEASIBLE past the cutoff. A second, independent line reports the
   current rate: 0 runs/day across the silence window means the queue
   never drains until the box resumes, whatever the observed rate was.
+- Late-resumption scenarios: ``--resume-date YYYY-MM-DD`` recomputes
+  the forward-looking math from that date instead of now — the
+  verdict, the per-decision reachability (a decision is REACHABLE
+  when its critical-path trains finish before the cutoff), and the
+  last resume date for the full drain, with and without the 5-day
+  buffer. The default forecast assumes resumption now, which stops
+  being the question once the margin goes negative: with the drain
+  at 9.8 days, resumption after ~2026-11-24 cannot drain the whole
+  queue, so the scenario answers which decisions still fit and
+  whether the plan must switch from draining the queue to sprinting
+  the cheapest promotion decision. A resume date before today is
+  rejected: the box has not resumed, so a past resume date is void.
 
 Output: the rate, the silence, remaining trains, drain days, days to
 the cutoff, the verdict, and the per-decision earliest days. Exit 0
@@ -48,6 +60,7 @@ tasks.json, matching the sibling inventories.
 Usage:
     uv run python scripts/queue_forecast.py [--root PATH]
         [--now 2026-11-08T13:39:00+00:00] [--cutoff 2026-12-03T22:00:00+00:00]
+        [--resume-date 2026-11-28]
 """
 
 from __future__ import annotations
@@ -55,7 +68,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -109,11 +122,24 @@ def _scored_unrecorded(root: Path) -> int:
     return count
 
 
+def _parse_resume_date(value: str) -> datetime | None:
+    """Parse a YYYY-MM-DD resume date as midnight UTC."""
+    try:
+        day = date.fromisoformat(value)
+    except ValueError:
+        return None
+    if day.isoformat() != value:
+        # fromisoformat also accepts e.g. "20261128"; require dashes.
+        return None
+    return datetime.combine(day, time.min, tzinfo=UTC)
+
+
 def analyze(
     root: Path,
     tasks: list[dict],
     now: datetime,
     cutoff: datetime,
+    resume: datetime | None = None,
 ) -> dict:
     times, skipped = _manifest_times(root)
     critical = CriticalPath(root, tasks)
@@ -143,7 +169,12 @@ def analyze(
     drain_days = None
     if rate:
         drain_days = len(pending_trains) / rate
-    days_left = (cutoff - now).total_seconds() / 86400
+    # The forward-looking horizon starts at the resume date in
+    # scenario mode, at now otherwise. A resume date of today means
+    # the horizon is now (max guards against a midnight resume
+    # landing before the current time of day).
+    horizon = max(resume, now) if resume is not None else now
+    days_left = (cutoff - horizon).total_seconds() / 86400
 
     margin = None
     verdict = "UNKNOWN"
@@ -156,6 +187,12 @@ def analyze(
         else:
             verdict = "INFEASIBLE"
 
+    last_resume_full = None
+    last_resume_buffered = None
+    if drain_days is not None:
+        last_resume_full = cutoff - timedelta(days=drain_days)
+        last_resume_buffered = cutoff - timedelta(days=drain_days + BUFFER_DAYS)
+
     decisions = []
     for decision in analysis["decisions"]:
         trains = sorted(
@@ -164,6 +201,8 @@ def analyze(
             if by_id.get(task_id, {}).get("kind") == "train"
         )
         days = len(trains) / rate if rate else None
+        reachable = days is not None and days <= days_left
+        shortfall = (days - days_left) if (days is not None and not reachable) else None
         decisions.append(
             {
                 "kind": decision["kind"],
@@ -171,6 +210,8 @@ def analyze(
                 "trains": trains,
                 "days": days,
                 "missing": len(decision["missing"]),
+                "reachable": reachable,
+                "shortfall_days": shortfall,
             }
         )
     decisions.sort(key=lambda d: (len(d["trains"]), d["name"]))
@@ -191,6 +232,10 @@ def analyze(
         "margin_days": margin,
         "verdict": verdict,
         "cutoff": cutoff,
+        "now": now,
+        "resume": resume,
+        "last_resume_full": last_resume_full,
+        "last_resume_buffered": last_resume_buffered,
         "decisions": decisions,
         "unparsed": analysis["unparsed"],
     }
@@ -222,6 +267,27 @@ def render(forecast: dict) -> str:
             "manifest (0 runs/day in that window — the queue never drains "
             "until the box resumes)"
         )
+    if forecast["resume"] is not None:
+        resume = forecast["resume"]
+        lines.append(
+            f"SCENARIO: box resumes {resume.strftime('%Y-%m-%d')} "
+            f"({forecast['days_left']:.1f} days from resume to the cutoff)"
+        )
+        if forecast["last_resume_full"] is not None:
+            now = forecast["now"]
+
+            def _last_line(label: str, when: datetime) -> str:
+                passed = " (already passed)" if when < now else ""
+                return f"{label}: {when.strftime('%Y-%m-%d %H:%M UTC')}{passed}"
+
+            lines.append(
+                _last_line("LAST RESUME for full drain (no buffer)", forecast["last_resume_full"])
+                + "; "
+                + _last_line(
+                    f"with {BUFFER_DAYS:.0f}-day buffer",
+                    forecast["last_resume_buffered"],
+                )
+            )
     other = ", ".join(f"{n} {kind}" for kind, n in forecast["pending_other"].items() if n)
     lines.append(
         f"REMAINING: {forecast['pending_trains']} train tasks"
@@ -229,10 +295,17 @@ def render(forecast: dict) -> str:
     )
     if forecast["drain_days"] is not None:
         lines.append(f"DRAIN: {forecast['drain_days']:.1f} days at the observed rate")
-    lines.append(
-        f"CUTOFF: {forecast['cutoff'].strftime('%Y-%m-%d %H:%M UTC')} "
-        f"({forecast['days_left']:.1f} days left)"
-    )
+    if forecast["resume"] is not None:
+        lines.append(
+            f"CUTOFF: {forecast['cutoff'].strftime('%Y-%m-%d %H:%M UTC')} "
+            f"({forecast['days_left']:.1f} days left from resume "
+            f"{forecast['resume'].strftime('%Y-%m-%d')})"
+        )
+    else:
+        lines.append(
+            f"CUTOFF: {forecast['cutoff'].strftime('%Y-%m-%d %H:%M UTC')} "
+            f"({forecast['days_left']:.1f} days left)"
+        )
     if forecast["margin_days"] is not None:
         lines.append(
             f"VERDICT: {forecast['verdict']} "
@@ -241,15 +314,30 @@ def render(forecast: dict) -> str:
         )
     else:
         lines.append("VERDICT: UNKNOWN (no observed rate)")
-    lines.append("\nEARLIEST DECISION (trains on its critical path):")
+    if forecast["resume"] is not None:
+        lines.append(
+            "\nEARLIEST DECISION from resume "
+            f"{forecast['resume'].strftime('%Y-%m-%d')} "
+            "(REACHABLE = critical-path trains finish before the cutoff):"
+        )
+    else:
+        lines.append("\nEARLIEST DECISION (trains on its critical path):")
     for decision in forecast["decisions"]:
         days = f"{decision['days']:.1f}d" if decision["days"] is not None else "?"
-        lines.append(
+        line = (
             f"  {decision['kind']:7} {decision['name']:38} "
             f"{len(decision['trains'])} trains, ~{days}, "
             f"{decision['missing']} missing inputs"
             + (f" ({', '.join(decision['trains'])})" if decision["trains"] else "")
         )
+        if forecast["resume"] is not None:
+            if decision["reachable"]:
+                line += " — REACHABLE"
+            elif decision["shortfall_days"] is not None:
+                line += f" — OUT OF REACH (short by {decision['shortfall_days']:.1f}d)"
+            else:
+                line += " — OUT OF REACH (no observed rate)"
+        lines.append(line)
     if forecast["unparsed"]:
         lines.append(f"\nNOTE: {forecast['unparsed']} unparsed task(s) ignored")
     return "\n".join(lines) + "\n"
@@ -270,6 +358,13 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="ISO timestamp for the safe cutoff; default 2026-12-03T22:00:00+00:00",
     )
+    parser.add_argument(
+        "--resume-date",
+        type=str,
+        default=None,
+        help="Scenario date YYYY-MM-DD the box resumes; recomputes the "
+        "verdict and per-decision reachability from that date",
+    )
     args = parser.parse_args(argv)
     now = _parse_time(args.now) if args.now else datetime.now(UTC)
     if now is None:
@@ -279,6 +374,21 @@ def main(argv: list[str] | None = None) -> int:
     if cutoff is None:
         print(f"error: cannot parse --cutoff {args.cutoff!r}", file=sys.stderr)
         return 2
+    resume = None
+    if args.resume_date is not None:
+        resume = _parse_resume_date(args.resume_date)
+        if resume is None:
+            print(
+                f"error: cannot parse --resume-date {args.resume_date!r} (expected YYYY-MM-DD)",
+                file=sys.stderr,
+            )
+            return 2
+        if resume.date() < now.date():
+            print(
+                f"error: --resume-date {args.resume_date} is in the past; the box has not resumed",
+                file=sys.stderr,
+            )
+            return 2
     tasks_path = args.root / "scripts" / "queue" / "tasks.json"
     try:
         tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
@@ -287,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, json.JSONDecodeError, TypeError) as exc:
         print(f"error: cannot read {tasks_path}: {exc}", file=sys.stderr)
         return 2
-    print(render(analyze(args.root, tasks, now, cutoff)), end="")
+    print(render(analyze(args.root, tasks, now, cutoff, resume)), end="")
     return 0
 
 

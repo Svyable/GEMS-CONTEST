@@ -153,6 +153,7 @@ assuming it is missing.
 
 ```bash
 uv run python scripts/queue_forecast.py
+uv run python scripts/queue_forecast.py --resume-date 2026-11-28
 ```
 
 Run this when the close approaches or the box has been silent: it
@@ -164,7 +165,13 @@ invisible here by design — the box should commit before trusting
 the forecast. A FEASIBLE verdict at the observed rate does not mean
 the queue is draining: the silence line is the binding constraint
 while the box is quiet, and resumption, not capacity, is what
-unblocks the 9 pending gates.
+unblocks the 9 pending gates. `--resume-date YYYY-MM-DD` recomputes
+the verdict and per-decision reachability from a later resume date
+and prints the last resume date for the full drain, with and without
+the 5-day buffer: once resumption slips past 2026-11-24 the full
+drain no longer fits, but every single decision still does (the
+most expensive needs 4 trains, ~1.4d), so the plan switches from
+draining the queue to sprinting the cheapest promotion decision.
 
 ### Config drift audit
 

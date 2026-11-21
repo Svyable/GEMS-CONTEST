@@ -3231,3 +3231,66 @@ results. The threshold experiment is still unapproved;
 cash-eligibility gates are Sven's private call. The autostart fix
 (step 31) is still the live handoff for the box: `bash
 scripts/queue/install_autostart.sh` after `git pull`.
+## 2026-11-21 — Late-resumption scenarios in the queue forecast (step 47)
+
+The default forecast assumes the box resumes now, which stopped
+being the question once the margin went TIGHT: at 9.8 drain days the
+full queue only fits if resumption happens by ~2026-11-24, and the
+margin slips a day a day while the box stays silent. `scripts/queue_forecast.py`
+now takes `--resume-date YYYY-MM-DD` and recomputes the forward-looking
+math from that date instead of now — the verdict, per-decision
+reachability (a decision is REACHABLE when its critical-path trains
+finish before the cutoff), and the last resume date for the full
+drain, with and without the 5-day buffer. A resume date before today
+is rejected (exit 2): the box has not resumed, so a past resume date
+is void. 5 tests in `tests/test_queue_forecast.py`, including a
+locked real-repo scenario: resume 2026-11-28, INFEASIBLE at -3.9d,
+last full-drain resume 2026-11-24 03:09 UTC, buffered 2026-11-19
+03:09 UTC (already passed). The queue README forecast section
+documents the flag and the switch it implies.
+
+Scenario results on the committed tree (rate 2.86 runs/day, drain
+9.8d, cutoff 2026-12-03 22:00 UTC): resume 2026-11-24 — TIGHT,
++0.1d, the last day the full drain fits at all, with no buffer left;
+resume 2026-11-28 (Sven's return from New Orleans) — INFEASIBLE,
+-3.9d; resume 2026-12-01 — INFEASIBLE, -6.9d. But under every one of
+those scenarios **all 11 pending decisions stay REACHABLE**: the
+most expensive needs 4 trains (~1.4d, the b32 gates) against 2.9
+days left even on a Dec 1 resume; the s7 loss gate needs 3 trains
+(~1.0d) and the curved gate needs 0. So past Nov 24 the plan must
+switch from draining the queue in list order to sprinting the
+cheapest promotion decision — the runner runs in list order, so a
+late resumption needs triage (reorder or a pointed run), not just a
+restart. The sprint order is the existing
+`queue_critical_path.py` ranked resume order: incumbent re-assemble
+(s26, minutes — EVIDENCE-ELSEWHERE), then the s7 train/score triples
+and the s7 gate.
+
+**Tests** (this VM): `726 passed, 18 skipped` (up from 721/18; the 5
+new tests are the resume-scenario suite). `ruff check .` clean;
+`ruff format` clean on the new/changed files. CI for the step-46 push
+(44748339110) completed `success`, so main is green. CI for this push
+is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the forecast script, the critical-path tool, and the test
+suite. No competition data was read. No queue change; gate readiness
+unchanged (10 gate decisions queued, 1 decided, 9 pending; 2 manual
+compares pending); audit 33 findings, 0 hard errors; config-drift
+audit 0 findings across 7 runs; queue order audit 0 violations; refs
+audit 0 findings; args audit 0 findings; duplicates audit 0 findings
+(only the documented step-26 replays). Forecast re-run: silence 40.6
+days, 12.3 days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8
+days at the observed 2.86 runs/day — **verdict still TIGHT, +2.6-day
+margin (down from +3.6 on 11-20)**. The binding constraint is still
+resumption, not capacity: 40.6 days of silence at 0 runs/day — the
+queue never drains until the box resumes, and after Nov 24 it cannot
+drain fully at all. The verdict-interpretation items (s7 loss gate,
+s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate
+gates, s12 schedule compare) remain the next CPU items once the box
+produces results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call. The autostart fix
+(step 31) is still the live handoff for the box: `bash
+scripts/queue/install_autostart.sh` after `git pull`. Sven is in New
+Orleans Nov 21–28, so a box-side restart is unlikely before his
+return — the Nov 28 scenario above is the live planning case.

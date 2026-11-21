@@ -1398,3 +1398,18 @@ its default-truth argument passing. No wrapper change was needed.
 Verified by the new tests and a full-suite run: 721 passed, 18
 skipped. No competition data was read; no model trained; no
 submission made.
+Step 47 (2026-11-21, VM): the `--resume-date` scenario mode in
+`scripts/queue_forecast.py`, 5 tests in
+`tests/test_queue_forecast.py`, and the queue README forecast
+section were AI-generated with human-direction from an unclosed
+planning gap: the forecast assumed the box resumes now, which
+stopped being the question once the margin went TIGHT — at a 9.8-day
+drain the full queue only fits if resumption happens by ~2026-11-24.
+The scenario mode recomputes the verdict and per-decision
+reachability from a given resume date and prints the last resume
+date for the full drain, with and without the 5-day buffer,
+rejecting a past resume date (exit 2). Verified by the new tests
+(including a locked real-repo Nov 28 scenario: INFEASIBLE at -3.9d,
+last full-drain resume 2026-11-24 03:09 UTC) and a full-suite run:
+726 passed, 18 skipped. No competition data was read; no model
+trained; no submission made.
