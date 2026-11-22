@@ -3294,3 +3294,65 @@ cash-eligibility gates are Sven's private call. The autostart fix
 scripts/queue/install_autostart.sh` after `git pull`. Sven is in New
 Orleans Nov 21–28, so a box-side restart is unlikely before his
 return — the Nov 28 scenario above is the live planning case.
+
+**Step 48 (2026-11-22, VM):** sprint queue for a late resumption —
+`scripts/queue_sprint.py` + 8 tests in `tests/test_queue_sprint.py`,
+and the generated `scripts/queue/tasks.sprint.json`. Step 47 said the
+plan must switch to sprinting the cheapest promotion decision past
+Nov 24, but the runner executes strictly in list order, so the switch
+needed a reordered queue, not just a restart. The tool builds one: the
+full live queue, permuted so the target decision's positional closure
+runs first — by default the s7 loss gate
+(`CAND-LOSS_DISTANCE_TVERSKY-B16`). The 21-task prefix is the
+decision's feeders (s7 train/score ×3, the three ref-b16 assembles),
+every earlier writer of a file a prefix task consumes (s1/s2 full-run
+train+score, the s5b ref-trace-b16 train+score, the s26 re-scores —
+already-run producers stay in the prefix because the order audit is
+positional and the runner skips them via `.done` markers), the s7
+record tasks, and the s7 gate last; the other 108 tasks follow in
+original order. The day estimate counts only trains still needing a
+run (3, ~1.0d at 2.86 runs/day), not the 3 already-run prefix trains.
+The tool refuses to write unless the task-id multiset matches
+tasks.json exactly and the order audit reports zero violations on the
+sprint order; it never overwrites the live tasks.json. The generated
+file was verified against the real audit scripts on a scratch root:
+order audit 0 violations, duplicates audit 0 findings (same 5
+step-26 replay notes as the live queue). Box handoff after `git pull`:
+`cp scripts/queue/tasks.sprint.json <QUEUE_DIR>/tasks.json`, then
+restart the runner; the doctor's SYNC check is id-set based, so the
+reorder stays SYNC-clean. `--decision` takes any other pending
+gate/compare (compare_seed verified in tests); an unknown or
+already-decided target exits 2.
+
+**Tests** (this VM): `734 passed, 18 skipped` (up from 726/18; the 8
+new tests are the sprint suite, including a locked real-repo prefix
+and the real audit scripts run against the generated sprint file).
+`ruff check .` clean; `ruff format` clean on the new/changed files.
+CI for this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the sprint tool, the audit scripts, the forecast, and the test
+suite. No competition data was read. No queue change to the live
+tasks.json (still 129 tasks); gate readiness unchanged (10 gate
+decisions queued, 1 decided, 9 pending; 2 manual compares pending);
+audit 33 findings, 0 hard errors; config-drift audit 0 findings
+across 7 runs; queue order audit 0 violations; refs audit 0
+findings; args audit 0 findings; duplicates audit 0 findings (only
+the documented step-26 replays). Forecast re-run: silence 41.6
+days, 11.3 days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8
+days at the observed 2.86 runs/day — **verdict still TIGHT, +1.6-day
+margin (down from +2.6 on 11-21)**. The Nov 28 resume scenario still
+leaves all 11 pending decisions REACHABLE. The binding constraint is
+still resumption, not capacity: 41.6 days of silence at 0 runs/day —
+the queue never drains until the box resumes, and after Nov 24 it
+cannot drain fully at all, which is exactly what the sprint file is
+for. The verdict-interpretation items (s7 loss gate, s8/s14 seed
+probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12
+schedule compare) remain the next CPU items once the box produces
+results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call. The autostart fix
+(step 31) is still the live handoff for the box: `bash
+scripts/queue/install_autostart.sh` after `git pull`. Sven is in New
+Orleans Nov 21–28, so a box-side restart is unlikely before his
+return — the Nov 28 scenario above is the live planning case, and
+the sprint file is ready for it.

@@ -1413,3 +1413,20 @@ rejecting a past resume date (exit 2). Verified by the new tests
 last full-drain resume 2026-11-24 03:09 UTC) and a full-suite run:
 726 passed, 18 skipped. No competition data was read; no model
 trained; no submission made.
+Step 48 (2026-11-22, VM): `scripts/queue_sprint.py`, its 8 tests in
+`tests/test_queue_sprint.py`, the generated
+`scripts/queue/tasks.sprint.json`, and the queue README sprint
+section were AI-generated with human-direction from an unclosed
+planning gap: step 47 said the plan must switch to sprinting the
+cheapest promotion decision past Nov 24, but the runner executes
+strictly in list order, so the switch needed a reordered queue, not
+just a restart. The tool builds the sprint-ordered queue as the
+target decision's positional closure (pending feeders, every earlier
+writer of a consumed file including already-run producers, pending
+records for prefix trains, decision task last), validates it as a
+permutation of tasks.json with zero order-audit violations before
+writing, and never overwrites the live tasks.json. Verified by the
+new tests (including a locked real-repo 21-task prefix and the real
+audit scripts run against the generated sprint file) and a full-suite
+run: 734 passed, 18 skipped. No competition data was read; no model
+trained; no submission made.
