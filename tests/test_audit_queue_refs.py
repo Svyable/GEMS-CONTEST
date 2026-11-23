@@ -170,7 +170,9 @@ def test_committed_queue_has_zero_missing_refs() -> None:
     assert result["per_file"]["live"]["tasks"] == 129
     assert result["per_file"]["parked"]["tasks"] == 5
     assert result["refs"] == 218
-    assert result["wrapper_refs"] == 9
+    # 10, not 9: step 49 added scripts/queue/resume_box.sh, which names
+    # queue/install_autostart.sh (its GEMS_RESUME_INSTALLER default).
+    assert result["wrapper_refs"] == 10
     assert result["findings"] == []
     assert result["unparsed"] == [
         "live:s1-wait-existing-spatial-loop",

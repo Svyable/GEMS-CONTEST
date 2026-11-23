@@ -1430,3 +1430,18 @@ new tests (including a locked real-repo 21-task prefix and the real
 audit scripts run against the generated sprint file) and a full-suite
 run: 734 passed, 18 skipped. No competition data was read; no model
 trained; no submission made.
+Step 49 (2026-11-23, VM): `scripts/queue/resume_box.sh`, its 8 tests in
+`tests/test_resume_box.py`, and the queue README resume section were
+AI-generated with human-direction from an unclosed handoff gap: step 48
+built the sprint queue, but the box-side resumption was still five
+manual steps in the right order, and a mistake in the order wastes a
+day of a window that closes 2026-12-03 22:00 UTC. The script runs
+git pull, auto-start install, sprint-queue install, runner start, and
+the doctor verdict in order, refusing on a live runner, a `.failed`
+marker, or a sprint file that is not a permutation of the live queue,
+and backing up the live queue before the sprint copy; auto-start
+install is best-effort (exit 2 warns and continues). Verified by the
+new tests (including the real doctor reporting RUNNING + SYNC OK on
+the sandboxed happy path) and a full-suite run: 742 passed, 18
+skipped. No competition data was read; no model trained; no
+submission made.

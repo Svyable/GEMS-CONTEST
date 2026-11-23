@@ -3356,3 +3356,66 @@ scripts/queue/install_autostart.sh` after `git pull`. Sven is in New
 Orleans Nov 21–28, so a box-side restart is unlikely before his
 return — the Nov 28 scenario above is the live planning case, and
 the sprint file is ready for it.
+
+**Step 49 (2026-11-23, VM):** one-command box resumption —
+`scripts/queue/resume_box.sh` + 8 tests in
+`tests/test_resume_box.py`, and a resume section in the queue README.
+Step 48 built the sprint queue, but the box-side handoff was still
+five manual steps in the right order (git pull, autostart install,
+sprint-queue install, runner start, doctor check) — and a mistake in
+the order wastes a day of a window that closes 2026-12-03 22:00 UTC
+with the box 42.6 days silent. The script runs them in order with
+guards that refuse instead of guessing: a live runner holding the
+flock, any `state/*.failed` marker (the runner would STOP at once —
+clear it first, per the doctor), or a sprint file that is not an exact
+permutation of the live queue (regenerate with `queue_sprint.py`);
+the live queue is backed up to `tasks.json.bak.<timestamp>` before
+the sprint copy. Auto-start install is best-effort — exit 2 (no
+mechanism on the host) warns and continues, since the runner still
+starts by nohup and just will not survive a reboot. After starting
+the runner it checks the flock is held (an at-once exit is read back
+from the runner's own status note, so an all-done queue reports
+IDLE instead of failing), then prints the doctor's verdict; `SYNC:
+OK` and `VERDICT: RUNNING` are the success state. `--dry-run`
+prints every step and changes nothing; `GEMS_WORKSPACE` / `QUEUE_DIR`
+and `GEMS_RESUME_*` override the paths, same idiom as the other
+queue scripts. The refs audit's locked wrapper-ref count moves 9 →
+10 (the script names `queue/install_autostart.sh`), with the step
+noted at the lock. Dry-run executed against the real tree on this VM
+(all five steps printed, nothing changed).
+
+**Tests** (this VM): `742 passed, 18 skipped` (up from 734/18; the 8
+new tests are the resume suite — happy path with the real doctor
+reporting RUNNING + SYNC OK, dry-run, failed-marker refusal,
+live-runner refusal, installer-exit-2 warn-and-continue, stale-sprint
+refusal, second-run idempotence — plus the refs-audit lock update).
+`ruff check .` clean; `ruff format` clean on the new/changed files.
+CI for the step-48 push (45030122898) completed `success`, so main is
+green. CI for this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the resume script (dry-run + sandboxed tests), the audit
+scripts, the forecast, and the test suite. No competition data was
+read. No queue change to the live tasks.json (still 129 tasks); gate
+readiness unchanged (10 gate decisions queued, 1 decided, 9 pending;
+2 manual compares pending); audit 33 findings, 0 hard errors;
+config-drift audit 0 findings across 7 runs; queue order audit 0
+violations; refs audit 0 findings; args audit 0 findings; duplicates
+audit 0 findings (only the documented step-26 replays). Forecast
+re-run: silence 42.6 days, 10.3 days to the 2026-12-03 22:00 UTC safe
+cutoff, drain 9.8 days at the observed 2.86 runs/day — **verdict
+still TIGHT, +0.6-day margin (down from +1.6 on 11-22)**. Tomorrow,
+Nov 24, is the last day the full drain fits at all; past it only the
+sprint plan fits, which is exactly what the resume script installs.
+The binding constraint is still resumption, not capacity: 42.6 days
+of silence at 0 runs/day — the queue never drains until the box
+resumes. The verdict-interpretation items (s7 loss gate, s8/s14 seed
+probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12
+schedule compare) remain the next CPU items once the box produces
+results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call. The box handoff for
+Nov 28 is now one command after the return: `bash
+scripts/queue/resume_box.sh` (from the checkout, after `git pull`
+it does itself). Sven is in New Orleans Nov 21–28, so a box-side
+restart is unlikely before his return — the Nov 28 scenario is the
+live planning case, and the resume script is ready for it.
