@@ -1445,3 +1445,16 @@ new tests (including the real doctor reporting RUNNING + SYNC OK on
 the sandboxed happy path) and a full-suite run: 742 passed, 18
 skipped. No competition data was read; no model trained; no
 submission made.
+Step 50 (2026-11-24, VM): 3 tests in `tests/test_sprint_freshness.py`
+were AI-generated with human-direction from an unclosed integrity gap:
+step 48 generated `scripts/queue/tasks.sprint.json` and locked the
+regenerated order, but nothing compared the committed file against a
+fresh regeneration — and the sprint is now the live plan, since the
+full drain flipped INFEASIBLE on 2026-11-24. The tests require the
+committed sprint to equal a fresh `queue_sprint.py` regeneration
+(full task dicts, not just ids) and re-run the order and duplicates
+audits against the committed file itself, so a queue edit that forgets
+to regenerate fails CI instead of refusing the box-side resumption on
+2026-11-28. Verified by the new tests and a full-suite run: 745
+passed, 18 skipped. No competition data was read; no model trained;
+no submission made.

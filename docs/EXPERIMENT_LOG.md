@@ -3419,3 +3419,59 @@ scripts/queue/resume_box.sh` (from the checkout, after `git pull`
 it does itself). Sven is in New Orleans Nov 21–28, so a box-side
 restart is unlikely before his return — the Nov 28 scenario is the
 live planning case, and the resume script is ready for it.
+
+**Step 50 (2026-11-24, VM):** sprint freshness lock + crossover day —
+3 tests in `tests/test_sprint_freshness.py`. Today is the day step 47
+named: the forecast flipped from TIGHT to **INFEASIBLE (margin −0.4
+days)** — 9.8 drain days vs 9.3 days to the 2026-12-03 22:00 UTC safe
+cutoff, and the last resume date for the full drain (no buffer) was
+2026-11-24 03:09 UTC, already passed. The full drain no longer fits
+even without the 5-day buffer; the sprint plan is now the plan, not
+the contingency. The Nov 28 resume scenario is unchanged: drain
+INFEASIBLE −3.9d, but **all 11 pending decisions stay REACHABLE**
+(most expensive 4 trains, ~1.4d, vs 5.9 days left from Nov 28).
+Nothing in the queue changed since step 48, but nothing re-validated
+the *committed* `scripts/queue/tasks.sprint.json` against a fresh
+regeneration — a queue edit that forgot to regenerate would leave a
+stale sprint committed and the Nov 28 resumption refused on the box.
+The new tests close that: the committed sprint must equal a fresh
+`queue_sprint.py` regeneration (full task dicts, not just ids), and
+both queue audits re-run against the committed file itself. Pre-flight
+on the real tree: regeneration is byte-identical to the committed
+file (129 tasks, 21-task s7 prefix unchanged), order audit 0
+violations (same 2 documented NO-PRODUCER notes), duplicates audit 0
+findings (same 2 documented step-26 REPLAY notes), and the resume
+dry-run exits 0 with all five steps printed and nothing changed.
+
+**Tests** (this VM): `745 passed, 18 skipped` (up from 742/18; the 3
+new tests are the freshness suite — committed-vs-regenerated
+equality, order audit on the committed sprint, duplicates audit on
+the committed sprint). `ruff check .` clean; `ruff format` clean on
+the new file. CI for the step-49 push (45188553913) completed
+`success`, so main is green. CI for this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the freshness tests, the audit scripts, the forecast, and the
+test suite. No competition data was read. No queue change to the live
+tasks.json (still 129 tasks); gate readiness unchanged (10 gate
+decisions queued, 1 decided, 9 pending; 2 manual compares pending);
+audit 33 findings, 0 hard errors; config-drift audit 0 findings
+across 7 runs; queue order audit 0 violations; refs audit 0
+findings; args audit 0 findings; duplicates audit 0 findings (only
+the documented step-26 replays). Forecast re-run: silence 43.6 days,
+9.3 days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8 days at
+the observed 2.86 runs/day — **verdict now INFEASIBLE, −0.4-day
+margin (down from +0.6 on 11-23)**. The binding constraint is still
+resumption, not capacity: 43.6 days of silence at 0 runs/day — the
+queue never drains until the box resumes, and past today only the
+sprint fits, which is exactly what the resume script installs. The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe, s4–s6
+lineament rerun gates, s9–s11/s13 candidate gates, s12 schedule
+compare) remain the next CPU items once the box produces results.
+The threshold experiment is still unapproved; cash-eligibility gates
+are Sven's private call. The box handoff for Nov 28 is still one
+command after the return: `bash scripts/queue/resume_box.sh` (from
+the checkout, after `git pull` it does itself). Sven is in New
+Orleans Nov 21–28, so a box-side restart is unlikely before his
+return — the Nov 28 scenario is the live planning case, and the
+sprint file is now locked fresh against the live queue.
