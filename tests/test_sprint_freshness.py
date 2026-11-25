@@ -8,6 +8,11 @@ edit that does not regenerate it would leave a stale file committed and
 the box-side resumption refused on 2026-11-28. These tests fail in CI the
 moment the committed sprint drifts from what the live queue regenerates,
 and re-run both queue audits against the committed file itself.
+
+Step 51: the committed file is now the *chained* sprint (``--chain`` —
+every pending decision cheapest-first after s7), so regeneration passes
+``--chain``. The chain's first 21 tasks are byte-identical to the
+step-48 single-decision sprint prefix.
 """
 
 from __future__ import annotations
@@ -28,7 +33,7 @@ DUPS_AUDIT = REPO / "scripts" / "audit_queue_duplicates.py"
 def test_committed_sprint_matches_regeneration(tmp_path: Path) -> None:
     out = tmp_path / "tasks.sprint.json"
     result = subprocess.run(
-        [sys.executable, str(SCRIPT), "--root", str(REPO), "--out", str(out)],
+        [sys.executable, str(SCRIPT), "--root", str(REPO), "--chain", "--out", str(out)],
         capture_output=True,
         text=True,
         check=False,

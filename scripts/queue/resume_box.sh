@@ -4,8 +4,9 @@
 # After a long silence the box needs five manual steps in the right order:
 #   1. git pull (fresh checkout)
 #   2. install auto-start (step 31) so the runner survives a reboot
-#   3. install the sprint-ordered queue (step 48) so the cheapest
-#      promotion decision runs first instead of draining in list order
+#   3. install the sprint-ordered queue (steps 48/51) so the s7
+#      promotion decision runs first, then every remaining decision
+#      cheapest-first, instead of draining in list order
 #   4. start the runner
 #   5. run the doctor (step 29) and print its verdict
 # A mistake in the order — starting the runner before the sprint copy, or

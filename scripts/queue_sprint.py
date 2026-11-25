@@ -51,9 +51,26 @@ after ``git pull``. Exit 0 on success, 2 on an unreadable tasks.json,
 an unknown or already-decided target, or ``--out`` pointing at the
 live tasks.json.
 
+Step 51 adds ``--chain``: the single-decision sprint leaves the suffix
+in original queue order, which schedules some cheap decisions last —
+the 0-train curved-continuation gate sat at position 127 of 129, so
+after the s7 prefix the box would grind through the original order and
+never reach it before the cutoff. The chained sprint keeps the first
+decision's closure first (default s7, the highest-expected-gain gate),
+then appends every remaining pending decision's closure in ascending
+standalone cost (pending trains on its critical path; ties by the
+decision task's queue position), shared feeders placed once, and the
+remainder in original order. The report prints each decision's
+marginal and cumulative pending trains (and days at the observed
+rate), so the resumption plan shows exactly which decisions land
+before the cutoff — with ``--resume-date`` each decision is marked
+FITS or PAST CUTOFF against the safe cutoff.
+
 Usage:
     uv run python scripts/queue_sprint.py [--root PATH]
         [--decision NAME] [--out PATH] [--dry-run]
+    uv run python scripts/queue_sprint.py --chain [--decision NAME]
+        [--resume-date YYYY-MM-DD] [--out PATH] [--dry-run]
 """
 
 from __future__ import annotations
@@ -152,16 +169,19 @@ def _writers_before(cp: CriticalPath, parsed: dict) -> set[str]:
     return writers
 
 
-def build_sprint(root: Path, tasks: list[dict], decision_name: str) -> dict:
-    """Return the sprint queue (prefix + suffix) for one pending decision."""
-    cp = CriticalPath(root, tasks)
-    analysis = cp.analyze()
+def _parsed_index(cp: CriticalPath, tasks: list[dict]) -> tuple[dict, dict, dict]:
     by_id = {t.get("id", "?"): t for t in tasks}
     index_by_id = {t.get("id", "?"): i for i, t in enumerate(tasks)}
     parsed_by_id: dict[str, dict] = {}
     for parsed in cp.production + cp.assembles + cp.gates + cp.compares:
         parsed_by_id[parsed["task_id"]] = parsed
+    return by_id, index_by_id, parsed_by_id
 
+
+def _find_decision(
+    root: Path, cp: CriticalPath, analysis: dict, decision_name: str
+) -> tuple[dict, dict]:
+    """Return (decision, decision_task) for a pending decision name."""
     decision = next((d for d in analysis["decisions"] if d["name"] == decision_name), None)
     if decision is None:
         decided = None
@@ -176,15 +196,26 @@ def build_sprint(root: Path, tasks: list[dict], decision_name: str) -> dict:
         raise ValueError(
             f"unknown decision {decision_name!r}; pending decisions: {', '.join(pending)}"
         )
-
     if decision["kind"] == "gate":
         decision_task = next(g for g in cp.gates if g["name"] == decision_name)
     else:
         decision_task = next(c for c in cp.compares if c["name"] == decision_name)
+    return decision, decision_task
 
-    # Seed: pending feeders + the decision task; then close under
-    # "every earlier writer of a consumed file" plus pending records
-    # for runs trained inside the prefix, to a fixpoint.
+
+def _closure_ids(
+    cp: CriticalPath,
+    decision: dict,
+    decision_task: dict,
+    parsed_by_id: dict,
+    index_by_id: dict,
+) -> list[str]:
+    """Ordered positional closure for one decision, decision task last.
+
+    Seed: pending feeders + the decision task; then close under
+    "every earlier writer of a consumed file" plus pending records
+    for runs trained inside the prefix, to a fixpoint.
+    """
     prefix: set[str] = set(decision["feeders"]) | {decision_task["task_id"]}
     record_by_run = {p["run"]: p for p in cp.production if p["kind"] == "record"}
     changed = True
@@ -211,18 +242,17 @@ def build_sprint(root: Path, tasks: list[dict], decision_name: str) -> dict:
                 prefix.add(record["task_id"])
                 changed = True
 
-    ordered_prefix = sorted(prefix, key=lambda i: index_by_id[i])
-    ordered_prefix.remove(decision_task["task_id"])
-    ordered_prefix.append(decision_task["task_id"])
-    suffix = [t.get("id", "?") for t in tasks if t.get("id", "?") not in prefix]
-    sprint_ids = ordered_prefix + suffix
+    ordered = sorted(prefix, key=lambda i: index_by_id[i])
+    ordered.remove(decision_task["task_id"])
+    ordered.append(decision_task["task_id"])
+    return ordered
 
-    # Validation: same task set (a permutation, nothing lost or doubled)
-    # and the repo's own order audit clean on the sprint order.
-    if Counter(sprint_ids) != Counter(t.get("id", "?") for t in tasks):
+
+def _validate_order(tasks: list[dict], ordered_ids: list[str], by_id: dict) -> dict:
+    """Permutation + order-audit validation shared by sprint and chain."""
+    if Counter(ordered_ids) != Counter(t.get("id", "?") for t in tasks):
         raise ValueError("sprint is not a permutation of tasks.json (ids lost or doubled)")
-    sprint_tasks = [by_id[i] for i in sprint_ids]
-    audit = OrderAudit(sprint_tasks).audit()
+    audit = OrderAudit([by_id[i] for i in ordered_ids]).audit()
     violations = audit["violations"]
     if violations:
         detail = "; ".join(
@@ -230,6 +260,31 @@ def build_sprint(root: Path, tasks: list[dict], decision_name: str) -> dict:
             for v in violations
         )
         raise ValueError(f"sprint order fails the order audit: {detail}")
+    return audit
+
+
+def _pending_trains(ids: list[str], parsed_by_id: dict) -> int:
+    return sum(
+        1
+        for i in ids
+        if parsed_by_id.get(i, {}).get("kind") == "train"
+        and parsed_by_id.get(i, {}).get("status") == "PENDING"
+    )
+
+
+def build_sprint(root: Path, tasks: list[dict], decision_name: str) -> dict:
+    """Return the sprint queue (prefix + suffix) for one pending decision."""
+    cp = CriticalPath(root, tasks)
+    analysis = cp.analyze()
+    by_id, index_by_id, parsed_by_id = _parsed_index(cp, tasks)
+    decision, decision_task = _find_decision(root, cp, analysis, decision_name)
+
+    ordered_prefix = _closure_ids(cp, decision, decision_task, parsed_by_id, index_by_id)
+    prefix = set(ordered_prefix)
+    suffix = [t.get("id", "?") for t in tasks if t.get("id", "?") not in prefix]
+    sprint_ids = ordered_prefix + suffix
+    audit = _validate_order(tasks, sprint_ids, by_id)
+    sprint_tasks = [by_id[i] for i in sprint_ids]
 
     prefix_trains = sum(1 for i in ordered_prefix if parsed_by_id.get(i, {}).get("kind") == "train")
     # The day estimate counts only trains that still need a run per the
@@ -293,13 +348,146 @@ def render(result: dict, out: Path | None, root: Path, rate: float | None) -> st
     return "\n".join(lines) + "\n"
 
 
+def build_chain(root: Path, tasks: list[dict], first_name: str) -> dict:
+    """Return the chained sprint: every pending decision, cheapest-first.
+
+    The first decision's closure runs first (default s7 — the
+    highest-expected-gain gate keeps the head of the queue); each
+    remaining pending decision's closure follows in ascending
+    standalone cost (pending trains on its critical path, ties by the
+    decision task's queue position). Shared feeders are placed once,
+    so later segments show their *marginal* train cost. Tasks in no
+    closure keep their original relative order at the tail.
+    """
+    cp = CriticalPath(root, tasks)
+    analysis = cp.analyze()
+    by_id, index_by_id, parsed_by_id = _parsed_index(cp, tasks)
+    first_decision, _ = _find_decision(root, cp, analysis, first_name)
+
+    def decision_task_for(decision: dict) -> dict:
+        if decision["kind"] == "gate":
+            return next(g for g in cp.gates if g["name"] == decision["name"])
+        return next(c for c in cp.compares if c["name"] == decision["name"])
+
+    def standalone_cost(decision: dict) -> int:
+        return _pending_trains(sorted(decision["feeders"]), parsed_by_id)
+
+    rest = [d for d in analysis["decisions"] if d["name"] != first_name]
+    rest.sort(key=lambda d: (standalone_cost(d), index_by_id[decision_task_for(d)["task_id"]]))
+    ordered_decisions = [first_decision] + rest
+
+    placed: list[str] = []
+    placed_set: set[str] = set()
+    segments: list[dict] = []
+    cumulative = 0
+    for decision in ordered_decisions:
+        task = decision_task_for(decision)
+        closure = _closure_ids(cp, decision, task, parsed_by_id, index_by_id)
+        segment = [i for i in closure if i not in placed_set]
+        marginal = _pending_trains(segment, parsed_by_id)
+        cumulative += marginal
+        segments.append(
+            {
+                "kind": decision["kind"],
+                "name": decision["name"],
+                "task_id": task["task_id"],
+                "ids": segment,
+                "standalone_pending_trains": standalone_cost(decision),
+                "marginal_pending_trains": marginal,
+                "cumulative_pending_trains": cumulative,
+            }
+        )
+        placed.extend(segment)
+        placed_set.update(segment)
+
+    remainder = [t.get("id", "?") for t in tasks if t.get("id", "?") not in placed_set]
+    chain_ids = placed + remainder
+    audit = _validate_order(tasks, chain_ids, by_id)
+    return {
+        "tasks": [by_id[i] for i in chain_ids],
+        "segments": segments,
+        "remainder": remainder,
+        "audit": audit,
+    }
+
+
+def render_chain(
+    result: dict,
+    out: Path | None,
+    root: Path,
+    rate: float | None,
+    resume_date: datetime | None,
+) -> str:
+    segments = result["segments"]
+    lines = [
+        (
+            f"CHAIN: {len(segments)} pending decisions, first decision first, "
+            "then ascending standalone cost (shared feeders placed once)"
+        )
+    ]
+    for n, seg in enumerate(segments, 1):
+        cumulative = seg["cumulative_pending_trains"]
+        if rate:
+            days = cumulative / rate
+            when = f"cumulative {cumulative} trains, ~{days:.1f}d"
+            if resume_date is not None:
+                from datetime import timedelta
+
+                finish = resume_date + timedelta(days=days)
+                fit = "FITS" if finish <= SAFE_CUTOFF else "PAST CUTOFF"
+                when += f" (decides ~{finish.date().isoformat()} from resume — {fit})"
+        else:
+            when = f"cumulative {cumulative} trains, no observed rate for a day estimate"
+        lines.append(
+            f"  {n}. {seg['kind']} {seg['name']}: {len(seg['ids'])} tasks, "
+            f"+{seg['marginal_pending_trains']} trains (standalone "
+            f"{seg['standalone_pending_trains']}); {when}"
+        )
+    lines.append(
+        f"REMAINDER: {len(result['remainder'])} tasks in original order "
+        "(in no pending decision's closure)"
+    )
+    lines.append(
+        f"ORDER AUDIT: {len(result['audit']['violations'])} violations, "
+        f"{len(result['audit']['notes'])} notes, {result['audit']['unparsed']} unparsed"
+    )
+    if out is not None:
+        lines.append(f"WROTE: {out}")
+        try:
+            display = str(out.relative_to(root))
+        except ValueError:
+            display = str(out)
+        lines.append(
+            "BOX HANDOFF (after git pull): "
+            f"cp {display} <QUEUE_DIR>/tasks.json — then restart the runner. "
+            "Already-run tasks are skipped via .done markers, and the "
+            "doctor's SYNC check is id-set based, so the reorder stays SYNC-clean."
+        )
+    else:
+        lines.append("DRY RUN: nothing written")
+    return "\n".join(lines) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build a sprint-ordered queue.")
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument(
         "--decision",
-        default=DEFAULT_DECISION,
-        help=f"pending gate/compare to sprint to (default {DEFAULT_DECISION})",
+        default=None,
+        help=(
+            f"pending gate/compare to sprint to (default {DEFAULT_DECISION}); "
+            "with --chain, the decision whose closure runs first"
+        ),
+    )
+    parser.add_argument(
+        "--chain",
+        action="store_true",
+        help="order every pending decision cheapest-first after the first",
+    )
+    parser.add_argument(
+        "--resume-date",
+        default=None,
+        help="with --chain: mark each decision FITS/PAST CUTOFF from this YYYY-MM-DD",
     )
     parser.add_argument(
         "--out",
@@ -324,8 +512,33 @@ def main(argv: list[str] | None = None) -> int:
         print("error: --out must not be the live tasks.json", file=sys.stderr)
         return 2
 
+    decision_name = args.decision or DEFAULT_DECISION
+    resume_date = None
+    if args.resume_date is not None:
+        if not args.chain:
+            print("error: --resume-date only applies with --chain", file=sys.stderr)
+            return 2
+        try:
+            resume_date = datetime.strptime(args.resume_date, "%Y-%m-%d").replace(tzinfo=UTC)
+        except ValueError:
+            print(
+                f"error: --resume-date must be YYYY-MM-DD, got {args.resume_date!r}",
+                file=sys.stderr,
+            )
+            return 2
+        if resume_date > SAFE_CUTOFF:
+            print(
+                f"error: --resume-date {args.resume_date} is after the safe cutoff "
+                f"{SAFE_CUTOFF.date().isoformat()}",
+                file=sys.stderr,
+            )
+            return 2
+
     try:
-        result = build_sprint(args.root, tasks, args.decision)
+        if args.chain:
+            result = build_chain(args.root, tasks, decision_name)
+        else:
+            result = build_sprint(args.root, tasks, decision_name)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -338,7 +551,10 @@ def main(argv: list[str] | None = None) -> int:
         rate = None
     if out is not None:
         out.write_text(json.dumps(result["tasks"], indent=2) + "\n", encoding="utf-8")
-    print(render(result, out, args.root, rate), end="")
+    if args.chain:
+        print(render_chain(result, out, args.root, rate, resume_date), end="")
+    else:
+        print(render(result, out, args.root, rate), end="")
     return 0
 
 

@@ -1458,3 +1458,23 @@ to regenerate fails CI instead of refusing the box-side resumption on
 2026-11-28. Verified by the new tests and a full-suite run: 745
 passed, 18 skipped. No competition data was read; no model trained;
 no submission made.
+Step 51 (2026-11-25, VM): the `--chain` mode in
+`scripts/queue_sprint.py`, its 7 tests in
+`tests/test_sprint_chain.py`, the regenerated chained
+`scripts/queue/tasks.sprint.json`, and the queue README sprint
+section update were AI-generated with human-direction from an
+unclosed planning gap: the step-48 single-decision sprint leaves the
+suffix in original queue order, which scheduled the 0-train
+curved-continuation gate at position 127 of 129 — unreachable before
+the cutoff even though it needs no training. The chain keeps the
+first decision's closure first, then appends every remaining pending
+decision's closure in ascending standalone cost with shared feeders
+placed once, and reports marginal/cumulative trains per decision
+(with optional `--resume-date` FITS/PAST CUTOFF marking). The closure
+computation was refactored out of `build_sprint` unchanged (step-48
+tests pass as-is); the chained file's first 21 tasks are
+byte-identical to the step-48 sprint prefix. Verified by the new
+tests (including a locked real-repo chain: 7 of 11 decisions fit
+from a 2026-11-28 resume) and a full-suite run: 752 passed, 18
+skipped. No competition data was read; no model trained; no
+submission made.

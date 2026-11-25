@@ -3475,3 +3475,70 @@ the checkout, after `git pull` it does itself). Sven is in New
 Orleans Nov 21–28, so a box-side restart is unlikely before his
 return — the Nov 28 scenario is the live planning case, and the
 sprint file is now locked fresh against the live queue.
+
+**Step 51 (2026-11-25, VM):** chained sprint — `--chain` mode in
+`scripts/queue_sprint.py` + 7 tests in `tests/test_sprint_chain.py`,
+and the committed `scripts/queue/tasks.sprint.json` regenerated as
+the chained order. The step-48 sprint puts one decision's closure
+first and leaves the suffix in original queue order — which
+schedules the 0-train curved-continuation gate at position 127 of
+129, so after the s7 prefix the box would grind through the original
+order and never reach it before the cutoff. The chain keeps the
+first decision's closure first (s7, highest expected gain), then
+appends every remaining pending decision's closure in ascending
+standalone cost (pending trains on its critical path; ties by the
+decision task's queue position), shared feeders placed once, and the
+12 tasks in no closure at the tail in original order. The report
+prints each decision's marginal and cumulative pending trains with
+days at the observed rate; `--resume-date` marks each FITS or PAST
+CUTOFF against the 2026-12-03 22:00 UTC safe cutoff. The chained
+file's first 21 tasks are byte-identical to the step-48 sprint
+prefix (verified), so the resume script and its guards are
+unchanged; the freshness lock (step 50) now regenerates with
+`--chain`. Plan from a Nov 28 resume at 2.86 runs/day: **7 of 11
+decisions fit** — s7 (~Nov 29), curved (+0 trains, same window),
+compare_seed, mumford_shah_log, steerable_filter, wavelet_entropy,
+and background_soften (cumulative 15 trains, ~5.2d, ~Dec 3);
+skeleton_recall is the first past the cutoff (18 trains, ~6.3d),
+then compare_schedule and both b32 gates (ridge marginal 3 <
+standalone 4 — it shares the ref-trace-b32 train with
+structure-tensor). Curved gate position 127 → 26.
+
+**Tests** (this VM): `752 passed, 18 skipped` (up from 745/18; the 7
+new tests are the chain suite — synthetic two-gate ordering with
+shared-feeder marginal cost, configurable first decision, three
+resume-date/decision error exits, and a locked real-repo chain:
+s7 prefix identical, decision order, 7 FITS / 4 PAST CUTOFF from
+Nov 28, curved +0, ridge marginal 3, real audit scripts clean on
+the chained file). The step-48 sprint tests pass unchanged (the
+closure refactor is behavior-identical). `ruff check .` clean;
+`ruff format` clean on the new/changed files. CI for the step-50
+push (45406808272) completed `success`, so main is green. CI for
+this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the chain builder, the audit scripts, the forecast, and the
+test suite. No competition data was read. No queue change to the
+live tasks.json (still 129 tasks); gate readiness unchanged (10 gate
+decisions queued, 1 decided, 9 pending; 2 manual compares pending);
+audit 33 findings, 0 hard errors; config-drift audit 0 findings
+across 7 runs; queue order audit 0 violations; refs audit 0
+findings; args audit 0 findings; duplicates audit 0 findings (only
+the documented step-26 replays). Forecast re-run: silence 44.6 days,
+8.3 days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8 days at
+the observed 2.86 runs/day — **verdict INFEASIBLE, −1.4-day margin
+(down from −0.4 on 11-24)**. The binding constraint is still
+resumption, not capacity: 44.6 days of silence at 0 runs/day — the
+queue never drains until the box resumes, and only the chained
+sprint fits the remaining window, which is exactly what the resume
+script installs. The verdict-interpretation items (s7 loss gate,
+s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate
+gates, s12 schedule compare) remain the next CPU items once the box
+produces results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call. The box handoff for
+Nov 28 is still one command after the return: `bash
+scripts/queue/resume_box.sh` (from the checkout, after `git pull`
+it does itself). Sven is in New Orleans Nov 21–28, so a box-side
+restart is unlikely before his return — the Nov 28 scenario is the
+live planning case, and the chained sprint now orders every
+decision that can still land before the cutoff.

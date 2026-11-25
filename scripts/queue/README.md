@@ -9,7 +9,7 @@ Resumable CPU-based experiment queue runner and helper scripts for GEMS competit
 - **queue_insert.py** (in `scripts/`, step 26): Insert new tasks before a named anchor task. The runner executes pending tasks in list order, so a task that must precede an already-queued consumer (e.g. a re-score that must run before the assemble that copies its output) cannot be appended — it has to be inserted. The tool validates anchor uniqueness, id uniqueness, and non-empty cmds before writing anything, and refuses to write on any failure. Use `--dry-run` first.
 - **queue_order_audit.py** (in `scripts/`, step 33): Audit the queue's list order — every consumer must follow its producers (train before score before record; score after its run's train; view after its base run's LOFO score; assemble after the scores that wrote its source gate JSONs; gate/compare after the tasks that wrote both gate dirs and the candidate run dirs). Presence is checked by the invariant tests; this checks position. Exit 0 when clean, 1 on any ORDER-VIOLATION, 2 on an unreadable `tasks.json`. Inputs with no queued producer at all are NO-PRODUCER notes, not violations — an incumbent gate dir may predate the queue, and the step-8 seed probe is spatial-only by design (its compare skips missing views).
 - **queue_forecast.py** (in `scripts/`, step 34): Forecast whether the queue can drain before the safe cutoff (2026-12-03 22:00 UTC). Observed throughput is recorded runs/day from committed manifest `created_utc` (a lower bound — scored-but-unrecorded runs are reported alongside); drain days = pending train tasks / rate, since 5-fold trains dominate wall-clock and the runner is sequential. Per pending gate/compare it reports the train tasks on its critical path (from `queue_critical_path.py` feeders) and the days to that decision. Verdict bands at the observed rate: FEASIBLE (5-day buffer for scoring/gating/submission), TIGHT, INFEASIBLE — plus a separate silence line: 0 runs/day across the silence window means the queue never drains until the box resumes. Exit 0 whenever the forecast could be produced (UNKNOWN rate with fewer than two manifests), 2 on an unreadable/malformed `tasks.json`.
-- **queue_sprint.py** (in `scripts/`, step 48): Build a sprint-ordered queue (`scripts/queue/tasks.sprint.json`) for a late box resumption — the full live queue reordered so one pending decision's positional closure runs first (default the s7 loss gate). Validates the reorder is a permutation of `tasks.json` with zero order-audit violations before writing; never overwrites the live `tasks.json`. Exit 0 on success, 2 on an unreadable queue, an unknown or already-decided target, or `--out` pointing at the live `tasks.json`.
+- **queue_sprint.py** (in `scripts/`, step 48; `--chain` step 51): Build a sprint-ordered queue (`scripts/queue/tasks.sprint.json`) for a late box resumption — the full live queue reordered so one pending decision's positional closure runs first (default the s7 loss gate); `--chain` orders every pending decision cheapest-first after the first. Validates the reorder is a permutation of `tasks.json` with zero order-audit violations before writing; never overwrites the live `tasks.json`. Exit 0 on success, 2 on an unreadable queue, an unknown or already-decided target, or `--out` pointing at the live `tasks.json`.
 - **resume_box.sh** (step 49): One-command box resumption — `git pull`, auto-start install, sprint-queue install, runner start, doctor verdict, in that order with guards (refuses on a live runner, a `.failed` marker, or a stale sprint file; backs up the live queue first). Auto-start install is best-effort (exit 2 warns and continues). `--dry-run` prints every step and changes nothing.
 - **audit_config_drift.py** (in `scripts/`, step 35): Audit committed results for config drift — whether each config file on disk still hashes to the `config_sha256` its runs recorded in their manifests, score JSONs, and fold files. A config edited after a run was scored silently changes what the queue trains next, and the gate refuses the resulting protocol-unequal comparison after the GPU days are spent. Also flags a manifest/queue disagreement on a run's config (CONFIG-MISMATCH), a missing config file, and self-contradictory recorded hashes (MIXED). Exit 0 when clean (notes allowed), 1 on any finding, 2 on an unreadable/malformed `tasks.json`.
 - **tasks.parked.json**: Parked tasks (removed from active queue but kept for reference).
@@ -179,18 +179,19 @@ draining the queue to sprinting the cheapest promotion decision.
 
 ```bash
 uv run python scripts/queue_sprint.py [--decision NAME] [--dry-run]
+uv run python scripts/queue_sprint.py --chain [--resume-date YYYY-MM-DD] [--dry-run]
 ```
 
 Run this when the box resumes late (past ~2026-11-24): it builds
 `scripts/queue/tasks.sprint.json`, the full live queue reordered so
 the target decision's closure runs first — by default the s7 loss
 gate (`CAND-LOSS_DISTANCE_TVERSKY-B16`, 3 trains still needing a
-run, ~1.0d), the cheapest promotion decision. The prefix is the
-decision's positional closure: its pending feeders, every earlier
-task that writes a file a prefix task consumes (including already-run
-producers — the order audit is positional and the runner keys on
-`.done` markers, so they are skipped in seconds on the box), the
-record tasks for runs trained in the prefix, and the gate/compare
+run, ~1.0d), the highest-expected-gain promotion decision. The prefix
+is the decision's positional closure: its pending feeders, every
+earlier task that writes a file a prefix task consumes (including
+already-run producers — the order audit is positional and the runner
+keys on `.done` markers, so they are skipped in seconds on the box),
+the record tasks for runs trained in the prefix, and the gate/compare
 task last. The suffix is the rest of the queue in original order, so
 nothing is dropped: the file is a permutation of `tasks.json`, which
 also keeps the doctor's id-set SYNC check clean. The tool refuses
@@ -200,6 +201,18 @@ after `git pull` with `cp scripts/queue/tasks.sprint.json
 <QUEUE_DIR>/tasks.json`, then restart the runner. `--decision`
 takes any other pending gate/compare name; an unknown or
 already-decided target exits 2.
+
+`--chain` (step 51) orders *every* pending decision: the first
+decision's closure first, then each remaining decision's closure in
+ascending standalone cost (pending trains on its critical path),
+shared feeders placed once, remainder in original order. The report
+prints each decision's marginal and cumulative trains (days at the
+observed rate); `--resume-date` marks each FITS or PAST CUTOFF
+against the 2026-12-03 22:00 UTC safe cutoff. The committed
+`tasks.sprint.json` is the chained order (first 21 tasks identical to
+the single-decision s7 sprint); regenerate it with `--chain` after
+any queue edit — `tests/test_sprint_freshness.py` fails CI otherwise.
+From a 2026-11-28 resume, 7 of 11 decisions fit before the cutoff.
 
 ### One-command resumption (step 49)
 
