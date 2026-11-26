@@ -449,7 +449,11 @@ def diagnose(queue_dir: Path, tasks_path: Path, workspace: Path | None = None) -
         resume = (
             f"Inspect queue.log for {blocker['id']}, fix the cause, then:\n"
             f"  rm {state / (blocker['id'] + '.failed')}\n"
-            f"  nohup python3 {queue_dir}/runner.py >> {queue_dir}/queue.log 2>&1 &"
+            f"  nohup python3 {queue_dir}/runner.py >> {queue_dir}/queue.log 2>&1 &\n"
+            "If the cause is permanent, skip that task's decision instead "
+            "of retrying it (step 52):\n"
+            f"  python3 {workspace_path}/scripts/queue_skip_decision.py "
+            f"--decision <NAME> --queue {queue_dir}/tasks.json --write"
         )
     elif not pending:
         notes.append("every queued task has a .done marker.")

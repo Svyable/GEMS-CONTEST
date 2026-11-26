@@ -3542,3 +3542,70 @@ it does itself). Sven is in New Orleans Nov 21–28, so a box-side
 restart is unlikely before his return — the Nov 28 scenario is the
 live planning case, and the chained sprint now orders every
 decision that can still land before the cutoff.
+
+**Step 52 (2026-11-26, VM):** skip-a-failed-decision recovery —
+`scripts/queue_skip_decision.py` + 7 tests in
+`tests/test_queue_skip_decision.py`, a queue README section, and a
+doctor STOPPED-resume pointer. The runner stops the whole queue on
+the first failed task and the doctor's fix (clear the marker,
+restart) retries the same task — right for a fixable cause, wrong
+for a permanent one: after the Nov 28 resumption the step-51 chain
+has ~5.9 days to land 7 of 11 decisions, and one permanently
+failing train in the s7 segment would stall the chain at decision 1
+with the other 10 never attempted. The tool removes one pending
+decision (gate or compare) from a queue file: the decision task plus
+every task in its positional closure that no other pending
+decision's closure needs. Shared feeders stay (skipping s7 keeps the
+s26 re-scores and ref-b16 assembles; skipping one b32 gate keeps the
+shared ref-trace-b32 train), relative order is preserved so a
+chained sprint stays chained, `.done` tasks are kept, and `--write`
+backs up the queue and deletes removed tasks' `.failed`/`.started`
+markers. Guards (exit 2, nothing changed): unknown or
+already-decided decision (including a `.done` marker on the box),
+new ORDER-VIOLATIONs, and new NO-PRODUCER orphans unless `--force`
+(the orphans print either way — skipping the curved gate, for
+example, orphans only historical consumers whose outputs are
+already committed). Default is a dry run. After a skip the doctor's
+SYNC check reports DIVERGED naming exactly the removed ids —
+expected, not damage.
+
+**Tests** (this VM): `759 passed, 18 skipped` (up from 752/18; the 7
+new tests are the skip suite — synthetic two-gate dry-run/write/
+backup/marker-cleanup, kept-done, unknown and box-decided refusals,
+orphan guard + `--force`, and a locked real-repo skip: s7 removes
+exactly its 10 tasks and saves 3 trains, keeps all 11 shared
+feeders, order audit 0 violations / same 2 notes; the chain rebuilt
+on the skipped queue lands 7 of the remaining 10 decisions from a
+Nov 28 resume, and skeleton_recall — first past the cutoff in the
+full chain — now fits). Doctor suites pass unchanged with the new
+STOPPED pointer (33 tests). `ruff check .` clean; `ruff format`
+clean on the new/changed files. CI for the step-51 push (45629337959)
+completed `success`, so main is green. CI for this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the skip tool, the chain builder, the forecast, and the test
+suite. No competition data was read. No queue change to the live
+tasks.json or the committed sprint (still 129 tasks); gate readiness
+unchanged (10 gate decisions queued, 1 decided, 9 pending; 2 manual
+compares pending); audit 33 findings, 0 hard errors; config-drift
+audit 0 findings across 7 runs; queue order audit 0 violations; refs
+audit 0 findings; args audit 0 findings; duplicates audit 0 findings
+(only the documented step-26 replays). Forecast re-run: silence 45.6
+days, 7.3 days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8
+days at the observed 2.86 runs/day — **verdict INFEASIBLE, −2.4-day
+margin (down from −1.4 on 11-25)**. The binding constraint is still
+resumption, not capacity: 45.6 days of silence at 0 runs/day — the
+queue never drains until the box resumes, and only the chained
+sprint fits the remaining window, which is exactly what the resume
+script installs; the skip tool now covers the chain's single-point
+failure mode. The verdict-interpretation items (s7 loss gate, s8/s14
+seed probe, s4–s6 lineament rerun gates, s9–s11/s13 candidate gates,
+s12 schedule compare) remain the next CPU items once the box produces
+results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call. The box handoff for
+Nov 28 is still one command after the return: `bash
+scripts/queue/resume_box.sh` (from the checkout, after `git pull` it
+does itself). Sven is in New Orleans Nov 21–28, so a box-side restart
+is unlikely before his return — the Nov 28 scenario is the live
+planning case, and the chained sprint plus the skip tool now cover
+both the ordering and the failure-recovery sides of it.

@@ -1478,3 +1478,21 @@ tests (including a locked real-repo chain: 7 of 11 decisions fit
 from a 2026-11-28 resume) and a full-suite run: 752 passed, 18
 skipped. No competition data was read; no model trained; no
 submission made.
+Step 52 (2026-11-26, VM): `scripts/queue_skip_decision.py`, its 7
+tests in `tests/test_queue_skip_decision.py`, the queue README skip
+section, and the doctor STOPPED-resume pointer were AI-generated with
+human-direction from an unclosed failure-recovery gap: the runner
+stops the whole queue on the first failed task and the doctor's only
+fix retries the same task, so one permanently failing train in the
+s7 segment would stall the step-51 chain at decision 1 with the
+other 10 never attempted. The tool removes one pending decision's
+non-shared positional closure from a queue file (shared feeders kept,
+relative order preserved), refuses on unknown/decided decisions, new
+order violations, and new NO-PRODUCER orphans (unless `--force`),
+keeps `.done` tasks, and on `--write` backs up the queue and deletes
+removed tasks' `.failed`/`.started` markers. Verified by the new
+tests (including a locked real-repo skip: s7 removes exactly 10
+tasks, keeps 11 shared, rebuilt chain lands 7 of 10 from a
+2026-11-28 resume with skeleton_recall now fitting) and a full-suite
+run: 759 passed, 18 skipped. No competition data was read; no model
+trained; no submission made.

@@ -240,6 +240,33 @@ every step and changes nothing. `GEMS_WORKSPACE` / `QUEUE_DIR` and
 `GEMS_RESUME_SPRINT` override the paths, same idiom as the other
 queue scripts.
 
+### Skipping a failed decision (step 52)
+
+```bash
+uv run python scripts/queue_skip_decision.py --decision NAME \
+    --queue <QUEUE_DIR>/tasks.json [--write] [--force]
+```
+
+When a task fails permanently (the runner STOPs and the doctor's
+fix-and-retry would just fail again), this removes one pending
+decision — gate or compare — from the live queue so the chain
+continues at the next decision instead of stalling at decision 1.
+It removes the decision task plus every task in its positional
+closure that no other pending decision needs; shared feeders stay
+(skipping the s7 loss gate keeps the s26 re-scores and ref-b16
+assembles; skipping one b32 gate keeps the shared ref-trace-b32
+train). Relative order is preserved, so a chained sprint stays
+chained. Default is a dry run; `--write` backs the queue up to
+`tasks.json.bak.<timestamp>`, applies the removal, and deletes the
+removed tasks' `.failed`/`.started` markers (tasks with `.done`
+markers are kept). It refuses (exit 2) on an unknown or
+already-decided decision, on new order-audit violations, and on new
+NO-PRODUCER orphans unless `--force` is given (the orphans are
+printed either way — they can be historical consumers whose outputs
+are already committed). After a skip the doctor's SYNC check reports
+DIVERGED naming exactly the removed ids; that is expected. Restart
+the runner to continue.
+
 ### Config drift audit
 
 ```bash
