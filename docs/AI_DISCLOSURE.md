@@ -1496,3 +1496,21 @@ tasks, keeps 11 shared, rebuilt chain lands 7 of 10 from a
 2026-11-28 resume with skeleton_recall now fitting) and a full-suite
 run: 759 passed, 18 skipped. No competition data was read; no model
 trained; no submission made.
+Step 53 (2026-11-27, VM): `scripts/queue_progress.py`, its 10 tests
+in `tests/test_queue_progress.py`, and the queue README progress
+section were AI-generated with human-direction from an unclosed
+visibility gap: the forecast (step 34) is committed-tree feasibility
+and the chained sprint (step 51) is build-time ordering, but during
+the Nov 28 resumption window nothing reported which gate/compare
+decisions had actually landed on the box, which were in flight, or
+whether the chain was still on track for the 2026-12-03 cutoff — the
+doctor reports runner health, not decision progress. The tool reads
+the box queue dir (installed `tasks.json`, `state/*.{done,failed,
+started}` markers, `status.json`) and maps it onto every decision
+(LANDED / FAILED / BLOCKED / RUNNING / IN-FLIGHT / PENDING), counts
+remaining trains in list order, and marks each ETA ON-TRACK or
+AT-RISK at the observed rate; box truth (markers) wins over
+committed truth (manifests). Verified by the new tests (including
+two locked real-repo cases on the committed chained sprint) and a
+full-suite run: 769 passed, 18 skipped. No competition data was
+read; no model trained; no submission made.

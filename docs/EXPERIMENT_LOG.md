@@ -3609,3 +3609,81 @@ does itself). Sven is in New Orleans Nov 21–28, so a box-side restart
 is unlikely before his return — the Nov 28 scenario is the live
 planning case, and the chained sprint plus the skip tool now cover
 both the ordering and the failure-recovery sides of it.
+
+**Step 53 (2026-11-27, VM):** live decision progress from box queue
+state — `scripts/queue_progress.py` + 10 tests in
+`tests/test_queue_progress.py`, queue README section. The forecast
+(step 34) answers feasibility from committed manifests and the
+chained sprint (step 51) answers ordering at build time, but nothing
+answers the resumption window's hour-by-hour question: which
+decisions have landed on the box, which are in flight, and are we
+still on track? The doctor reports runner health, not decision
+progress, and the committed-tree inventories are blind to box-side
+work until the box commits it. The new tool reads the installed
+`tasks.json` (sprint order after `resume_box.sh`), the
+`state/*.{done,failed,started}` markers, and `status.json`, and maps
+them onto every gate/compare decision: LANDED (`.done` marker, or
+already decided in the committed tree — ENDPOINT-EXT-02 reads LANDED
+REJECT with no marker), FAILED (decision task itself failed),
+BLOCKED (an earlier task failed; the runner STOPs there, so the
+decision cannot land until the marker is cleared or the decision is
+skipped with step 52's tool), RUNNING (current task), IN-FLIGHT (a
+feeder is done), PENDING. Remaining trains before each decision are
+counted in list order (sequential runner; minutes-long
+score/view/record/assemble tasks excluded, matching the forecast),
+and the ETA at the observed rate is marked ON-TRACK / AT-RISK
+against the 2026-12-03 22:00 UTC safe cutoff. Box truth wins over
+committed truth: a train recorded in the committed tree but without
+a `.done` marker still counts as remaining — so the empty-state VM
+preview of the committed sprint (1 of 12 landed, s7 first pending,
+6 projected by cutoff) is pessimistic by exactly the
+recorded-but-unmarked trains, and converges to the chain's 7-of-11
+view once the box's real markers are read. One robustness fix while
+wiring it: the observed-rate lookup is guarded (`OSError` → UNKNOWN
+rate) because `queue_forecast._scored_unrecorded` assumes
+`results/runs/` exists.
+
+**Tests** (this VM): `769 passed, 18 skipped` (up from 759/18; the 10
+new tests are the progress suite — synthetic two-gate
+PENDING/IN-FLIGHT/LANDED transitions, failed-feeder BLOCKED with the
+blocker named, failed decision task, ETA ON-TRACK/AT-RISK at a fixed
+rate, committed-verdict LANDED without a marker, current-task
+RUNNING, UNKNOWN-rate no-ETA, missing-queue exit 2, and two locked
+real-repo cases: the committed chained sprint at empty box state
+(12 decisions, 1 landed, s7 first pending, chain order preserved)
+and the 21-task s7 prefix marked done (s7 LANDED, curved next)).
+`ruff check .` clean; `ruff format` clean on the new files. CI for
+the step-52 push (45833035650) completed `success`, so main is
+green. CI for this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the progress tool, the forecast, and the test suite. No
+competition data was read. No queue change to the live tasks.json or
+the committed sprint (still 129 tasks); gate readiness unchanged (10
+gate decisions queued, 1 decided, 9 pending; 2 manual compares
+pending); audit 33 findings, 0 hard errors; config-drift audit 0
+findings across 7 runs; queue order audit 0 violations; refs audit 0
+findings; args audit 0 findings; duplicates audit 0 findings (only
+the documented step-26 replays). Forecast re-run: silence 46.6 days,
+6.3 days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8 days at
+the observed 2.86 runs/day — **verdict INFEASIBLE, −3.4-day margin
+(down from −2.4 on 11-26)**; Nov 28 resume scenario unchanged (drain
+INFEASIBLE −3.9d, 7 of 11 decisions land under the chain). The
+binding constraint is still resumption, not capacity: 46.6 days of
+silence at 0 runs/day — the queue never drains until the box
+resumes, and only the chained sprint fits the remaining window,
+which is exactly what the resume script installs; the skip tool
+(step 52) covers the chain's failure mode and the progress tool now
+covers its visibility. The verdict-interpretation items (s7 loss
+gate, s8/s14 seed probe, s4–s6 lineament rerun gates, s9–s11/s13
+candidate gates, s12 schedule compare) remain the next CPU items
+once the box produces results. The threshold experiment is still
+unapproved; cash-eligibility gates are Sven's private call. The box
+handoff for Nov 28 is still one command after the return: `bash
+scripts/queue/resume_box.sh` (from the checkout, after `git pull` it
+does itself), then `uv run python scripts/queue_progress.py` to
+watch decisions land. Sven is in New Orleans Nov 21–28, so a box-side
+restart is unlikely before his return — the Nov 28 scenario is the
+live planning case, and the chained sprint plus the skip and
+progress tools now cover the ordering, failure-recovery, and
+visibility sides of it.

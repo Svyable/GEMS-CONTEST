@@ -11,6 +11,7 @@ Resumable CPU-based experiment queue runner and helper scripts for GEMS competit
 - **queue_forecast.py** (in `scripts/`, step 34): Forecast whether the queue can drain before the safe cutoff (2026-12-03 22:00 UTC). Observed throughput is recorded runs/day from committed manifest `created_utc` (a lower bound — scored-but-unrecorded runs are reported alongside); drain days = pending train tasks / rate, since 5-fold trains dominate wall-clock and the runner is sequential. Per pending gate/compare it reports the train tasks on its critical path (from `queue_critical_path.py` feeders) and the days to that decision. Verdict bands at the observed rate: FEASIBLE (5-day buffer for scoring/gating/submission), TIGHT, INFEASIBLE — plus a separate silence line: 0 runs/day across the silence window means the queue never drains until the box resumes. Exit 0 whenever the forecast could be produced (UNKNOWN rate with fewer than two manifests), 2 on an unreadable/malformed `tasks.json`.
 - **queue_sprint.py** (in `scripts/`, step 48; `--chain` step 51): Build a sprint-ordered queue (`scripts/queue/tasks.sprint.json`) for a late box resumption — the full live queue reordered so one pending decision's positional closure runs first (default the s7 loss gate); `--chain` orders every pending decision cheapest-first after the first. Validates the reorder is a permutation of `tasks.json` with zero order-audit violations before writing; never overwrites the live `tasks.json`. Exit 0 on success, 2 on an unreadable queue, an unknown or already-decided target, or `--out` pointing at the live `tasks.json`.
 - **resume_box.sh** (step 49): One-command box resumption — `git pull`, auto-start install, sprint-queue install, runner start, doctor verdict, in that order with guards (refuses on a live runner, a `.failed` marker, or a stale sprint file; backs up the live queue first). Auto-start install is best-effort (exit 2 warns and continues). `--dry-run` prints every step and changes nothing.
+- **queue_progress.py** (in `scripts/`, step 53): Live decision progress from the box queue state — maps the installed `tasks.json`, `state/*.{done,failed,started}` markers, and `status.json` onto every gate/compare decision (LANDED / FAILED / BLOCKED / RUNNING / IN-FLIGHT / PENDING) with remaining trains in list order and an ON-TRACK / AT-RISK ETA against the safe cutoff at the observed rate. Box truth wins over committed truth (the runner keys on markers, not manifests). Exit 0 whenever the report could be produced, 2 on a missing/malformed queue `tasks.json`.
 - **audit_config_drift.py** (in `scripts/`, step 35): Audit committed results for config drift — whether each config file on disk still hashes to the `config_sha256` its runs recorded in their manifests, score JSONs, and fold files. A config edited after a run was scored silently changes what the queue trains next, and the gate refuses the resulting protocol-unequal comparison after the GPU days are spent. Also flags a manifest/queue disagreement on a run's config (CONFIG-MISMATCH), a missing config file, and self-contradictory recorded hashes (MIXED). Exit 0 when clean (notes allowed), 1 on any finding, 2 on an unreadable/malformed `tasks.json`.
 - **tasks.parked.json**: Parked tasks (removed from active queue but kept for reference).
 - **train_folds.sh**: Resumable 5-fold training script. Skips folds that already have outputs. Includes memory gate (waits for available memory before starting each fold) and OOM retry logic (retries folds killed with exit code 137 up to 3 times). Optional 6th arg `SEED` (default `20260922`, the incumbent seed) forwarded as `train_full_map.py --seed`; used by the step-8 seed-robustness probe.
@@ -266,6 +267,31 @@ printed either way — they can be historical consumers whose outputs
 are already committed). After a skip the doctor's SYNC check reports
 DIVERGED naming exactly the removed ids; that is expected. Restart
 the runner to continue.
+
+### Live decision progress (step 53)
+
+```bash
+uv run python scripts/queue_progress.py [--queue-dir <QUEUE_DIR>]
+```
+
+Run this on the box during the resumption window to see which
+gate/compare decisions have actually landed: it reads the installed
+`tasks.json` (sprint order after `resume_box.sh`), the
+`state/*.{done,failed,started}` markers, and `status.json`, and maps
+them onto every decision in the queue — LANDED (`.done` marker, or
+already decided in the committed tree), FAILED, BLOCKED (an earlier
+task failed and the runner STOPs there), RUNNING, IN-FLIGHT (a feeder
+is done), or PENDING. Remaining trains before each decision are
+counted in list order (the runner is sequential), and the ETA at the
+observed rate is marked ON-TRACK or AT-RISK against the 2026-12-03
+22:00 UTC safe cutoff. Box truth wins over committed truth: a train
+recorded in the committed tree but without a `.done` marker still
+counts as remaining, because the runner keys on markers. This is the
+hour-by-hour companion to the forecast (committed-tree feasibility)
+and the doctor (runner health); `--rate` overrides the observed
+runs/day, `--tasks` reads a different queue file (e.g. previewing
+the committed sprint from the VM). Exit 0 whenever the report could
+be produced, 2 on a missing/malformed queue `tasks.json`.
 
 ### Config drift audit
 
