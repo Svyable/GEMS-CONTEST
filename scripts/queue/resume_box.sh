@@ -136,11 +136,17 @@ else
     if [ -f "$QUEUE_DIR/runner.lock" ] && ! flock -n "$QUEUE_DIR/runner.lock" -c true 2>/dev/null; then
         say "runner is up (runner.lock held)"
     else
-        # The runner exits 0 at once when every task is done; anything else
-        # is a failed start — say which, from its own status note.
+        # The runner exits 0 at once when every task is done (IDLE) or when
+        # its first task fails within the startup window (STOPPED — it
+        # started, ran, and stopped on a task failure; step 54 rehearsal).
+        # Both are queue-state exits, not startup failures: report the note
+        # and continue to the doctor, which names the failed task and the
+        # fix. Anything else is a failed start.
         NOTE="$(python3 -c "import json; print(json.load(open('$QUEUE_DIR/status.json'))['note'])" 2>/dev/null || true)"
         if [ -n "$NOTE" ] && [ "${NOTE#IDLE}" != "$NOTE" ]; then
             say "runner exited at once: $NOTE"
+        elif [ -n "$NOTE" ] && [ "${NOTE#STOPPED}" != "$NOTE" ]; then
+            say "runner started and stopped at once: $NOTE"
         else
             say "runner did not stay up — last queue.log lines:"
             tail -n 20 "$QUEUE_DIR/queue.log" 2>/dev/null || true

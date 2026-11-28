@@ -3687,3 +3687,59 @@ restart is unlikely before his return — the Nov 28 scenario is the
 live planning case, and the chained sprint plus the skip and
 progress tools now cover the ordering, failure-recovery, and
 visibility sides of it.
+
+## 2026-11-28 — End-to-end resumption rehearsal + fast-failure fix (step 54)
+
+Steps 42/43/49/53 each proved one link of the Nov 28 resumption chain
+in isolation — runner contract (42), doctor on runner-produced state
+(43), `resume_box.sh` with a *stub* runner (49), `queue_progress.py`
+against hand-built markers (53) — but the composed chain Sven runs
+today had never executed: resume installs the sprint queue, the
+*real* runner drains it in sprint order, progress and doctor agree
+on what landed. `tests/test_resumption_rehearsal.py` (2 tests)
+composes all four real tools in one sandbox over a synthetic
+two-decision queue (stub wrappers exit 0; the real wrappers need
+GPU/data). The live queue lists decision B first, the sprint file
+lists A first; the happy path proves the reorder governed execution
+via the runner's own `queue.log` START order (A's closure before
+B's), progress reports 2 of 2 decisions LANDED on runner-produced
+markers, and the doctor reports ALL-DONE on the same state dir.
+
+**The rehearsal caught a real defect on first execution.** In the
+failure variant the first task fails (rc=3) inside `resume_box.sh`'s
+3-second startup window: the runner writes `.failed`, STOPs, and
+exits before resume's lock check, and resume misread the STOPPED
+status note as a startup failure — `runner failed to start`, exit 1,
+and step 5 (doctor verdict) never ran, so the failed task was never
+named with its fix. On the box today that would have sent Sven to
+queue.log with the wrong diagnosis. Fix: resume now treats a STOPPED
+note like IDLE — a queue-state exit, not a startup failure — prints
+`runner started and stopped at once: <note>` and continues to the
+doctor, which names the task. The failure test now asserts resume
+exits 0 with `VERDICT: STOPPED` in its stdout, progress shows both
+decisions BLOCKED by the failed train, and the doctor agrees
+(STOPPED). Pre-fix failure observed directly (the negative control).
+
+**Tests** (this VM): `771 passed, 18 skipped` (up from 769/18; the 2
+new tests are the rehearsal pair). `ruff check .` clean; `ruff
+format` clean on the new file. CI for the step-53 push (46010714687)
+completed `success`, so main is green. CI for this push is pending.
+
+**Scope notes**: no measured official-data scores — nothing ran here
+beyond the rehearsal, the forecast, and the test suite. No
+competition data was read. No queue change (still 129 tasks); gate
+readiness unchanged (10 gate decisions queued, 1 decided, 9 pending;
+2 manual compares pending). Forecast re-run: silence 47.6 days, 5.3
+days to the 2026-12-03 22:00 UTC safe cutoff, drain 9.8 days at the
+observed 2.86 runs/day — **verdict INFEASIBLE, −4.4-day margin (down
+from −3.4 on 11-27)**; the chained sprint still lands 7 of 11
+decisions from a Nov 28 resume. Today is the resumption day: Sven
+returns from New Orleans (WN1899, lands MDW 4:55pm CT); the handoff
+is `bash scripts/queue/resume_box.sh` on the box, then
+`uv run python scripts/queue_progress.py` to watch decisions land —
+now rehearsed end-to-end, including the fast-failure path. The
+verdict-interpretation items (s7 loss gate, s8/s14 seed probe,
+s4–s6 lineament rerun gates, s9–s11/s13 candidate gates, s12
+schedule compare) remain the next CPU items once the box produces
+results. The threshold experiment is still unapproved;
+cash-eligibility gates are Sven's private call.

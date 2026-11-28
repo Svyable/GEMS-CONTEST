@@ -1514,3 +1514,19 @@ committed truth (manifests). Verified by the new tests (including
 two locked real-repo cases on the committed chained sprint) and a
 full-suite run: 769 passed, 18 skipped. No competition data was
 read; no model trained; no submission made.
+Step 54 (2026-11-28, VM): `tests/test_resumption_rehearsal.py` (2
+tests) and the `resume_box.sh` fast-failure fix were AI-generated
+with human-direction from an unclosed composition gap: steps
+42/43/49/53 proved the runner, doctor, resume script (with a stub
+runner), and progress tool in isolation, but the composed Nov 28
+resumption chain — resume installs the sprint queue, the real runner
+drains it in sprint order, progress + doctor agree on what landed —
+had never executed. The rehearsal composes all four real tools in
+one sandbox over a synthetic two-decision queue and caught a real
+defect on first execution: a first task failing inside resume's
+3-second startup window was misreported as "runner failed to start"
+(exit 1, doctor never ran) instead of the runner's STOPPED note;
+resume now treats STOPPED like IDLE and continues to the doctor
+verdict. Verified by the new tests (pre-fix failure observed as the
+negative control) and a full-suite run: 771 passed, 18 skipped. No
+competition data was read; no model trained; no submission made.
